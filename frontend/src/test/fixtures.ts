@@ -151,6 +151,7 @@ export function makeMeta(overrides: Partial<PlatformMeta> = {}): PlatformMeta {
     tts_available: true,
     chars_per_second: 4,
     audio_modes: ["native", "tts", "none"],
+    keyframe_unit_cny: 0.25,
     ...overrides,
   };
 }

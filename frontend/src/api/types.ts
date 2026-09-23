@@ -359,6 +359,8 @@ export interface PlatformMeta {
   /** 每秒建議旁白字數；每鏡上限 = floor(時長 × chars_per_second) */
   chars_per_second: number;
   audio_modes: AudioMode[];
+  /** v1.3：一張關鍵幀（首幀預覽）的預估金額，來自 models.yaml */
+  keyframe_unit_cny: number;
 }
 
 export interface Page<T> {

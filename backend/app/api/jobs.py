@@ -324,16 +324,22 @@ async def keyframe_preview(
     session: SessionDep,
     runtime: RuntimeDep,
     dispatcher: DispatcherDep,
+    request: Request,
     body: KeyframePreviewIn | None = None,
 ) -> JobDetail:
     """首幀預覽（v1.3）：交給 worker 生成，回 202；進度由 SSE 推送。"""
     await _load(session, job_id, user, manage=True)
+    force = body is not None and body.force
     try:
-        await orchestrator.preview_keyframe(
-            runtime, dispatcher, job_id, scene_id, force=body is not None and body.force
-        )
+        await orchestrator.preview_keyframe(runtime, dispatcher, job_id, scene_id, force=force)
     except ActionError as exc:
         raise _http(exc) from exc
+    # 會產生費用的操作都留審計紀錄
+    audit(
+        session, request, user.id, "keyframe_preview", target_type="job", target_id=job_id,
+        scene_id=str(scene_id), force=force,
+    )  # fmt: skip
+    await session.commit()
     return await _detail(session, runtime, job_id, user)
 
 

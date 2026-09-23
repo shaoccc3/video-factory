@@ -125,7 +125,8 @@ async def submit(runtime: Runtime, dispatcher: Dispatcher, job_id: uuid.UUID) ->
 
 async def regenerate_script(runtime: Runtime, dispatcher: Dispatcher, job_id: uuid.UUID) -> None:
     async with runtime.sessionmaker() as session:
-        current = await session.scalar(select(Job.status).where(Job.id == job_id))
+        # 鎖住任務列：與首幀預覽的佔用互斥，檢查與轉移之間不會插進新的預覽
+        current = await session.scalar(select(Job.status).where(Job.id == job_id).with_for_update())
         if current == JobStatus.STORYBOARD_READY and await _preview_in_flight(session, job_id):
             raise ActionError(PREVIEW_IN_FLIGHT)
         ok = await transition(
@@ -189,7 +190,8 @@ async def _fail(
 async def confirm_storyboard(runtime: Runtime, dispatcher: Dispatcher, job_id: uuid.UUID) -> None:
     """確認分鏡：預估不超預算才進入 generating。"""
     async with runtime.sessionmaker() as session:
-        job = await session.get(Job, job_id)
+        # 鎖住任務列：與首幀預覽的佔用互斥（先查後改之間不會插進新的預覽）
+        job = await session.get(Job, job_id, with_for_update=True)
         if job is None:
             raise ActionError("任務不存在", 404)
         if job.status not in (JobStatus.STORYBOARD_READY, JobStatus.REJECTED):
@@ -335,7 +337,8 @@ async def preview_keyframe(
 ) -> None:
     """分鏡待確認時先生成某一鏡的首幀：只把鏡頭標為 keyframe、清除錯誤並交給 worker，不在請求內等待生成。"""
     async with runtime.sessionmaker() as session:
-        job = await session.get(Job, job_id)
+        # 鎖住任務列：與確認開拍、重寫分鏡互斥
+        job = await session.get(Job, job_id, with_for_update=True)
         scene = await session.get(Scene, scene_id)
         if job is None or scene is None or scene.job_id != job.id:
             raise ActionError("分鏡不存在", 404)
@@ -345,11 +348,10 @@ async def preview_keyframe(
             raise ActionError(PREVIEW_IN_FLIGHT)
         if scene.first_frame_asset_id is not None and not force:
             raise ActionError("這個分鏡已有首幀；要重新生成請帶 force")
+        # 原首幀先保留：生成成功才替換，失敗時使用者自選或先前的首幀不會不見
         values: dict[str, object] = {
             "status": SceneStatus.KEYFRAME.value, "error_kind": None, "error_message": None,
         }  # fmt: skip
-        if force:
-            values.update(first_frame_asset_id=None, first_frame_generated=False)
         # 條件更新：同一鏡同時送出兩次、或任務剛被確認開拍時，只有一方成功
         job_ready = select(Job.id).where(Job.id == job.id, Job.status == JobStatus.STORYBOARD_READY.value)
         claimed = await session.execute(
@@ -364,7 +366,21 @@ async def preview_keyframe(
             raise ActionError("分鏡狀態已變化，請重新整理")
         await _touch_job(session, job.id)
         await session.commit()
-    dispatcher.keyframe(job_id, scene_id)
+    try:
+        dispatcher.keyframe(job_id, scene_id)
+    except Exception as exc:
+        # 派發失敗時釋放佔用，鏡頭不會卡在 keyframe（否則開拍、重寫、編輯都會被擋）
+        log.exception("keyframe_dispatch_failed", job_id=str(job_id), scene_id=str(scene_id))
+        async with runtime.sessionmaker() as session:
+            await session.execute(
+                update(Scene)
+                .where(Scene.id == scene_id, Scene.status == SceneStatus.KEYFRAME.value)
+                .values(status=SceneStatus.PENDING.value)
+                .execution_options(synchronize_session=False)
+            )
+            await _touch_job(session, job_id)
+            await session.commit()
+        raise ActionError("首幀預覽排程失敗，請稍後再試", 503) from exc
 
 
 async def task_keyframe(runtime: Runtime, gateway: Gateway, job_id: uuid.UUID, scene_id: uuid.UUID) -> None:
@@ -380,9 +396,9 @@ async def task_keyframe(runtime: Runtime, gateway: Gateway, job_id: uuid.UUID, s
         if job.status != JobStatus.STORYBOARD_READY or scene.status != SceneStatus.KEYFRAME:
             return  # 期間任務已取消或狀態已變化
         session.expunge_all()
-        await session.execute(update(Scene).where(Scene.id == scene_id).values(needs_first_frame=True))
-        await session.commit()
+    # 只在記憶體裡要求重新生成：成功時 ensure_keyframe 才寫入新首幀，失敗時原首幀與設定都不變
     scene.needs_first_frame = True
+    scene.first_frame_asset_id = None
     error: Exception | None = None
     try:
         await ensure_keyframe(runtime, gateway, job, scene)
@@ -400,6 +416,8 @@ async def task_keyframe(runtime: Runtime, gateway: Gateway, job_id: uuid.UUID, s
                 status=SceneStatus.PENDING.value,
                 error_kind=err.get("error_kind"),
                 error_message=err.get("error_message"),
+                # 生成成功後這一鏡才確定要用首幀
+                **({} if error is not None else {"needs_first_frame": True}),
             )
             .execution_options(synchronize_session=False)
         )

@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.models_config import ModelsConfig
 from app.models import Asset, Job, Scene, Template, User
 from app.models.enums import AssetKind, AudioMode, JobPhase, JobStatus, Role, SceneStatus, VideoType
+from app.pipeline.common import video_model_key
 from app.pipeline.orchestrator import IN_FLIGHT, ActionError
 from app.pipeline.templates import template_snapshot
 from app.services.settings_store import get_budget
@@ -176,7 +177,7 @@ async def preview_job(session: AsyncSession, config: ModelsConfig, region: str, 
         target_duration_s=data.target_duration_s,
         audio_mode=data.audio_mode,
     )
-    return Job(
+    job = Job(
         template_id=tpl.id,
         template_snapshot=template_snapshot(tpl),
         video_type=tpl.video_type,
@@ -188,6 +189,11 @@ async def preview_job(session: AsyncSession, config: ModelsConfig, region: str, 
         resolution=data.resolution or tpl.resolution,
         draft_mode=data.draft_mode,
     )
+    # 指定的解析度必須是影片模型支援的（不支援時回 422，不靜默改用其他解析度）
+    caps = config.video_caps(video_model_key(job, config))
+    if data.resolution is not None and data.resolution not in caps.resolutions:
+        raise ActionError(f"模型不支援解析度 {data.resolution}", 422)
+    return job
 
 
 EDITABLE = (JobStatus.STORYBOARD_READY, JobStatus.REJECTED)

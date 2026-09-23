@@ -17,7 +17,7 @@ import pytest
 from sqlalchemy import event, func, select, update
 
 from app.api.jobs import job_event_stream
-from app.models import CostLedger, GenerationCall, Job, Scene, Template, User
+from app.models import AuditLog, CostLedger, GenerationCall, Job, Scene, Template, User
 from app.models.enums import AssetKind, ErrorKind, JobStatus, SceneStatus
 from app.pipeline.common import video_model_key
 from app.pipeline.estimate import synthetic_scenes
@@ -494,7 +494,8 @@ async def test_keyframe_preview_conflicts_and_force(
     r = await client.post(preview_url(job, scene), json={"force": True})
     assert r.status_code == 202, r.text
     claimed = r.json()["scenes"][1]
-    assert claimed["status"] == "keyframe" and claimed["first_frame_asset_id"] is None
+    # 原首幀保留到新首幀生成成功才替換
+    assert claimed["status"] == "keyframe" and claimed["first_frame_asset_id"] == str(product.id)
     await dispatcher.drain()
     first = (await get_job(client, job))["scenes"][1]
     assert first["status"] == "pending" and first["needs_first_frame"]
@@ -554,6 +555,8 @@ async def test_keyframe_preview_failure_writes_scene_error(
     job = await get_job(client, job)
     failed = job["scenes"][0]
     assert failed["status"] == "pending" and failed["first_frame_asset_id"] is None
+    # 失敗不留副作用：是否需要首幀維持原設定，預估與開拍成本不變
+    assert failed["needs_first_frame"] == scene["needs_first_frame"]
     assert failed["error_kind"] == "moderation" and "審核" in failed["error_message"]
     assert job["status"] == "storyboard_ready" and job["error_kind"] is None  # 任務狀態不變
     assert "preview_keyframe" in job["allowed_actions"]
@@ -595,6 +598,86 @@ async def test_keyframe_preview_skipped_after_cancel(
     job = await get_job(client, job)
     assert job["scenes"][0]["status"] == "cancelled" and job["scenes"][0]["first_frame_asset_id"] is None
     assert seedream(runtime).calls == 0
+
+
+async def test_keyframe_preview_force_failure_keeps_frame_and_audits(
+    client: httpx.AsyncClient,
+    runtime: Runtime,
+    dispatcher: InlineDispatcher,
+    templates: dict[str, Template],
+    creator: User,
+    tmp_path: Path,
+) -> None:
+    """帶 force 重新生成失敗時，使用者原本的首幀不會不見；每次送出都有審計紀錄。"""
+    await login(client, creator)
+    job = await storyboard_job(client, dispatcher, templates["marketing_multi"])
+    scene = job["scenes"][0]
+    product = await make_asset(runtime, creator, AssetKind.PRODUCT, tmp_path)
+    r = await client.patch(
+        f"/api/v1/jobs/{job['id']}/scenes/{scene['id']}",
+        json={"first_frame_asset_id": str(product.id), "needs_first_frame": True},
+    )
+    assert r.status_code == 200, r.text
+    seedream(runtime).failures.errors.append(
+        ProviderError(
+            ErrorKind.MODERATION, "輸出圖片未通過內容審核", code="OutputImageSensitiveContentDetected"
+        )
+    )
+    assert (await client.post(preview_url(job, scene), json={"force": True})).status_code == 202
+    await dispatcher.drain()
+    after = (await get_job(client, job))["scenes"][0]
+    assert after["status"] == "pending" and after["error_kind"] == "moderation"
+    assert after["first_frame_asset_id"] == str(product.id)
+    async with runtime.sessionmaker() as session:
+        logs = (await session.scalars(select(AuditLog).where(AuditLog.action == "keyframe_preview"))).all()
+    assert len(logs) == 1 and logs[0].detail == {"scene_id": scene["id"], "force": True}
+
+
+async def test_keyframe_preview_dispatch_failure_releases_claim(
+    client: httpx.AsyncClient,
+    dispatcher: InlineDispatcher,
+    templates: dict[str, Template],
+    creator: User,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """派發失敗時釋放佔用，鏡頭不會卡在 keyframe，之後仍可確認開拍。"""
+    await login(client, creator)
+    job = await storyboard_job(client, dispatcher, templates["marketing_multi"])
+    scene = job["scenes"][0]
+
+    def broken(job_id: uuid.UUID, scene_id: uuid.UUID) -> None:
+        raise ConnectionError("broker 無法連線")
+
+    monkeypatch.setattr(dispatcher, "keyframe", broken)
+    r = await client.post(preview_url(job, scene))
+    assert r.status_code == 503 and "排程失敗" in r.json()["detail"]
+    after = await get_job(client, job)
+    assert after["scenes"][0]["status"] == "pending"
+    assert "preview_keyframe" in after["allowed_actions"]
+    confirmed = await client.post(f"/api/v1/jobs/{job['id']}/confirm-storyboard")
+    assert confirmed.status_code == 200, confirmed.text
+
+
+async def test_estimate_preview_rejects_unsupported_resolution(
+    client: httpx.AsyncClient, templates: dict[str, Template], creator: User
+) -> None:
+    await login(client, creator)
+    base = {"template_id": str(templates["marketing"].id)}
+    ok = await client.post("/api/v1/jobs/estimate", json={**base, "resolution": "720p"})
+    assert ok.status_code == 200, ok.text
+    # 樣片模型只支援 480p／720p：指定 1080p 回 422，不靜默改用其他解析度
+    bad = await client.post("/api/v1/jobs/estimate", json={**base, "resolution": "1080p", "draft_mode": True})
+    assert bad.status_code == 422 and "1080p" in bad.json()["detail"]
+
+
+async def test_meta_keyframe_unit_price(client: httpx.AsyncClient, runtime: Runtime, creator: User) -> None:
+    """/meta 的關鍵幀單價來自 models.yaml，前端不必從預估明細反推。"""
+    await login(client, creator)
+    body = (await client.get("/api/v1/meta")).json()
+    expected = runtime.config.to_cny(
+        runtime.config.models.keyframe.price_per_image or 0.0, runtime.settings.ark_region
+    )
+    assert body["keyframe_unit_cny"] == round(expected, 4) and body["keyframe_unit_cny"] > 0
 
 
 def test_keyframe_preview_celery_dispatch() -> None:

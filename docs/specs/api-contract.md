@@ -194,7 +194,7 @@ JobCreate = {
 EstimateCreate = {
   template_id: string; target_duration_s?: number | null; ratio?: Ratio | null;
   audio_mode?: AudioMode | null; draft_mode?: boolean;
-  resolution?: "480p" | "720p" | "1080p" | null;  // 省略時用模板預設
+  resolution?: "480p" | "720p" | "1080p" | null;  // 省略時用模板預設；影片模型不支援時 422
 }
 ```
 
@@ -207,9 +207,9 @@ EstimateCreate = {
 首幀預覽（v1.3）：分鏡待確認時先生成某一鏡的首幀，不改變任務狀態。
 - 只在任務為 `storyboard_ready` 時可用，否則 409；需要任務建立者或管理員（看得到但不能操作 403、看不到 404）；鏡頭不屬於此任務 404。
 - 鏡頭已有首幀（`first_frame_asset_id` 不為 null）且 `force` 不為 true 時 409；鏡頭狀態已是 `keyframe`（預覽還在生成）時 409「首幀預覽還在生成」。
-- 接口只把鏡頭狀態設為 `keyframe`、清除 `error_kind`／`error_message`（`force` 時一併清除首幀），交給 worker，回 202；不在請求內等待生成。
-- worker 照常經網關生成（預算檢查、記賬、調用記錄），並把 `needs_first_frame` 設為 true；成功後鏡頭回到 `pending`、`first_frame_asset_id` 為新首幀。失敗時鏡頭同樣回到 `pending`，原因寫在鏡頭的 `error_kind`、`error_message`（內容審核不自動重試；超出預算為 `budget`，任務仍為 `storyboard_ready`）。可再送一次重試。
-- 鏡頭處於 `keyframe` 時，`confirm-storyboard` 與 `regenerate-script` 回 409「首幀預覽還在生成」，`PATCH` 該鏡頭也回 409。
+- 接口只把鏡頭狀態設為 `keyframe`、清除 `error_kind`／`error_message`，交給 worker，回 202；不在請求內等待生成。原首幀保留到新首幀生成成功才替換。派發失敗時釋放佔用並回 503。每次送出寫一筆審計紀錄（`keyframe_preview`）。
+- worker 照常經網關生成（預算檢查、記賬、調用記錄）；成功後鏡頭回到 `pending`、`first_frame_asset_id` 為新首幀、`needs_first_frame` 設為 true。失敗時鏡頭同樣回到 `pending`，首幀與 `needs_first_frame` 不變，原因寫在鏡頭的 `error_kind`、`error_message`（內容審核不自動重試；超出預算為 `budget`，任務仍為 `storyboard_ready`）。可再送一次重試。
+- 鏡頭處於 `keyframe` 時，`confirm-storyboard` 與 `regenerate-script` 回 409「首幀預覽還在生成」，`PATCH` 該鏡頭也回 409。佔用、確認開拍與重寫分鏡都鎖住任務列，彼此不會交錯。
 - 開拍後生成影片時直接沿用預覽的首幀，不重複生成、不重複計費。
 
 ### 審核
@@ -241,7 +241,7 @@ EstimateCreate = {
 ### 平台資訊（v1.1）
 | 方法 | 路徑 | 回應 |
 |---|---|---|
-| GET | `/meta` | `{ region: "byteplus" \| "volcengine", tts_available: boolean, chars_per_second: number, audio_modes: AudioMode[] }`（任何登入用戶）。`tts_available=false` 時前端不顯示 TTS 選項；`chars_per_second` 用來提示每鏡旁白字數上限（時長 × chars_per_second） |
+| GET | `/meta` | `{ region: "byteplus" \| "volcengine", tts_available: boolean, chars_per_second: number, audio_modes: AudioMode[], keyframe_unit_cny: number }`（任何登入用戶；v1.3：`keyframe_unit_cny` 為一張關鍵幀的預估金額，來自 models.yaml）。`tts_available=false` 時前端不顯示 TTS 選項；`chars_per_second` 用來提示每鏡旁白字數上限（時長 × chars_per_second） |
 
 聲音方式（AudioMode）說明（v1.1）：`native` 由影片模型直接生成旁白、對白、音效、配樂（行銷、quick 預設）；`tts` 影片無聲另配旁白（僅國內版，培訓片預設）；`none` 無聲。
 

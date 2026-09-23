@@ -401,6 +401,8 @@ class MetaOut(BaseModel):
     tts_available: bool
     chars_per_second: float
     audio_modes: list[AudioMode]
+    # v1.3：一張關鍵幀（首幀預覽）的預估金額，來自 models.yaml 的 Seedream 單價
+    keyframe_unit_cny: float
 
 
 class ModelsConfigOut(BaseModel):
