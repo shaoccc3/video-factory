@@ -38,6 +38,7 @@ Template = {
   min_shots: number; max_shots: number;
   audio_mode: AudioMode; subtitle_required: boolean;
   style_prefix: string; prompt_template: string; is_active: boolean; version: number;
+  video_model: "video_final" | "video_long";   // v1.1：正片用的影片模型（video_long = Seedance 2.5，單鏡最長 30 秒）
 }
 
 Asset = {
@@ -54,6 +55,8 @@ Scene = {
   narration: string; visual_prompt: string;
   shot_type: string; camera_move: string; duration_s: number;
   needs_first_frame: boolean; screen_text: string;
+  speaker: string;                            // v1.1：說話者（「旁白」或角色泛稱）
+  sound: string;                              // v1.1：音效／環境音描述
   first_frame_asset_id: string | null;
   status: SceneStatus; attempt: number;
   video_asset_id: string | null; last_frame_asset_id: string | null; audio_asset_id: string | null;
@@ -85,6 +88,7 @@ JobDetail = JobSummary & {
     target_duration_s: number | null; audio_mode: AudioMode; continuous_shots: boolean;
     product_asset_ids: string[]; logo_asset_id: string | null; bgm_asset_id: string | null;
     image_asset_id: string | null;
+    voice_style: string; music: string; consistent_voice: boolean;   // v1.1
   };
   seed: number;
   scenes: Scene[];
@@ -152,7 +156,7 @@ Batch = {
 | GET | `/jobs/{id}` | — | `JobDetail` |
 | POST | `/jobs/{id}/submit` | — | `JobDetail`（→ `scripting`，完成後自動 → `storyboard_ready`） |
 | POST | `/jobs/{id}/regenerate-script` | — | `JobDetail` |
-| PATCH | `/jobs/{id}/scenes/{scene_id}` | `{ narration?, visual_prompt?, shot_type?, camera_move?, duration_s?, needs_first_frame?, screen_text?, first_frame_asset_id? }` | `JobDetail` |
+| PATCH | `/jobs/{id}/scenes/{scene_id}` | `{ narration?, visual_prompt?, shot_type?, camera_move?, duration_s?, needs_first_frame?, screen_text?, speaker?, sound?, first_frame_asset_id? }` | `JobDetail` |
 | GET | `/jobs/{id}/estimate` | — | `CostEstimate` |
 | POST | `/jobs/{id}/confirm-storyboard` | — | `JobDetail`（→ `generating`）；超預算 409 |
 | POST | `/jobs/{id}/scenes/{scene_id}/regenerate` | `{ target: "keyframe" \| "video" }` | `JobDetail` |
@@ -171,6 +175,9 @@ JobCreate = {
   draft_mode?: boolean; continuous_shots?: boolean;
   product_asset_ids?: string[]; logo_asset_id?: string | null;
   bgm_asset_id?: string | null; image_asset_id?: string | null;  // quick 類型：圖生影片的首幀
+  voice_style?: string;       // v1.1：聲音風格，≤ 100 字，例如「溫暖、語速適中的年輕女聲，國語」
+  music?: string;             // v1.1：配樂描述，≤ 100 字；"none" 表示不要配樂
+  consistent_voice?: boolean; // v1.1：用第一鏡的聲音作後續鏡頭的參考音頻（較慢）
 }
 ```
 
@@ -199,6 +206,13 @@ JobCreate = {
 | GET | `/assets/{id}/content` | 支援 `Range` | 文件內容（`final` 未通過審核時只有 reviewer、admin、擁有者可看） |
 | GET | `/assets/{id}/thumbnail` | — | JPEG |
 | GET | `/assets/{id}/download` | — | 附件下載；`final` 必須已通過審核，否則 403；寫審計日誌 |
+
+### 平台資訊（v1.1）
+| 方法 | 路徑 | 回應 |
+|---|---|---|
+| GET | `/meta` | `{ region: "byteplus" \| "volcengine", tts_available: boolean, chars_per_second: number, audio_modes: AudioMode[] }`（任何登入用戶）。`tts_available=false` 時前端不顯示 TTS 選項；`chars_per_second` 用來提示每鏡旁白字數上限（時長 × chars_per_second） |
+
+聲音方式（AudioMode）說明（v1.1）：`native` 由影片模型直接生成旁白、對白、音效、配樂（行銷、quick 預設）；`tts` 影片無聲另配旁白（僅國內版，培訓片預設）；`none` 無聲。
 
 ### 用量與配置
 | 方法 | 路徑 | 回應 |
