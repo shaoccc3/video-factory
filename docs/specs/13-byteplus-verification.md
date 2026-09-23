@@ -227,7 +227,7 @@ models:
 - [x] Seedance 請求：`seed` 按能力表、2.5 首幀送 `adaptive`、首幀與參考音頻互斥、2.0 參考音頻需要參考圖、`expired` 狀態
 - [x] Seedream 請求：不送 `seed`、送 `output_format: png`、尺寸用 `image_sizes`
 - [x] 大模型：不送 `user`；`.claude/rules/project.md` 的 safety_identifier 規則改為「接口支援時」
-- [ ] 管理頁單價摘要、i18n、`types.ts`；API 契約 v1.2
+- [x] 管理頁單價摘要、i18n、`types.ts`；API 契約 v1.2
 - [ ] 文件：規格 12 待確認 1 標為已完成、`docs/CHANGELOG.md`；CLAUDE.md 命令不變
 
 ## 驗收清單

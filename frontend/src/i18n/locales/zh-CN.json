@@ -444,6 +444,8 @@
       "modelKey": "用途",
       "modelId": "模型 ID",
       "pricePerMtok": "每百万 token 单价",
+      "priceInputOutput": "入 {{input}}／出 {{output}}",
+      "priceWithResolutions": "{{base}}（{{extra}}）",
       "pricePerImage": "每张图单价",
       "concurrency": "并发"
     },

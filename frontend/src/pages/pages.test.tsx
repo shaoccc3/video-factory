@@ -145,7 +145,16 @@ describe("管理", () => {
       region: "byteplus",
       provider_mode: "mock",
       currency: "CNY",
-      models: { video: { id: "seedance-pro", rpm: 60, concurrency: 5 } },
+      models: {
+        script_llm: { id: "seed-lite", price_per_mtok_input: 0.25, price_per_mtok_output: 2 },
+        video: {
+          id: "seedance-pro",
+          price_per_mtok: 7,
+          price_per_mtok_by_resolution: { "1080p": 7.7 },
+          rpm: 60,
+          concurrency: 5,
+        },
+      },
       budget: { per_job_cny: 50, per_user_daily_cny: 300 },
     };
     const api = mockApi({
@@ -155,6 +164,8 @@ describe("管理", () => {
     });
     renderApp("/admin?tab=budget");
     expect(await screen.findByText("seedance-pro")).toBeInTheDocument();
+    expect(screen.getByText("入 0.25／出 2")).toBeInTheDocument();
+    expect(screen.getByText("7（1080p 7.7）")).toBeInTheDocument();
     const perJob = screen.getByLabelText("單任務預算");
     await userEvent.clear(perJob);
     await userEvent.type(perJob, "80");
