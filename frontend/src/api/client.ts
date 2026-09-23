@@ -11,6 +11,8 @@ import type {
   BudgetConfig,
   BudgetUpdate,
   CostEstimate,
+  EstimatePreview,
+  EstimatePreviewRequest,
   GenerationCall,
   JobCreate,
   JobDetail,
@@ -202,6 +204,7 @@ export const api = {
   updateScene: (jobId: string, sceneId: string, body: SceneUpdate) =>
     patch<JobDetail>(`/jobs/${jobId}/scenes/${sceneId}`, body),
   getEstimate: (id: string) => request<CostEstimate>(`/jobs/${id}/estimate`),
+  estimatePreview: (body: EstimatePreviewRequest) => post<EstimatePreview>("/jobs/estimate", body),
   confirmStoryboard: (id: string) => post<JobDetail>(`/jobs/${id}/confirm-storyboard`),
   regenerateScene: (jobId: string, sceneId: string, target: SceneRegenerateTarget) =>
     post<JobDetail>(`/jobs/${jobId}/scenes/${sceneId}/regenerate`, { target }),

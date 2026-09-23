@@ -1,0 +1,149 @@
+/* 共用控件：區塊標題、連結、分頁鈕、欄位錯誤（片場、開新片、其他頁面共用） */
+.vf-section {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding-top: 72px;
+}
+
+.vf-section-pad {
+  padding-left: 40px;
+  padding-right: 40px;
+}
+
+.vf-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.vf-studio .vf-section > .vf-section-head {
+  padding: 0 40px;
+}
+
+.vf-studio .vf-section-pad > .vf-section-head {
+  padding: 0;
+}
+
+.vf-section-title {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+}
+
+.vf-section-title h2 {
+  margin: 0;
+  font-size: 28px;
+}
+
+.vf-link {
+  color: var(--vf-text-2);
+  text-decoration: none;
+  font-size: 14px;
+  transition: color 0.2s;
+}
+
+.vf-link:hover {
+  color: var(--vf-accent);
+}
+
+/* 讓整張卡可點，按鈕仍可單獨點 */
+.vf-stretched::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.vf-field-error {
+  color: #ffb3b5;
+  font-size: 12px;
+}
+
+.vf-tabs {
+  display: flex;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  min-width: 0;
+}
+
+.vf-tab {
+  min-height: 40px;
+  padding: 4px 12px;
+  border-radius: var(--vf-radius);
+  border: 1px solid var(--vf-line-2);
+  background: transparent;
+  color: var(--vf-text-2);
+  font-family: inherit;
+  font-size: 13px;
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 1px;
+  cursor: pointer;
+  transition:
+    color 0.2s,
+    border-color 0.2s,
+    background-color 0.2s;
+}
+
+.vf-tab:hover {
+  color: var(--vf-text);
+}
+
+.vf-tab[aria-pressed="true"] {
+  border-color: var(--vf-accent);
+  background: var(--vf-accent-soft);
+  color: var(--vf-accent);
+}
+
+.vf-tab-sub {
+  font-size: 10px;
+  opacity: 0.8;
+}
+
+/* 開關：方角、琥珀色，用於先出樣片、聲音一致、連續鏡頭 */
+.vf-toggle {
+  width: 48px;
+  height: 26px;
+  flex-shrink: 0;
+  padding: 3px;
+  display: flex;
+  justify-content: flex-start;
+  border-radius: var(--vf-radius);
+  border: 1px solid var(--vf-line-2);
+  background: transparent;
+  cursor: pointer;
+  transition:
+    background-color 0.25s,
+    border-color 0.25s;
+}
+
+.vf-toggle-knob {
+  width: 18px;
+  height: 18px;
+  border-radius: 2px;
+  background: var(--vf-text-3);
+  transition:
+    transform 0.25s var(--vf-ease),
+    background-color 0.25s;
+}
+
+.vf-toggle[aria-checked="true"] {
+  border-color: var(--vf-accent);
+  background: var(--vf-accent);
+}
+
+.vf-toggle[aria-checked="true"] .vf-toggle-knob {
+  transform: translateX(22px);
+  background: var(--vf-accent-ink);
+}
+
+.vf-toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}

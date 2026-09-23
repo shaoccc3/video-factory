@@ -208,6 +208,23 @@ export interface CostEstimate {
   near_limit: boolean;
 }
 
+/** POST /jobs/estimate（v1.3）：開新片的即時預估 */
+export interface EstimatePreviewRequest {
+  template_id: string;
+  target_duration_s?: number | null;
+  ratio?: Ratio | null;
+  audio_mode?: AudioMode | null;
+  draft_mode?: boolean;
+  resolution?: "480p" | "720p" | "1080p" | null;
+}
+
+export interface EstimatePreview {
+  total_cny: number;
+  items: CostItem[];
+  budget_per_job_cny: number;
+  within_budget: boolean;
+}
+
 export interface JobProgress {
   total: number;
   succeeded: number;

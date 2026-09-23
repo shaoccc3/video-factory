@@ -16,6 +16,7 @@ import {
   usePrefersReducedMotion,
 } from "../hooks/motion";
 import { useInView } from "../hooks/useInView";
+import { deriveTitle } from "../utils/format";
 import "./studio.css";
 
 /** 片場底片列出的狀態：進行中與需要處理的 */
@@ -37,11 +38,6 @@ function durationRange(tpl: Template): string {
     return `${Math.round(tpl.min_duration_s / 60)}–${Math.round(tpl.max_duration_s / 60)}M`;
   }
   return `${tpl.min_duration_s}–${tpl.max_duration_s}S`;
-}
-
-function deriveTitle(topic: string): string {
-  const flat = topic.replace(/\s+/g, " ").trim();
-  return flat.length > 24 ? `${flat.slice(0, 24)}…` : flat;
 }
 
 function filmDate(iso: string): string {

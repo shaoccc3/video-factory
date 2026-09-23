@@ -13,6 +13,7 @@ import type {
   BatchCsvCreate,
   BatchImagesCreate,
   BudgetUpdate,
+  EstimatePreviewRequest,
   JobCreate,
   JobDetail,
   JobListParams,
@@ -35,6 +36,7 @@ export const queryKeys = {
   jobsAll: ["jobs"] as const,
   job: (id: string) => ["job", id] as const,
   estimate: (id: string) => ["job", id, "estimate"] as const,
+  estimatePreview: (body: EstimatePreviewRequest | null) => ["estimate-preview", body] as const,
   calls: (id: string) => ["job", id, "calls"] as const,
   reviewQueue: ["reviews", "queue"] as const,
   batches: ["batches"] as const,
@@ -169,6 +171,18 @@ export function useEstimate(id: string, enabled: boolean) {
     queryKey: queryKeys.estimate(id),
     queryFn: () => api.getEstimate(id),
     enabled,
+  });
+}
+
+/** 開新片的即時預估；body 為 null 時不查詢，重算期間保留上一次結果，數字不閃爍 */
+export function useEstimatePreview(body: EstimatePreviewRequest | null) {
+  return useQuery({
+    queryKey: queryKeys.estimatePreview(body),
+    queryFn: () => api.estimatePreview(body as EstimatePreviewRequest),
+    enabled: body !== null,
+    placeholderData: keepPreviousData,
+    retry: false,
+    staleTime: 60_000,
   });
 }
 

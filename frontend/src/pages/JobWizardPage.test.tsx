@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { makeJob, makeMeta, makeTemplate, makeUser } from "../test/fixtures";
@@ -17,12 +17,26 @@ const quick = makeTemplate({
   audio_mode: "none",
 });
 
-describe("新建任務精靈", () => {
-  it("選模板 → 填主題 → 設定 → 提交：先 POST /jobs 再 submit，最後進入詳情頁", async () => {
-    const created = makeJob({ id: "job-new", title: "茶園", status: "draft" });
+const estimate = {
+  total_cny: 42.5,
+  items: [
+    { label: "腳本", model_key: "llm", quantity: 1, unit: "次", amount_cny: 0.01 },
+    { label: "正片 0:30", model_key: "video", quantity: 30, unit: "秒", amount_cny: 42.49 },
+  ],
+  budget_per_job_cny: 150,
+  within_budget: true,
+};
+
+const pressed = (name: RegExp | string) =>
+  expect(screen.getByRole("button", { name })).toHaveAttribute("aria-pressed", "true");
+
+describe("開新片（場記板）", () => {
+  it("預選第一個類型；沒有想法時就地提示，寫好後先 POST /jobs 再 submit，進入任務頁", async () => {
+    const created = makeJob({ id: "job-new", title: "清晨的茶園，推廣自家綠茶", status: "draft" });
     const api = mockApi({
       "GET /auth/me": makeUser(),
       "GET /templates": [marketing, quick],
+      "POST /jobs/estimate": estimate,
       "POST /jobs": created,
       "POST /jobs/job-new/submit": { ...created, status: "scripting" },
       "GET /jobs/job-new": { ...created, status: "scripting" },
@@ -30,37 +44,31 @@ describe("新建任務精靈", () => {
     });
     renderApp("/jobs/new");
 
-    const next = () => userEvent.click(screen.getByRole("button", { name: "下一步" }));
-
-    // 第一步：沒選模板時不能下一步
-    expect(await screen.findByRole("radio", { name: /行銷短影音/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "下一步" })).toBeDisabled();
-    await userEvent.click(screen.getByRole("radio", { name: /行銷短影音/ }));
-    await next();
-
-    // 第二步：必填校驗
-    await next();
-    expect(await screen.findByText("請輸入任務標題")).toBeInTheDocument();
-    expect(screen.getByText("請輸入主題")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "開一支新片" })).toBeInTheDocument();
+    await waitFor(() => pressed("行銷短影音"));
+    pressed("9:16");
+    pressed("TTS 配音");
     expect(screen.getByRole("button", { name: /選擇商品圖/ })).toBeInTheDocument();
-    await userEvent.type(screen.getByLabelText("任務標題"), "茶園");
+
+    // 沒有想法：就地提示，不送出
+    await userEvent.click(screen.getByRole("button", { name: /寫分鏡/ }));
+    expect(await screen.findByText("先寫下想法")).toBeInTheDocument();
+    expect(screen.getByLabelText("主題")).toHaveAttribute("aria-invalid", "true");
+    expect(api.find("POST", "/jobs")).toHaveLength(0);
+
     await userEvent.type(screen.getByLabelText("主題"), "清晨的茶園，推廣自家綠茶");
-    await next();
+    expect(screen.queryByText("先寫下想法")).not.toBeInTheDocument();
+    // 片名留空時用想法的開頭
+    expect(screen.getByPlaceholderText("清晨的茶園，推廣自家綠茶")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("switch", { name: "先出樣片" }));
+    await userEvent.click(screen.getByRole("button", { name: /寫分鏡/ }));
 
-    // 第三步：預設值來自模板
-    expect(await screen.findByLabelText("目標時長")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("switch", { name: "樣片模式" }));
-    await next();
-
-    // 第四步：確認並提交
-    expect(await screen.findByText("清晨的茶園，推廣自家綠茶")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "建立並提交" }));
-
-    expect(await screen.findByRole("heading", { name: "茶園" })).toBeInTheDocument();
-    const createCall = api.find("POST", "/jobs")[0];
-    expect(createCall?.body).toEqual({
+    expect(
+      await screen.findByRole("heading", { name: "清晨的茶園，推廣自家綠茶" }),
+    ).toBeInTheDocument();
+    expect(api.find("POST", "/jobs")[0]?.body).toEqual({
       template_id: "tpl-marketing",
-      title: "茶園",
+      title: "清晨的茶園，推廣自家綠茶",
       inputs: { topic: "清晨的茶園，推廣自家綠茶", extra: "" },
       ratio: "9:16",
       target_duration_s: null,
@@ -71,12 +79,98 @@ describe("新建任務精靈", () => {
       bgm_asset_id: null,
       product_asset_ids: [],
     });
-    expect(api.find("POST", "/jobs/job-new/submit")).toHaveLength(1);
     const order = api.calls.map((c) => `${c.method} ${c.path}`);
     expect(order.indexOf("POST /jobs")).toBeLessThan(order.indexOf("POST /jobs/job-new/submit"));
   });
 
-  it("提交失敗時顯示錯誤，重試不會重複建立任務", async () => {
+  it("預估費用：顯示明細與預算比例；換類型、畫幅、長度後重算", async () => {
+    const api = mockApi({
+      "GET /auth/me": makeUser(),
+      "GET /templates": [marketing, quick],
+      "POST /jobs/estimate": estimate,
+    });
+    renderApp("/jobs/new");
+
+    expect(await screen.findByText("≈ ¥42.50")).toBeInTheDocument();
+    expect(screen.getByText("腳本")).toBeInTheDocument();
+    expect(screen.getByText("佔單任務預算 ¥150.00 的 28%")).toBeInTheDocument();
+    expect(api.find("POST", "/jobs/estimate")[0]?.body).toEqual({
+      template_id: "tpl-marketing",
+      target_duration_s: null,
+      ratio: "9:16",
+      audio_mode: "tts",
+      draft_mode: false,
+    });
+
+    // 換類型：畫幅與長度範圍跟著模板
+    await userEvent.click(screen.getByRole("button", { name: "圖文轉短片" }));
+    pressed("1:1");
+    expect(screen.getByText("0:05")).toBeInTheDocument();
+    expect(screen.getByText("0:10")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /選擇首幀/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /選擇商品圖/ })).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(api.find("POST", "/jobs/estimate").at(-1)?.body).toMatchObject({
+        template_id: "tpl-quick",
+        ratio: "1:1",
+        audio_mode: "none",
+      }),
+    );
+
+    // 指定長度與畫幅
+    fireEvent.change(screen.getByRole("slider", { name: "目標時長" }), { target: { value: "9" } });
+    await userEvent.click(screen.getByRole("button", { name: "16:9" }));
+    expect(screen.getByTestId("monitor-frame")).toHaveStyle({ "--vf-rw": "16" });
+    await waitFor(() =>
+      expect(api.find("POST", "/jobs/estimate").at(-1)?.body).toMatchObject({
+        target_duration_s: 9,
+        ratio: "16:9",
+      }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "改回自動" }));
+    expect(screen.getByText("自動")).toBeInTheDocument();
+  });
+
+  it("預估失敗時顯示暫時無法估算，仍可送出", async () => {
+    const created = makeJob({ id: "job-e", title: "茶", status: "draft" });
+    const api = mockApi({
+      "GET /auth/me": makeUser(),
+      "GET /templates": [marketing],
+      "POST /jobs/estimate": json(503, { detail: "暫時無法連線" }),
+      "POST /jobs": created,
+      "POST /jobs/job-e/submit": { ...created, status: "scripting" },
+      "GET /jobs/job-e": { ...created, status: "scripting" },
+      "GET /jobs/job-e/calls": [],
+    });
+    renderApp("/jobs/new");
+    expect(await screen.findByText(/暫時無法估算/)).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText("主題"), "茶");
+    await userEvent.click(screen.getByRole("button", { name: /寫分鏡/ }));
+    await waitFor(() => expect(api.find("POST", "/jobs/job-e/submit")).toHaveLength(1));
+  });
+
+  it("超出單任務預算時提示", async () => {
+    mockApi({
+      "GET /auth/me": makeUser(),
+      "GET /templates": [marketing],
+      "POST /jobs/estimate": { ...estimate, total_cny: 180, within_budget: false },
+    });
+    renderApp("/jobs/new");
+    expect(await screen.findByText("超過單任務預算，請縮短長度或關閉樣片。")).toBeInTheDocument();
+    expect(screen.getByText("佔單任務預算 ¥150.00 的 120%")).toBeInTheDocument();
+  });
+
+  it("從片場帶來的類型與想法會預先填好", async () => {
+    mockApi({
+      "GET /auth/me": makeUser(),
+      "GET /templates": [marketing, quick],
+    });
+    renderApp("/jobs/new?template=tpl-quick&topic=%E8%8C%B6%E6%9D%AF%E7%89%B9%E5%AF%AB");
+    await waitFor(() => pressed("圖文轉短片"));
+    expect(screen.getByLabelText("主題")).toHaveValue("茶杯特寫");
+  });
+
+  it("提交失敗時顯示錯誤、TAKE 加一，重試不會重複建立任務", async () => {
     const created = makeJob({ id: "job-x" });
     let submitAttempts = 0;
     const api = mockApi({
@@ -93,34 +187,21 @@ describe("新建任務精靈", () => {
       "GET /jobs/job-x/calls": [],
     });
     renderApp("/jobs/new");
-    await userEvent.click(await screen.findByRole("radio", { name: /行銷短影音/ }));
-    await userEvent.click(screen.getByRole("button", { name: "下一步" }));
-    await userEvent.type(await screen.findByLabelText("任務標題"), "t");
+    await waitFor(() => pressed("行銷短影音"));
     await userEvent.type(screen.getByLabelText("主題"), "topic");
-    await userEvent.click(screen.getByRole("button", { name: "下一步" }));
-    await screen.findByLabelText("目標時長");
-    await userEvent.click(screen.getByRole("button", { name: "下一步" }));
-    await userEvent.click(await screen.findByRole("button", { name: "建立並提交" }));
+    expect(screen.getByText(/TAKE 1/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /寫分鏡/ }));
     expect(await screen.findByText("今日預算已用完")).toBeInTheDocument();
+    expect(screen.getByText(/TAKE 2/)).toBeInTheDocument();
 
-    // antd 的 loading 圖示在 jsdom 中不會淡出，因此用正則比對按鈕名稱
-    await userEvent.click(screen.getByRole("button", { name: /建立並提交/ }));
+    await userEvent.click(screen.getByRole("button", { name: /寫分鏡/ }));
     await waitFor(() => expect(submitAttempts).toBe(2));
     expect(api.find("POST", "/jobs")).toHaveLength(1);
   });
 });
 
-describe("新建任務精靈：聲音方式（v1.1）", () => {
-  async function goToSettings(title: string) {
-    await userEvent.click(await screen.findByRole("radio", { name: /行銷短影音/ }));
-    await userEvent.click(screen.getByRole("button", { name: "下一步" }));
-    await userEvent.type(await screen.findByLabelText("任務標題"), title);
-    await userEvent.type(screen.getByLabelText("主題"), "清晨的茶園");
-    await userEvent.click(screen.getByRole("button", { name: "下一步" }));
-    await screen.findByLabelText("目標時長");
-  }
-
-  it("TTS 不可用時隱藏 TTS 選項、模板預設 TTS 改選原生聲音，並送出聲音風格、配樂與聲音一致", async () => {
+describe("開新片：聲音方式（v1.1）", () => {
+  it("TTS 不可用時隱藏 TTS、模板預設 TTS 改選原生聲音，並送出聲音風格、配樂與聲音一致", async () => {
     const created = makeJob({ id: "job-n", title: "茶園", status: "draft" });
     const api = mockApi({
       "GET /meta": makeMeta({
@@ -136,26 +217,22 @@ describe("新建任務精靈：聲音方式（v1.1）", () => {
       "GET /jobs/job-n/calls": [],
     });
     renderApp("/jobs/new");
-    await goToSettings("茶園");
-
-    // 模板預設是 tts，但目前區域不提供：改選 native 並提示
+    await waitFor(() => pressed("行銷短影音"));
+    await waitFor(() => pressed("模型原生聲音（推薦）"));
     expect(screen.getByTestId("tts-unavailable")).toHaveTextContent("目前區域不提供 TTS 配音");
-    await userEvent.click(screen.getByLabelText("聲音方式"));
-    expect((await screen.findAllByTitle("模型原生聲音（推薦）")).length).toBeGreaterThan(0);
-    expect(screen.getByTitle("無聲")).toBeInTheDocument();
-    expect(screen.queryByTitle("TTS 配音")).not.toBeInTheDocument();
-    await userEvent.keyboard("{Escape}");
+    expect(screen.getByRole("button", { name: "無聲" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "TTS 配音" })).not.toBeInTheDocument();
 
-    // 原生聲音的欄位
+    await userEvent.type(screen.getByLabelText("片名", { exact: false }), "茶園");
+    await userEvent.type(screen.getByLabelText("主題"), "清晨的茶園");
     await userEvent.type(screen.getByLabelText("聲音風格"), "溫暖的年輕女聲，國語");
     await userEvent.type(screen.getByLabelText("配樂"), "輕快的鋼琴");
     await userEvent.click(screen.getByRole("switch", { name: /聲音一致/ }));
-    await userEvent.click(screen.getByRole("button", { name: "下一步" }));
+    await userEvent.click(screen.getByRole("button", { name: /寫分鏡/ }));
 
-    expect(await screen.findByText("溫暖的年輕女聲，國語")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "建立並提交" }));
     expect(await screen.findByRole("heading", { name: "茶園" })).toBeInTheDocument();
     expect(api.find("POST", "/jobs")[0]?.body).toMatchObject({
+      title: "茶園",
       audio_mode: "native",
       voice_style: "溫暖的年輕女聲，國語",
       music: "輕快的鋼琴",
@@ -163,24 +240,25 @@ describe("新建任務精靈：聲音方式（v1.1）", () => {
     });
   });
 
-  it("TTS 可用時保留模板預設的 TTS，不顯示原生聲音欄位", async () => {
+  it("TTS 可用時保留模板預設的 TTS，不顯示原生聲音欄位；切到原生聲音後出現", async () => {
     mockApi({
       "GET /auth/me": makeUser(),
       "GET /templates": [marketing],
     });
     renderApp("/jobs/new");
-    await goToSettings("t");
+    await waitFor(() => pressed("行銷短影音"));
+    pressed("TTS 配音");
     expect(screen.queryByTestId("tts-unavailable")).not.toBeInTheDocument();
-    expect(screen.getByTitle("TTS 配音")).toBeInTheDocument();
     expect(screen.queryByLabelText("聲音風格")).not.toBeInTheDocument();
     expect(screen.queryByRole("switch", { name: /聲音一致/ })).not.toBeInTheDocument();
 
-    // 切到原生聲音後出現三個欄位
-    await userEvent.click(screen.getByLabelText("聲音方式"));
-    await userEvent.click(await screen.findByTitle("模型原生聲音（推薦）"));
+    await userEvent.click(screen.getByRole("button", { name: "模型原生聲音（推薦）" }));
     expect(await screen.findByLabelText("聲音風格")).toBeInTheDocument();
     expect(screen.getByLabelText("配樂")).toHaveAttribute("maxlength", "100");
-    expect(screen.getByRole("switch", { name: /聲音一致/ })).not.toBeChecked();
+    expect(screen.getByRole("switch", { name: /聲音一致/ })).toHaveAttribute(
+      "aria-checked",
+      "false",
+    );
   });
 
   it("選到長鏡頭模板時顯示 Seedance 2.5 標籤", async () => {
@@ -189,9 +267,10 @@ describe("新建任務精靈：聲音方式（v1.1）", () => {
       "GET /templates": [marketing, { ...quick, video_model: "video_long" }],
     });
     renderApp("/jobs/new");
-    const longCard = await screen.findByRole("radio", { name: /圖文轉短片/ });
-    expect(longCard).toHaveTextContent("Seedance 2.5 長鏡頭");
-    expect(screen.getByRole("radio", { name: /行銷短影音/ })).not.toHaveTextContent("Seedance");
+    await waitFor(() => pressed("行銷短影音"));
+    expect(screen.queryByText("Seedance 2.5 長鏡頭")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "圖文轉短片" }));
+    expect(screen.getByText("Seedance 2.5 長鏡頭")).toBeInTheDocument();
   });
 });
 

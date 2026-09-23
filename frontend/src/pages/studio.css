@@ -1,68 +1,6 @@
-/* 片場（首頁）與共用的區塊、頁籤、畫面卡樣式（規格 14 第 4 節） */
+/* 片場（首頁）：放映區、快速開片、片場底片與放映室精選（規格 14 第 4 節） */
 .vf-studio {
   margin: -32px -40px 0;
-}
-
-.vf-section {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  padding-top: 72px;
-}
-
-.vf-section-pad {
-  padding-left: 40px;
-  padding-right: 40px;
-}
-
-.vf-section-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.vf-studio .vf-section > .vf-section-head {
-  padding: 0 40px;
-}
-
-.vf-studio .vf-section-pad > .vf-section-head {
-  padding: 0;
-}
-
-.vf-section-title {
-  display: flex;
-  align-items: baseline;
-  gap: 14px;
-}
-
-.vf-section-title h2 {
-  margin: 0;
-  font-size: 28px;
-}
-
-.vf-link {
-  color: var(--vf-text-2);
-  text-decoration: none;
-  font-size: 14px;
-  transition: color 0.2s;
-}
-
-.vf-link:hover {
-  color: var(--vf-accent);
-}
-
-/* 讓整張卡可點，按鈕仍可單獨點 */
-.vf-stretched::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-}
-
-.vf-field-error {
-  color: #ffb3b5;
-  font-size: 12px;
 }
 
 /* ---- 放映區 ---- */
@@ -357,51 +295,6 @@
 }
 
 /* 頁籤式按鈕（類型、畫幅、聲音） */
-.vf-tabs {
-  display: flex;
-  gap: 6px;
-  margin: 0;
-  padding: 0;
-  border: none;
-  min-width: 0;
-}
-
-.vf-tab {
-  min-height: 40px;
-  padding: 4px 12px;
-  border-radius: var(--vf-radius);
-  border: 1px solid var(--vf-line-2);
-  background: transparent;
-  color: var(--vf-text-2);
-  font-family: inherit;
-  font-size: 13px;
-  display: inline-flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: flex-start;
-  gap: 1px;
-  cursor: pointer;
-  transition:
-    color 0.2s,
-    border-color 0.2s,
-    background-color 0.2s;
-}
-
-.vf-tab:hover {
-  color: var(--vf-text);
-}
-
-.vf-tab[aria-pressed="true"] {
-  border-color: var(--vf-accent);
-  background: var(--vf-accent-soft);
-  color: var(--vf-accent);
-}
-
-.vf-tab-sub {
-  font-size: 10px;
-  opacity: 0.8;
-}
-
 /* ---- 片場底片 ---- */
 .vf-strip {
   background: #04070f;
