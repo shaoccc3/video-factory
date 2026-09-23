@@ -232,21 +232,22 @@ models:
 
 ## 驗收清單
 
-- [ ] `cd backend && uv run pytest tests/test_models_config.py`：倉庫配置通過校驗；`models.yaml` 只剩 `tts` 帶「待核對」（`grep -c 待核對 config/models.yaml` 只命中 tts 那幾行與檔頭說明）
-- [ ] `uv run pytest -k pricing`：
+- [x] `cd backend && uv run pytest tests/test_models_config.py`：倉庫配置通過校驗；`models.yaml` 只剩 `tts` 帶「待核對」（`grep -c 待核對 config/models.yaml` 只命中 tts 那幾行與檔頭說明）
+- [x] `uv run pytest -k pricing`（tests/test_pricing.py）：
   - 2.5、720p、9:16、30 秒預估 = 648,000 token × 10.70 USD／百萬 × 7.1 ≈ 49.2 CNY
   - 2.0、1080p 單價取 7.7；720p 取 7.0
   - 720p 1:1 按 960×960 計 token
   - 大模型 10,000 輸入 + 3,000 輸出 = 0.0085 USD
-- [ ] `uv run pytest -k video_request`：
+- [x] `uv run pytest -k video_request` 與 `uv run pytest tests/test_pipeline.py -k "consistent_voice or marketing_end_to_end or quick_image"`：
   - 2.0／2.5 的 payload 沒有 `seed`
   - 2.5 帶首幀時 `ratio == "adaptive"`；2.0 帶首幀時 `ratio` 為任務畫幅
   - 開啟聲音一致的第 2 鏡：content 裡沒有 `first_frame`，有 `reference_image` 與 `reference_audio`，提示詞帶首幀說明
   - 2.0 沒有任何圖時不送 `reference_audio`
-- [ ] `uv run pytest -k seedream`：payload 沒有 `seed`、有 `output_format: png`；9:16 任務的 `size == "1600x2848"`
-- [ ] `uv run pytest -k parse_task`：`status: expired` 解析為 failed，錯誤類型為超時
-- [ ] CLAUDE.md 的後端、前端檢查全部通過
-- [ ] `scripts/dev-local.sh start && (cd frontend && pnpm e2e)`：通過，管理頁模型表截圖顯示新單價摘要
+  - （聲音一致的測試用「連續鏡頭」讓第 2 鏡起有首幀）
+- [x] `uv run pytest -k seedream`：payload 沒有 `seed`、有 `output_format: png`；9:16 任務的 `size == "1600x2848"`
+- [x] `uv run pytest -k parse_task`：`status: expired` 解析為 failed，錯誤類型為超時
+- [x] CLAUDE.md 的後端、前端檢查全部通過
+- [x] `scripts/dev-local.sh start && (cd frontend && pnpm e2e)`：通過，管理頁模型表截圖顯示新單價摘要（e2e/admin.spec.ts，截圖 /tmp/e2e/admin-models.png）
 - [ ] 真實驗證（需要 `/live-smoke` 與 API Key，不在本次執行）：2.5 帶首幀、2.0 帶參考圖 + 參考音頻各一條 4 秒 480p，確認不報參數錯誤
 
 ## 風險與待確認問題
