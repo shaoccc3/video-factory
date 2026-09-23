@@ -1,0 +1,195 @@
+.vf-shell {
+  min-height: 100vh;
+  background: var(--vf-bg);
+}
+
+.vf-shell-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  height: 64px;
+  box-sizing: border-box;
+  padding: 0 40px;
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  background: rgba(7, 12, 24, 0.94);
+  border-bottom: 1px solid var(--vf-line);
+  backdrop-filter: blur(6px);
+}
+
+.vf-shell-brand {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  color: var(--vf-text);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.vf-shell-brand .vf-serif {
+  font-size: 21px;
+  letter-spacing: 0.08em;
+}
+
+.vf-shell-nav {
+  display: flex;
+  align-items: stretch;
+  gap: 28px;
+  height: 100%;
+  overflow-x: auto;
+}
+
+.vf-shell-link {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--vf-text-2);
+  text-decoration: none;
+  font-size: 15px;
+  white-space: nowrap;
+  border-bottom: 2px solid transparent;
+  transition:
+    color 0.2s,
+    border-color 0.2s;
+}
+
+.vf-shell-link:hover {
+  color: var(--vf-text);
+}
+
+.vf-shell-link.is-active {
+  color: var(--vf-text);
+  border-bottom-color: var(--vf-accent);
+}
+
+.vf-shell-count {
+  align-self: flex-start;
+  margin-top: 16px;
+  font-size: 11px;
+  color: var(--vf-accent);
+}
+
+.vf-shell-spacer {
+  flex-grow: 1;
+}
+
+.vf-shell-tc {
+  font-size: 13px;
+  color: var(--vf-text-3);
+  white-space: nowrap;
+}
+
+.vf-shell-account {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 6px;
+  border: 1px solid transparent;
+  border-radius: var(--vf-radius);
+  background: transparent;
+  color: var(--vf-text);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.vf-shell-account:hover {
+  border-color: var(--vf-line-2);
+}
+
+.vf-shell-avatar {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--vf-radius);
+  background: var(--vf-raised);
+  border: 1px solid var(--vf-line-2);
+  font-size: 15px;
+}
+
+.vf-shell-who {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.3;
+  font-size: 13px;
+}
+
+.vf-shell-roles {
+  display: flex;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--vf-text-3);
+}
+
+.vf-main {
+  padding: 32px 40px 72px;
+}
+
+/* 通用按鈕（非 Ant Design 的連結按鈕） */
+.vf-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: var(--vf-radius);
+  border: 1px solid transparent;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    transform 0.2s,
+    box-shadow 0.25s,
+    filter 0.2s,
+    border-color 0.2s,
+    color 0.2s;
+}
+
+.vf-btn-primary {
+  background: var(--vf-accent);
+  color: var(--vf-accent-ink);
+}
+
+.vf-btn-primary:hover {
+  color: var(--vf-accent-ink);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 28px rgba(240, 166, 58, 0.28);
+  filter: brightness(1.05);
+}
+
+.vf-btn-outline {
+  border-color: var(--vf-accent);
+  color: var(--vf-accent);
+  background: transparent;
+}
+
+.vf-btn-ghost {
+  border-color: var(--vf-line-2);
+  color: var(--vf-text-2);
+  background: transparent;
+  font-weight: 500;
+}
+
+.vf-btn-ghost:hover {
+  border-color: var(--vf-text);
+  color: var(--vf-text);
+}
+
+.vf-btn-light {
+  background: var(--vf-text);
+  color: var(--vf-bg);
+}
+
+.vf-btn[disabled],
+.vf-btn[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}

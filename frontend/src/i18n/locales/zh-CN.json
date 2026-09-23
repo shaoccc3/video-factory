@@ -3,14 +3,16 @@
     "name": "影音工厂"
   },
   "nav": {
-    "jobs": "任务",
+    "jobs": "全部任务",
     "batches": "批量",
-    "library": "成片库",
-    "assets": "素材库",
-    "reviews": "审核台",
+    "library": "放映室",
+    "assets": "素材",
+    "reviews": "审核",
     "usage": "用量",
     "admin": "管理",
-    "logout": "退出"
+    "logout": "退出",
+    "studio": "片場",
+    "newFilm": "开新片"
   },
   "common": {
     "confirm": "确定",
@@ -464,5 +466,12 @@
     "label": "語言",
     "zh-TW": "繁體中文",
     "zh-CN": "简体中文"
+  },
+  "shell": {
+    "studio": "VF STUDIO",
+    "mainNav": "主菜单",
+    "timecode": "时间码",
+    "account": "账号菜单",
+    "waiting": "{{count}} 支待审核"
   }
 }

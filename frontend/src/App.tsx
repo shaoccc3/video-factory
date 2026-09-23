@@ -12,9 +12,9 @@ import {
 import { ApiError } from "./api/client";
 import { queryKeys } from "./api/hooks";
 import { AuthGuard, RequireRole } from "./auth/auth";
+import { AppShell } from "./components/studio/AppShell";
 import { usePauseAnimationsWhenHidden } from "./hooks/motion";
 import { ANTD_LOCALES, DEFAULT_LANGUAGE, isLanguage } from "./i18n";
-import { AppLayout } from "./pages/AppLayout";
 import { AssetsPage } from "./pages/AssetsPage";
 import { AdminPage } from "./pages/admin/AdminPage";
 import { BatchDetailPage, BatchesPage } from "./pages/BatchesPage";
@@ -34,7 +34,7 @@ export const routes: RouteObject[] = [
     path: "/",
     element: (
       <AuthGuard>
-        <AppLayout />
+        <AppShell />
       </AuthGuard>
     ),
     children: [
