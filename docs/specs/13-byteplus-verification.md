@@ -221,7 +221,7 @@ models:
 
 ## 任務清單
 
-- [ ] 配置結構：`ModelEntry`、`VideoCapabilities` 新欄位與校驗，含單元測試
+- [x] 配置結構：`ModelEntry`、`VideoCapabilities` 新欄位與校驗，含單元測試
 - [ ] `config/models.yaml`：官方 ID、價格、寬高表、關鍵幀尺寸、限速註解；刪除已核對項的「待核對」；預算示例值 150／600
 - [ ] 計價：`video_unit_price`、`video_tokens_for`、`llm_cost`；網關記賬、預算預檢、分鏡頁預估、Mock 用量改用新函數
 - [ ] Seedance 請求：`seed` 按能力表、2.5 首幀送 `adaptive`、首幀與參考音頻互斥、2.0 參考音頻需要參考圖、`expired` 狀態

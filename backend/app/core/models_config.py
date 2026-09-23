@@ -1,7 +1,7 @@
 """config/models.yaml 的載入與校驗。格式錯誤時拋出 ModelsConfigError，並指出是哪一欄。"""
 
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
@@ -12,6 +12,14 @@ VideoModelKey = Literal["video_draft", "video_final", "video_long"]
 
 # Seedance 分辨率對應的像素（以 16:9 為基準，其他畫幅按比例換算）
 RESOLUTION_SHORT_SIDE = {"480p": 480, "720p": 720, "1080p": 1080}
+
+
+def parse_size(value: str) -> tuple[int, int]:
+    """解析「寬x高」，例如 1280x720。"""
+    w_str, sep, h_str = value.lower().partition("x")
+    if not sep or not w_str.isdigit() or not h_str.isdigit() or int(w_str) <= 0 or int(h_str) <= 0:
+        raise ValueError(f"尺寸格式應為「寬x高」：{value!r}")
+    return int(w_str), int(h_str)
 
 
 class _Strict(BaseModel):
@@ -33,6 +41,13 @@ class VideoCapabilities(_Strict):
     max_reference_images: int = Field(default=0, ge=0)
     max_reference_videos: int = Field(default=0, ge=0)
     max_reference_audios: int = Field(default=0, ge=0)
+    supports_seed: bool = False  # Seedance 2.x 不支援 seed（官方只列 1.x）
+    # 帶首幀／尾幀時 ratio 只能傳 adaptive（Seedance 2.5）
+    frames_require_adaptive_ratio: bool = False
+    # 參考音頻必須搭配參考圖或參考影片（Seedance 2.0 系列不支援只有音頻）
+    reference_audio_needs_visual: bool = False
+    # 官方寬高表：解析度 → 畫幅 → 「寬x高」；用於估算 token。未填時按短邊推算
+    dimensions: dict[str, dict[str, str]] | None = None
 
     @model_validator(mode="after")
     def _check(self) -> "VideoCapabilities":
@@ -41,18 +56,51 @@ class VideoCapabilities(_Strict):
         unknown = set(self.resolutions) - set(RESOLUTION_SHORT_SIDE)
         if unknown:
             raise ValueError(f"未知的解析度：{sorted(unknown)}")
+        if self.dimensions is not None:
+            for res in self.resolutions:
+                missing = [r for r in self.ratios if r not in self.dimensions.get(res, {})]
+                if missing:
+                    raise ValueError(f"dimensions 缺少 {res} 的畫幅：{missing}")
+            for table in self.dimensions.values():
+                for size in table.values():
+                    parse_size(size)
         return self
+
+    def dimensions_for(self, resolution: str, ratio: str) -> tuple[int, int]:
+        """輸出寬高：優先查官方寬高表，沒有時按短邊推算。"""
+        size = (self.dimensions or {}).get(resolution, {}).get(ratio)
+        return parse_size(size) if size else video_dimensions(resolution, ratio)
 
 
 class ModelEntry(_Strict):
     id: str = Field(min_length=1)
     price_per_mtok: float | None = Field(default=None, ge=0)
     price_per_mtok_audio: float | None = Field(default=None, ge=0)  # 有聲影片單價；未填則用 price_per_mtok
+    # 大模型輸入／輸出分價；未填時按 price_per_mtok 計總 token
+    price_per_mtok_input: float | None = Field(default=None, ge=0)
+    price_per_mtok_output: float | None = Field(default=None, ge=0)
+    # 影片按輸出解析度覆蓋 price_per_mtok
+    price_per_mtok_by_resolution: dict[str, Annotated[float, Field(ge=0)]] | None = None
     price_per_image: float | None = Field(default=None, ge=0)
     price_per_kchar: float | None = Field(default=None, ge=0)
+    image_sizes: dict[str, str] | None = None  # 關鍵幀：畫幅 → 「寬x高」
     rpm: int | None = Field(default=None, gt=0)
     concurrency: int | None = Field(default=None, gt=0)
     capabilities: VideoCapabilities | None = None
+
+    @model_validator(mode="after")
+    def _check(self) -> "ModelEntry":
+        if (self.price_per_mtok_input is None) != (self.price_per_mtok_output is None):
+            raise ValueError("price_per_mtok_input 與 price_per_mtok_output 要一起填")
+        if self.price_per_mtok_by_resolution:
+            if self.capabilities is None:
+                raise ValueError("price_per_mtok_by_resolution 只用於有 capabilities 的影片模型")
+            unknown = set(self.price_per_mtok_by_resolution) - set(self.capabilities.resolutions)
+            if unknown:
+                raise ValueError(f"price_per_mtok_by_resolution 有未支援的解析度：{sorted(unknown)}")
+        for size in (self.image_sizes or {}).values():
+            parse_size(size)
+        return self
 
 
 class Models(_Strict):
