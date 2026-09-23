@@ -1,0 +1,174 @@
+/* 審核單與審核紀錄（審核頁、任務頁共用） */
+.vf-review-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.vf-review-checks {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  border: none;
+}
+
+.vf-review-legend {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 0;
+  font-size: 11px;
+}
+
+.vf-review-check {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 4px;
+  border-bottom: 1px dashed var(--vf-line-2);
+  color: var(--vf-text-2);
+  font-size: 14px;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.vf-review-check:hover,
+.vf-review-check[data-checked="true"] {
+  color: var(--vf-text);
+}
+
+/* 原生 checkbox 保留可及性，外觀換成方框 */
+.vf-review-check input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.vf-review-box {
+  position: relative;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  border: 1.5px solid var(--vf-line-2);
+  border-radius: 2px;
+  transition:
+    background-color 0.2s,
+    border-color 0.2s;
+}
+
+.vf-review-check input:focus-visible + .vf-review-box {
+  outline: 2px solid var(--vf-accent);
+  outline-offset: 2px;
+}
+
+.vf-review-check input:checked + .vf-review-box {
+  border-color: var(--vf-accent);
+  background: var(--vf-accent);
+}
+
+.vf-review-check input:checked + .vf-review-box::after {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 1px;
+  width: 5px;
+  height: 10px;
+  border: solid var(--vf-accent-ink);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.vf-review-no {
+  color: var(--vf-text-3);
+  font-size: 11px;
+}
+
+.vf-review-reason {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vf-review-reason textarea[aria-invalid="true"] {
+  border-color: var(--vf-rec);
+}
+
+.vf-review-decide {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.vf-review-decide .vf-btn {
+  flex: 1;
+}
+
+/* 審核紀錄 */
+.vf-review-log {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.vf-review-log h2 {
+  margin: 0;
+}
+
+.vf-review-log ol {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-left: 1px solid var(--vf-line-2);
+}
+
+.vf-review-log li {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 0 12px 18px;
+  font-size: 13px;
+}
+
+.vf-review-log li::before {
+  content: "";
+  position: absolute;
+  left: -5px;
+  top: 13px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--vf-accent);
+}
+
+.vf-review-log li[data-decision="approved"]::before {
+  background: var(--vf-ok);
+}
+
+.vf-review-log-decision {
+  font-weight: 700;
+}
+
+.vf-review-log li[data-decision="approved"] .vf-review-log-decision {
+  color: var(--vf-ok);
+}
+
+.vf-review-log li[data-decision="rejected"] .vf-review-log-decision {
+  color: var(--vf-accent);
+}
+
+.vf-review-log-who .vf-mono {
+  font-size: 11px;
+}
+
+.vf-review-log p {
+  margin: 0;
+  color: var(--vf-text-2);
+}

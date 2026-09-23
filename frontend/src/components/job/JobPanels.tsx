@@ -26,6 +26,7 @@ import { formatCny, formatDateTime, formatSeconds } from "../../utils/format";
 import { ErrorAlert } from "../ErrorResult";
 import { SceneStatusTag } from "../StatusTag";
 import { errorCategory } from "./JobErrorAlert";
+import "../review.css";
 
 function SceneCard({
   job,
@@ -271,46 +272,35 @@ export function CallsTable({ job }: { job: JobDetail }) {
   );
 }
 
+/** 審核紀錄：由新到舊，顯示結果、審核者、清單完成數與原因 */
 export function ReviewHistory({ reviews }: { reviews: Review[] }) {
   const { t, i18n } = useTranslation();
   if (reviews.length === 0) return null;
   return (
-    <Card title={t("review.history")} style={{ marginBottom: 16 }}>
-      <Table<Review>
-        size="small"
-        rowKey="id"
-        pagination={false}
-        dataSource={reviews}
-        columns={[
-          {
-            title: t("review.time"),
-            dataIndex: "created_at",
-            render: (v: string) => formatDateTime(v, i18n.language),
-          },
-          { title: t("review.reviewer"), dataIndex: "reviewer_name" },
-          {
-            title: t("review.decision"),
-            dataIndex: "decision",
-            render: (d: Review["decision"]) => (
-              <Tag color={d === "approved" ? "success" : "orange"}>{t(`review.${d}`)}</Tag>
-            ),
-          },
-          {
-            title: t("review.checklistTitle"),
-            dataIndex: "checklist",
-            render: (checklist: Record<string, boolean>) => (
-              <Flex gap={4} wrap>
-                {CHECKLIST_KEYS.map((key) => (
-                  <Tag key={key} color={checklist[key] ? "success" : "default"}>
-                    {t(`review.checklist.${key}`)}
-                  </Tag>
-                ))}
-              </Flex>
-            ),
-          },
-          { title: t("review.reason"), dataIndex: "reason", render: (v: string) => v || "—" },
-        ]}
-      />
-    </Card>
+    <section className="vf-review-log" aria-labelledby="vf-review-log-title">
+      <h2 id="vf-review-log-title" className="vf-label">
+        {t("review.history")}
+      </h2>
+      <ol>
+        {reviews.map((review) => {
+          const done = CHECKLIST_KEYS.filter((key) => review.checklist[key]).length;
+          return (
+            <li key={review.id} data-decision={review.decision}>
+              <span className="vf-review-log-decision">{t(`review.${review.decision}`)}</span>
+              <span className="vf-review-log-who">
+                {review.reviewer_name}
+                <span className="vf-mono vf-muted">
+                  {" · "}
+                  {formatDateTime(review.created_at, i18n.language)}
+                  {" · "}
+                  {t("review.checklistDone", { done, total: CHECKLIST_KEYS.length })}
+                </span>
+              </span>
+              {review.reason && <p>{review.reason}</p>}
+            </li>
+          );
+        })}
+      </ol>
+    </section>
   );
 }

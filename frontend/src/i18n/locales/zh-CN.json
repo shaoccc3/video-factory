@@ -330,7 +330,13 @@
     "reasonRequired": "退回时必须填写原因",
     "approve": "通过",
     "reject": "退回",
-    "done": "审核已送出"
+    "done": "审核已送出",
+    "queueLead": "最早送审的排在最前面。",
+    "waited": "已等 {{time}}",
+    "monitor": "成片监看",
+    "sheet": "审核单",
+    "reasonLabel": "NOTES 意见／退回原因",
+    "checklistDone": "清单 {{done}}/{{total}}"
   },
   "batches": {
     "title": "批量任务",

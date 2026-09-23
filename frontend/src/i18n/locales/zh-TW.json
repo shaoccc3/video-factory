@@ -330,7 +330,13 @@
     "reasonRequired": "退回時必須填寫原因",
     "approve": "通過",
     "reject": "退回",
-    "done": "審核已送出"
+    "done": "審核已送出",
+    "queueLead": "最早送審的排在最前面。",
+    "waited": "已等 {{time}}",
+    "monitor": "成片監看",
+    "sheet": "審核單",
+    "reasonLabel": "NOTES 意見／退回原因",
+    "checklistDone": "清單 {{done}}/{{total}}"
   },
   "batches": {
     "title": "批量任務",

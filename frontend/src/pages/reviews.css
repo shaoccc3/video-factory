@@ -1,0 +1,208 @@
+/* 審核：待審片卡與審核頁（規格 14 第 4 節） */
+.vf-reviews {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  max-width: 1440px;
+}
+
+.vf-reviews-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vf-reviews-head h1,
+.vf-review-title h1 {
+  margin: 0;
+  font-size: clamp(28px, 3.4vw, 40px);
+  letter-spacing: 0.04em;
+}
+
+.vf-reviews-head p {
+  margin: 0;
+}
+
+.vf-queue-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 22px;
+}
+
+.vf-queue-skel {
+  height: 300px;
+}
+
+.vf-queue-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--vf-line);
+  background: var(--vf-panel);
+  transition: border-color 0.2s;
+}
+
+.vf-queue-card:hover,
+.vf-queue-card:focus-within {
+  border-color: var(--vf-accent);
+}
+
+.vf-queue-still {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  background: #000;
+}
+
+.vf-queue-still img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.vf-queue-still .vf-poster {
+  position: absolute;
+  inset: 0;
+}
+
+.vf-queue-wait {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  padding: 2px 8px;
+  border-radius: 2px;
+  background: var(--vf-scrim);
+  color: var(--vf-accent);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+}
+
+.vf-queue-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px 16px;
+}
+
+.vf-queue-body h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.vf-queue-body h2 a {
+  color: var(--vf-text);
+  text-decoration: none;
+}
+
+.vf-queue-body .vf-mono {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+}
+
+.vf-queue-owner {
+  font-size: 12px;
+}
+
+.vf-reviews-empty {
+  padding: 72px 16px;
+  border: 1px dashed var(--vf-line-2);
+  text-align: center;
+}
+
+.vf-reviews-empty p {
+  margin: 0;
+  font-size: 22px;
+}
+
+/* 審核頁 */
+.vf-review-head {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.vf-review-kicker {
+  color: var(--vf-text-3);
+  font-size: 12px;
+  letter-spacing: 0.2em;
+}
+
+.vf-review-kicker .vf-link {
+  color: var(--vf-text-3);
+}
+
+.vf-review-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+}
+
+.vf-review-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(320px, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+
+@media (max-width: 1080px) {
+  .vf-review-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.vf-review-monitor {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+/* 上下加黑邊的監看台 */
+.vf-review-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: min(76vh, 720px);
+  padding: 48px 0;
+  box-sizing: border-box;
+  border: 1px solid var(--vf-line);
+  background: #000;
+}
+
+.vf-review-stage video {
+  max-width: 100%;
+  max-height: 100%;
+  background: #000;
+}
+
+.vf-review-spec {
+  font-size: 12px;
+  letter-spacing: 0.12em;
+}
+
+.vf-review-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 22px;
+  border: 1px solid var(--vf-line-2);
+  background: var(--vf-panel);
+  position: sticky;
+  top: 24px;
+}
+
+.vf-review-sheet-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--vf-line);
+}
+
+.vf-review-sheet-head h2 {
+  margin: 0;
+  font-size: 24px;
+}

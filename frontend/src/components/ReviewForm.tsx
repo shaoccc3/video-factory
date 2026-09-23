@@ -1,10 +1,9 @@
-import { CheckOutlined, CloseOutlined } from "@ant-design/icons";
-import { Alert, Button, Checkbox, Flex, Input, Space, Typography } from "antd";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useJobCommand } from "../api/hooks";
 import { CHECKLIST_KEYS, type ChecklistKey, type JobDetail } from "../api/types";
 import { ErrorAlert } from "./ErrorResult";
+import "./review.css";
 
 type Checklist = Record<ChecklistKey, boolean>;
 
@@ -14,7 +13,7 @@ export function allChecked(checklist: Checklist): boolean {
   return CHECKLIST_KEYS.every((key) => checklist[key]);
 }
 
-/** 審核表單：通過需五項全勾；退回必填原因 */
+/** 審核單：通過需五項全勾；退回必填原因 */
 export function ReviewForm({ job, onDone }: { job: JobDetail; onDone?: () => void }) {
   const { t } = useTranslation();
   const [checklist, setChecklist] = useState<Checklist>(EMPTY_CHECKLIST);
@@ -22,6 +21,9 @@ export function ReviewForm({ job, onDone }: { job: JobDetail; onDone?: () => voi
   const [reasonError, setReasonError] = useState(false);
   const command = useJobCommand(job.id);
   const complete = allChecked(checklist);
+  const checked = CHECKLIST_KEYS.filter((key) => checklist[key]).length;
+  const pending = command.isPending ? command.variables : undefined;
+  const deciding = pending?.type === "review" ? pending.body.decision : undefined;
 
   const decide = (decision: "approved" | "rejected") => {
     if (decision === "rejected" && !reason.trim()) {
@@ -36,56 +38,71 @@ export function ReviewForm({ job, onDone }: { job: JobDetail; onDone?: () => voi
   };
 
   return (
-    <div>
-      <Typography.Title level={5}>{t("review.checklistTitle")}</Typography.Title>
-      <Space orientation="vertical" style={{ marginBottom: 16 }}>
-        {CHECKLIST_KEYS.map((key) => (
-          <Checkbox
-            key={key}
-            checked={checklist[key]}
-            onChange={(e) => setChecklist((cur) => ({ ...cur, [key]: e.target.checked }))}
-          >
-            {t(`review.checklist.${key}`)}
-          </Checkbox>
+    <div className="vf-review-form">
+      <fieldset className="vf-review-checks">
+        <legend className="vf-review-legend">
+          <span className="vf-label">{t("review.checklistTitle")}</span>
+          <span className="vf-mono vf-muted">
+            {checked} / {CHECKLIST_KEYS.length}
+          </span>
+        </legend>
+        {CHECKLIST_KEYS.map((key, i) => (
+          <label key={key} className="vf-review-check" data-checked={checklist[key]}>
+            <input
+              type="checkbox"
+              checked={checklist[key]}
+              onChange={(e) => setChecklist((cur) => ({ ...cur, [key]: e.target.checked }))}
+            />
+            <span className="vf-review-box" aria-hidden="true" />
+            <span className="vf-mono vf-review-no" aria-hidden="true">
+              {String(i + 1).padStart(2, "0")}
+            </span>
+            <span>{t(`review.checklist.${key}`)}</span>
+          </label>
         ))}
-      </Space>
-      <Typography.Title level={5}>{t("review.reason")}</Typography.Title>
-      <Input.TextArea
-        aria-label={t("review.reason")}
-        rows={3}
-        value={reason}
-        status={reasonError ? "error" : ""}
-        placeholder={t("review.reasonPlaceholder")}
-        onChange={(e) => {
-          setReason(e.target.value);
-          if (e.target.value.trim()) setReasonError(false);
-        }}
-      />
+      </fieldset>
+      <label className="vf-review-reason">
+        <span className="vf-label">{t("review.reasonLabel")}</span>
+        <textarea
+          className="vf-slate-input"
+          aria-label={t("review.reason")}
+          rows={4}
+          value={reason}
+          aria-invalid={reasonError}
+          placeholder={t("review.reasonPlaceholder")}
+          onChange={(e) => {
+            setReason(e.target.value);
+            if (e.target.value.trim()) setReasonError(false);
+          }}
+        />
+      </label>
       {reasonError && (
-        <Typography.Text type="danger" role="alert">
+        <span className="vf-field-error" role="alert">
           {t("review.reasonRequired")}
-        </Typography.Text>
+        </span>
       )}
-      {!complete && (
-        <Alert type="info" showIcon style={{ marginTop: 12 }} title={t("review.checklistHint")} />
-      )}
-      <div style={{ marginTop: 12 }}>
-        <ErrorAlert error={command.error} />
-      </div>
-      <Flex gap={8} style={{ marginTop: 12 }}>
-        <Button
-          type="primary"
-          icon={<CheckOutlined />}
-          disabled={!complete}
-          loading={command.isPending && command.variables?.type === "review" && complete}
+      {!complete && <p className="vf-note">{t("review.checklistHint")}</p>}
+      <ErrorAlert error={command.error} />
+      <div className="vf-review-decide">
+        <button
+          type="button"
+          className="vf-btn vf-btn-ghost vf-btn-lg vf-btn-danger"
+          disabled={command.isPending}
+          aria-busy={deciding === "rejected"}
+          onClick={() => decide("rejected")}
+        >
+          {t("review.reject")}
+        </button>
+        <button
+          type="button"
+          className="vf-btn vf-btn-primary vf-btn-lg"
+          disabled={!complete || command.isPending}
+          aria-busy={deciding === "approved"}
           onClick={() => decide("approved")}
         >
           {t("review.approve")}
-        </Button>
-        <Button danger icon={<CloseOutlined />} onClick={() => decide("rejected")}>
-          {t("review.reject")}
-        </Button>
-      </Flex>
+        </button>
+      </div>
     </div>
   );
 }
