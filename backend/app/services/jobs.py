@@ -34,12 +34,19 @@ class JobInput:
 
 
 async def _check_asset(
-    session: AsyncSession, asset_id: uuid.UUID | None, kinds: set[AssetKind], label: str
+    session: AsyncSession,
+    asset_id: uuid.UUID | None,
+    kinds: set[AssetKind],
+    label: str,
+    user: User,
 ) -> None:
+    """上傳的素材全員共享；生成的素材（關鍵幀、尾幀等）只有擁有者與管理員可以引用。"""
     if asset_id is None:
         return
     asset = await session.get(Asset, asset_id)
     if asset is None or asset.is_deleted or AssetKind(asset.kind) not in kinds:
+        raise ActionError(f"{label}素材不存在或類型不符", 422)
+    if asset.source != "upload" and asset.owner_id != user.id and Role.ADMIN not in user.roles:
         raise ActionError(f"{label}素材不存在或類型不符", 422)
 
 
@@ -65,10 +72,10 @@ async def create_job(
         raise ActionError("培訓講解片以旁白為主軸，音頻方式必須是 TTS", 422)
     image_kinds = {AssetKind.PRODUCT, AssetKind.IMAGE, AssetKind.KEYFRAME}
     for pid in data.product_asset_ids:
-        await _check_asset(session, pid, {AssetKind.PRODUCT, AssetKind.IMAGE}, "商品圖")
-    await _check_asset(session, data.logo_asset_id, {AssetKind.LOGO, AssetKind.IMAGE}, "Logo ")
-    await _check_asset(session, data.bgm_asset_id, {AssetKind.BGM}, "背景音樂")
-    await _check_asset(session, data.image_asset_id, image_kinds, "首幀圖片")
+        await _check_asset(session, pid, {AssetKind.PRODUCT, AssetKind.IMAGE}, "商品圖", owner)
+    await _check_asset(session, data.logo_asset_id, {AssetKind.LOGO, AssetKind.IMAGE}, "Logo ", owner)
+    await _check_asset(session, data.bgm_asset_id, {AssetKind.BGM}, "背景音樂", owner)
+    await _check_asset(session, data.image_asset_id, image_kinds, "首幀圖片", owner)
     budget = await get_budget(session, config)
     job = Job(
         owner_id=owner.id,
@@ -116,7 +123,9 @@ VIDEO_FIELDS = {
 }
 
 
-async def update_scene(session: AsyncSession, job: Job, scene: Scene, changes: dict[str, object]) -> None:
+async def update_scene(
+    session: AsyncSession, job: Job, scene: Scene, changes: dict[str, object], user: User
+) -> None:
     if job.status not in EDITABLE:
         raise ActionError("只有分鏡待確認或已退回時可以編輯")
     if scene.status in IN_FLIGHT:
@@ -127,6 +136,7 @@ async def update_scene(session: AsyncSession, job: Job, scene: Scene, changes: d
             uuid.UUID(str(changes["first_frame_asset_id"])),
             {AssetKind.PRODUCT, AssetKind.IMAGE, AssetKind.KEYFRAME, AssetKind.LAST_FRAME},
             "首幀",
+            user,
         )
     for name, value in changes.items():
         setattr(scene, name, value)

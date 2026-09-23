@@ -72,7 +72,14 @@ def check_storyboard(scenes: list[SceneDraft], rules: StoryboardRules) -> list[s
     if not rules.min_shots <= len(scenes) <= rules.max_shots:
         problems.append(f"鏡頭數必須在 {rules.min_shots}～{rules.max_shots} 之間，目前 {len(scenes)} 個")
     total = sum(s.duration_s for s in scenes)
-    if not rules.narration_driven and not (rules.min_total_s - 0.5 <= total <= rules.max_total_s + 0.5):
+    if rules.narration_driven:
+        spoken = sum(narration_seconds(s.narration) for s in scenes)
+        if not rules.min_total_s * 0.9 <= spoken <= rules.max_total_s:
+            problems.append(
+                f"旁白總長約 {spoken:.0f} 秒，需在 {rules.min_total_s:.0f}～{rules.max_total_s:.0f} 秒之間"
+                f"（每秒約 4.5 字），請調整旁白字數或鏡頭數"
+            )
+    elif not (rules.min_total_s - 0.5 <= total <= rules.max_total_s + 0.5):
         problems.append(
             f"總時長必須在 {rules.min_total_s:.0f}～{rules.max_total_s:.0f} 秒之間，目前 {total:.0f} 秒"
         )

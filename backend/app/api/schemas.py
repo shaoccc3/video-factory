@@ -209,8 +209,8 @@ class ReviewOut(BaseModel):
 
 
 class JobInputs(BaseModel):
-    topic: str
-    extra: str = ""
+    topic: str = Field(max_length=500)
+    extra: str = Field(default="", max_length=2000)
 
 
 class JobOptionsOut(BaseModel):

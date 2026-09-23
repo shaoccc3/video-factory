@@ -166,7 +166,7 @@ Batch = {
 ```ts
 JobCreate = {
   template_id: string; title: string;
-  inputs: { topic: string; extra?: string };
+  inputs: { topic: string; extra?: string };   // topic ≤ 500 字，extra ≤ 2000 字
   target_duration_s?: number | null; audio_mode?: AudioMode | null; ratio?: Ratio | null;
   draft_mode?: boolean; continuous_shots?: boolean;
   product_asset_ids?: string[]; logo_asset_id?: string | null;

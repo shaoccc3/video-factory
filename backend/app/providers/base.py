@@ -112,7 +112,12 @@ class SpeechResult:
 
 class LLMProvider(Protocol):
     async def chat_json[T: BaseModel](
-        self, model_id: str, messages: list[ChatMessage], schema: type[T]
+        self,
+        model_id: str,
+        messages: list[ChatMessage],
+        schema: type[T],
+        *,
+        safety_identifier: str | None = None,
     ) -> ChatResult[T]: ...
 
 
@@ -126,6 +131,7 @@ class SeedreamProvider(Protocol):
         seed: int,
         ref_image_urls: tuple[str, ...],
         dest: Path,
+        safety_identifier: str | None = None,
     ) -> ImageResult: ...
 
 

@@ -91,7 +91,11 @@ def max_bytes_for(runtime: Runtime, kind: AssetKind) -> int:
     return s.upload_max_image_bytes
 
 
-def validate_upload(runtime: Runtime, kind: AssetKind, path: Path) -> str:
+MAX_IMAGE_PIXELS = 40_000_000
+MAX_IMAGE_SIDE = 10_000
+
+
+async def validate_upload(runtime: Runtime, kind: AssetKind, path: Path) -> str:
     size = path.stat().st_size
     if size == 0:
         raise UploadRejectedError("文件是空的")
@@ -104,6 +108,20 @@ def validate_upload(runtime: Runtime, kind: AssetKind, path: Path) -> str:
         mime = sniff_mime(fh.read(32))
     if mime not in allowed:
         raise UploadRejectedError("文件類型不符合（按文件內容判斷）")
+    if mime.startswith(("image/", "audio/")):
+        # 實際解碼一次：擋掉偽造文件頭、損壞文件與超大像素的圖片（解壓炸彈）
+        try:
+            info = await probe(path)
+        except FFmpegError as exc:
+            raise UploadRejectedError("文件無法解碼") from exc
+        if mime.startswith("image/"):
+            w, h = info.width or 0, info.height or 0
+            if not w or not h:
+                raise UploadRejectedError("圖片無法解碼")
+            if w > MAX_IMAGE_SIDE or h > MAX_IMAGE_SIDE or w * h > MAX_IMAGE_PIXELS:
+                raise UploadRejectedError("圖片尺寸過大")
+        elif not info.has_audio:
+            raise UploadRejectedError("音頻無法解碼")
     return mime
 
 

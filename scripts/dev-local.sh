@@ -23,6 +23,10 @@ export LOG_JSON=false
 export SECRET_KEY="${SECRET_KEY:-local-dev-only}"
 
 start() {
+  if curl -sf http://localhost:8000/healthz >/dev/null 2>&1; then
+    echo "端口 8000 已被佔用，先執行 $0 stop" >&2
+    exit 1
+  fi
   mkdir -p "$DATA" "$PIDS"
   cd "$ROOT/backend"
   uv run alembic upgrade head
@@ -44,11 +48,24 @@ start() {
 }
 
 stop() {
+  local pids=""
   for name in web worker api; do
-    [ -f "$PIDS/$name" ] && kill "$(cat "$PIDS/$name")" 2>/dev/null || true
+    [ -f "$PIDS/$name" ] && pids="$pids $(cat "$PIDS/$name")"
     rm -f "$PIDS/$name"
   done
-  pkill -f "celery -A app.workers worker" 2>/dev/null || true
+  # 兜底：pid 文件以外的殘留進程（方括號避免匹配到 pgrep 自己）
+  pids="$pids $(pgrep -f '[u]vicorn --factory app.main:app_factory' || true)"
+  pids="$pids $(pgrep -f '[c]elery -A app.workers worker' || true)"
+  pids="$pids $(pgrep -f '[v]ite.js --port 5173' || true)"
+  [ -n "${pids// }" ] || return 0
+  kill $pids 2>/dev/null || true
+  for _ in $(seq 1 15); do
+    alive=""
+    for p in $pids; do kill -0 "$p" 2>/dev/null && alive="$alive $p"; done
+    [ -z "$alive" ] && return 0
+    sleep 1
+  done
+  kill -9 $alive 2>/dev/null || true
 }
 
 case "${1:-start}" in

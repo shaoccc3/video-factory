@@ -53,11 +53,18 @@ class MockLLM:
         self.failures = FailurePlan()
         self.scripted: deque[dict[str, Any]] = deque()
         self.calls: list[list[ChatMessage]] = []
+        self.safety_identifiers: list[str | None] = []
 
     async def chat_json[T: BaseModel](
-        self, model_id: str, messages: list[ChatMessage], schema: type[T]
+        self,
+        model_id: str,
+        messages: list[ChatMessage],
+        schema: type[T],
+        *,
+        safety_identifier: str | None = None,
     ) -> ChatResult[T]:
         self.calls.append(messages)
+        self.safety_identifiers.append(safety_identifier)
         self.failures.maybe_raise()
         text = "\n".join(m.content for m in messages)
         payload = self.scripted.popleft() if self.scripted else self._storyboard(text)
@@ -83,7 +90,12 @@ class MockLLM:
         scenes = []
         for i in range(shots):
             if video_type == "training":
-                narration = f"第{i + 1}部分：關於{topic}，我們先說明重點，再舉一個簡單的例子幫助理解。"
+                # 旁白字數對應鏡頭時長（每秒約 4.5 字），讓總長落在模板範圍內
+                base = f"第{i + 1}部分：關於{topic}，我們先說明重點，再舉一個簡單的例子幫助理解。"
+                filler = "接著看看實際工作中常見的情況，想一想該怎麼做。"
+                narration = base
+                while len(narration) < per * CHARS_PER_SECOND - len(filler) // 2:
+                    narration += filler
             else:
                 narration = f"{topic}，第{i + 1}個畫面，帶你感受不一樣的日常。"
             scenes.append(
@@ -104,6 +116,7 @@ class MockSeedream:
     def __init__(self) -> None:
         self.failures = FailurePlan()
         self.calls = 0
+        self.safety_identifiers: list[str | None] = []
 
     async def generate(
         self,
@@ -114,8 +127,10 @@ class MockSeedream:
         seed: int,
         ref_image_urls: tuple[str, ...],
         dest: Path,
+        safety_identifier: str | None = None,
     ) -> ImageResult:
         self.calls += 1
+        self.safety_identifiers.append(safety_identifier)
         self.failures.maybe_raise()
         width, height = (int(v) for v in size.lower().split("x"))
         color = f"0x{(seed * 2654435761) % 0xFFFFFF:06x}"

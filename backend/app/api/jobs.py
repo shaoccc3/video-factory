@@ -198,7 +198,7 @@ async def patch_scene(
         if required in changes and changes[required] is None:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, f"{required} 不能為空")
     try:
-        await update_scene(session, job, scene, changes)
+        await update_scene(session, job, scene, changes, user)
     except ActionError as exc:
         raise _http(exc) from exc
     scenes = list((await session.scalars(select(Scene).where(Scene.job_id == job.id))).all())
@@ -400,7 +400,7 @@ async def job_event_stream(
         async with runtime.sessionmaker() as s:
             job = await s.get(Job, job_id)
             viewer = await s.get(User, user.id)
-            if job is None or viewer is None:
+            if job is None or viewer is None or not viewer.is_active:
                 return
             detail = await job_detail(s, runtime, job, viewer)
         fingerprint = json.dumps(

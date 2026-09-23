@@ -298,7 +298,7 @@ async def test_edit_storyboard_marks_regeneration(
         j = await s.get(type(job), job.id)
         assert j is not None
         [scene] = (await s.scalars(select(Scene).where(Scene.job_id == job.id, Scene.index == 0))).all()
-        await update_scene(s, j, scene, {"narration": "新的旁白", "duration_s": 6.0})
+        await update_scene(s, j, scene, {"narration": "新的旁白", "duration_s": 6.0}, user)
         await s.commit()
     scenes = await scenes_of(runtime, job.id)
     assert scenes[0].narration == "新的旁白" and scenes[0].duration_s == 6.0

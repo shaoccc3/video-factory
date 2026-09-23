@@ -11,7 +11,7 @@ from pydantic import BaseModel, ValidationError
 
 from app.media.ffmpeg import probe
 from app.models.enums import ErrorKind
-from app.providers.ark import ArkHttp
+from app.providers.ark import ArkHttp, redact_urls
 from app.providers.base import (
     ChatMessage,
     ChatResult,
@@ -44,7 +44,12 @@ class ArkLLM:
         self._http = http
 
     async def chat_json[T: BaseModel](
-        self, model_id: str, messages: list[ChatMessage], schema: type[T]
+        self,
+        model_id: str,
+        messages: list[ChatMessage],
+        schema: type[T],
+        *,
+        safety_identifier: str | None = None,
     ) -> ChatResult[T]:
         convo = [{"role": m.role, "content": m.content} for m in messages]
         usage = LLMUsage()
@@ -57,6 +62,8 @@ class ArkLLM:
                     "messages": convo,
                     "response_format": {"type": "json_object"},
                     "temperature": 0.7,
+                    # 對話接口用 user 欄位傳終端用戶標識（等同 safety_identifier）
+                    **({"user": safety_identifier} if safety_identifier else {}),
                 },
             )
             u = data.get("usage") or {}
@@ -72,8 +79,12 @@ class ArkLLM:
                 value = schema.model_validate(_extract_json(content))
             except (ValueError, ValidationError) as exc:
                 if attempt > LLM_REPAIR_ATTEMPTS:
+                    # 不可重試：重試只會繼續花錢；已消耗的 token 由網關記賬
                     raise ProviderError(
-                        ErrorKind.SERVER, "大模型輸出無法通過校驗", code="llm_invalid_json"
+                        ErrorKind.CLIENT,
+                        "大模型輸出無法通過校驗",
+                        code="llm_invalid_json",
+                        billed_tokens=usage.total_tokens,
                     ) from exc
                 convo.append({"role": "assistant", "content": content})
                 convo.append(
@@ -110,7 +121,9 @@ class ArkSeedream:
         seed: int,
         ref_image_urls: tuple[str, ...],
         dest: Path,
+        safety_identifier: str | None = None,
     ) -> ImageResult:
+        # 圖片接口（SDK 原碼）沒有 safety_identifier／user 欄位，不發送；由 generation_calls.user_id 追溯
         body: dict[str, Any] = {
             "model": model_id,
             "prompt": prompt,
@@ -131,7 +144,7 @@ class ArkSeedream:
             dest.write_bytes(base64.b64decode(first["b64_json"]))
         else:
             await download(
-                self._http.client,
+                self._http.downloader,
                 str(first["url"]),
                 dest,
                 allowed_hosts=self._allowed,
@@ -169,7 +182,7 @@ class ArkSeedance:
         if not task.video_url:
             raise ProviderError(ErrorKind.SERVER, "任務成功但沒有影片地址")
         video = await download(
-            self._http.client,
+            self._http.downloader,
             task.video_url,
             dest_dir / "clip.mp4",
             allowed_hosts=self._allowed,
@@ -178,7 +191,7 @@ class ArkSeedance:
         last = None
         if task.last_frame_url:
             last = await download(
-                self._http.client,
+                self._http.downloader,
                 task.last_frame_url,
                 dest_dir / "last_frame.png",
                 allowed_hosts=self._allowed,
@@ -203,7 +216,7 @@ def parse_task(data: dict[str, Any]) -> VideoTask:
         last_frame_url=content.get("last_frame_url") or None,
         completion_tokens=int(usage.get("completion_tokens") or 0),
         error_code=str(error["code"]) if error.get("code") else None,
-        error_message=str(error["message"])[:500] if error.get("message") else None,
+        error_message=redact_urls(str(error["message"]))[:500] if error.get("message") else None,
         meta=meta,
     )
 

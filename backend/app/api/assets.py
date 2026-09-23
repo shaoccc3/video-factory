@@ -53,7 +53,7 @@ async def ingest_upload(
 ) -> Asset:
     path = await save_upload(runtime, file, kind, tmp_dir)
     try:
-        mime = validate_upload(runtime, kind, path)
+        mime = await validate_upload(runtime, kind, path)
     except UploadRejectedError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     return await store_asset(
@@ -205,7 +205,7 @@ async def content(
         asset.storage_key,
         asset.mime,
         request.headers.get("range"),
-        {"Cache-Control": "private, max-age=300"},
+        {"Cache-Control": "private, max-age=300", "Content-Disposition": "inline"},
     )
 
 

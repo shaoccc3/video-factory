@@ -4,6 +4,7 @@
 /chat/completions），只有基礎地址不同，所以用 httpx 直接調用，不依賴體積較大的官方 SDK。
 """
 
+import re
 from typing import Any
 
 import httpx
@@ -12,6 +13,12 @@ from app.models.enums import ErrorKind
 from app.providers.errors import ProviderError, classify_http
 
 PROXY_PLACEHOLDER = "injected-by-proxy"
+_URL_QUERY = re.compile(r"(https?://[^\s?\"']+)\?[^\s\"']*")
+
+
+def redact_urls(text: str) -> str:
+    """去掉 URL 的查詢串（可能帶簽名），用於錯誤訊息與日誌。"""
+    return _URL_QUERY.sub(r"\1?…", text)
 
 
 class ArkHttp:
@@ -34,10 +41,16 @@ class ArkHttp:
             timeout=httpx.Timeout(timeout_s, connect=15.0),
             transport=transport,
         )
+        # 下載生成結果用獨立的 client：不能把方舟密鑰帶到對象存儲／CDN 域名
+        self._downloader = httpx.AsyncClient(timeout=httpx.Timeout(120.0, connect=15.0), transport=transport)
 
     @property
     def client(self) -> httpx.AsyncClient:
         return self._client
+
+    @property
+    def downloader(self) -> httpx.AsyncClient:
+        return self._downloader
 
     async def request(
         self,
@@ -70,6 +83,7 @@ class ArkHttp:
 
     async def aclose(self) -> None:
         await self._client.aclose()
+        await self._downloader.aclose()
 
 
 def _error_fields(resp: httpx.Response) -> tuple[str | None, str | None]:
@@ -81,5 +95,5 @@ def _error_fields(resp: httpx.Response) -> tuple[str | None, str | None]:
     if isinstance(err, dict):
         code = err.get("code")
         message = err.get("message")
-        return (str(code) if code else None, str(message)[:500] if message else None)
+        return (str(code) if code else None, redact_urls(str(message))[:500] if message else None)
     return None, None

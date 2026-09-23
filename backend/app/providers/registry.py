@@ -1,5 +1,7 @@
 """按 PROVIDER_MODE 組裝 Provider。"""
 
+import structlog
+
 from app.core.models_config import ModelsConfig
 from app.core.settings import Settings
 from app.providers.ark import ArkHttp
@@ -27,6 +29,10 @@ def build_live_providers(settings: Settings, config: ModelsConfig) -> Providers:
         strip_auth_header=settings.ark_strip_auth_header,
     )
     allowed, max_bytes = settings.download_allowed_hosts, settings.download_max_bytes
+    if not (settings.tts_app_id and settings.tts_token):
+        structlog.get_logger(__name__).warning(
+            "tts_not_configured", detail="未設定 TTS_APP_ID／TTS_TOKEN，旁白將使用 Mock 提示音"
+        )
     tts = (
         DoubaoTTS(
             endpoint=settings.tts_endpoint,

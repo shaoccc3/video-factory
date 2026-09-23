@@ -12,7 +12,7 @@ from app.api.router import api_router
 from app.core.logging import configure_logging
 from app.core.models_config import load_models_config
 from app.core.readiness import Check, database_check, storage_check, valkey_check
-from app.core.settings import Settings, get_settings
+from app.core.settings import DEV_SECRET_KEY, Settings, get_settings
 from app.pipeline.orchestrator import Dispatcher
 from app.services.runtime import Runtime, build_gateway, build_runtime
 
@@ -22,6 +22,11 @@ def create_app(
 ) -> FastAPI:
     settings = settings or get_settings()
     configure_logging(settings.log_level, json=settings.log_json)
+    secret = settings.secret_key.get_secret_value()
+    if (settings.provider_mode == "live" or settings.cookie_secure) and (
+        secret == DEV_SECRET_KEY or len(secret) < 32
+    ):
+        raise RuntimeError("正式環境必須設定 SECRET_KEY（至少 32 位隨機字串）")
     config = runtime.config if runtime else load_models_config(settings.models_config_path)
     rt = runtime or build_runtime(settings, config=config)
     owns_runtime = runtime is None

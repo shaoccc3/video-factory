@@ -8,6 +8,7 @@ from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+DEV_SECRET_KEY = "dev-only-change-me"  # noqa: S105 - 僅開發預設值，正式環境啟動時會拒絕
 
 
 class Settings(BaseSettings):
@@ -75,7 +76,7 @@ class Settings(BaseSettings):
     batch_max_items: int = 200
 
     # 認證
-    secret_key: SecretStr = SecretStr("dev-only-change-me")
+    secret_key: SecretStr = SecretStr(DEV_SECRET_KEY)
     session_max_age_s: int = 7 * 24 * 3600
     cookie_secure: bool = False
 

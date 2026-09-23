@@ -67,11 +67,10 @@ async def usage_summary(
     by_model_rows = await session.execute(
         select(sub.c.model_id, func.count(), func.sum(sub.c.amount_cny)).group_by(sub.c.model_id)
     )
-    calls_rows = await session.execute(
-        select(GenerationCall.model_id, func.count())
-        .where(GenerationCall.started_at >= since)
-        .group_by(GenerationCall.model_id)
-    )
+    calls_q = select(GenerationCall.model_id, func.count()).where(GenerationCall.started_at >= since)
+    if not ({Role.ADMIN, Role.REVIEWER} & set(user.roles)):
+        calls_q = calls_q.where(GenerationCall.user_id == user.id)
+    calls_rows = await session.execute(calls_q.group_by(GenerationCall.model_id))
     calls = {r[0]: int(r[1]) for r in calls_rows.all()}
     limits = await limits_for(session, runtime.config, None, user)
     return UsageSummary(

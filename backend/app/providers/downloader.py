@@ -56,10 +56,12 @@ async def download(
                         raise ProviderError(ErrorKind.CLIENT, "下載文件超過大小上限", code="too_large")
                     fh.write(chunk)
     except httpx.TimeoutException as exc:
+        dest.unlink(missing_ok=True)
         raise ProviderError(ErrorKind.TIMEOUT, "下載超時") from exc
     except httpx.TransportError as exc:
+        dest.unlink(missing_ok=True)
         raise ProviderError(ErrorKind.SERVER, f"下載連線失敗：{type(exc).__name__}") from exc
-    except ProviderError:
+    except BaseException:
         dest.unlink(missing_ok=True)
         raise
     return dest

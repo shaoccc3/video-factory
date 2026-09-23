@@ -125,28 +125,35 @@ class Gateway:
             )
             try:
                 result = await self._retry(
-                    lambda: self.providers.llm.chat_json(model_id, messages, schema), "llm"
+                    lambda: self.providers.llm.chat_json(
+                        model_id, messages, schema, safety_identifier=ctx.safety_identifier
+                    ),
+                    "llm",
                 )
             except BaseException as exc:
+                if isinstance(exc, ProviderError) and exc.billed_tokens:
+                    await self.recorder.charge(call_id, self._llm_charge(exc.billed_tokens, 0, 0))
                 await self.recorder.fail(call_id, exc)
                 raise
-            tokens = result.usage.total_tokens
-            amount, cny = cost_per_mtok(self.config, key, tokens, self.region)
             await self.recorder.succeed(
                 call_id,
-                Charge(
-                    usage={
-                        "prompt_tokens": result.usage.prompt_tokens,
-                        "completion_tokens": result.usage.completion_tokens,
-                        "attempts": result.attempts,
-                    },
-                    unit_price=self.config.models.script_llm.price_per_mtok or 0.0,
-                    currency=self._currency(),
-                    amount=amount,
-                    amount_cny=cny,
-                ),
+                self._llm_charge(result.usage.prompt_tokens, result.usage.completion_tokens, result.attempts),
             )
             return result.value
+
+    def _llm_charge(self, prompt_tokens: int, completion_tokens: int, attempts: int) -> Charge:
+        amount, cny = cost_per_mtok(self.config, "script_llm", prompt_tokens + completion_tokens, self.region)
+        return Charge(
+            usage={
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": completion_tokens,
+                "attempts": attempts,
+            },
+            unit_price=self.config.models.script_llm.price_per_mtok or 0.0,
+            currency=self._currency(),
+            amount=amount,
+            amount_cny=cny,
+        )
 
     # ---- 關鍵幀 -------------------------------------------------------------
 
@@ -180,7 +187,13 @@ class Gateway:
             try:
                 result = await self._retry(
                     lambda: self.providers.seedream.generate(
-                        model_id, prompt, size=size, seed=seed, ref_image_urls=ref_image_urls, dest=dest
+                        model_id,
+                        prompt,
+                        size=size,
+                        seed=seed,
+                        ref_image_urls=ref_image_urls,
+                        dest=dest,
+                        safety_identifier=ctx.safety_identifier,
                     ),
                     "seedream",
                 )
@@ -260,6 +273,20 @@ class Gateway:
                 task = await self._poll(ctx, task_id)
                 if task.status == "cancelled":
                     raise JobCancelledError()
+                amount, cny = cost_per_mtok(self.config, key, task.completion_tokens, self.region)
+                already = existing_task_id is not None and await self.recorder.remote_task_charged(task_id)
+                if task.completion_tokens and not already:
+                    # 遠端任務已計費：先記賬，下載失敗也不會漏記
+                    await self.recorder.charge(
+                        call_id,
+                        Charge(
+                            usage={"completion_tokens": task.completion_tokens, **task.meta},
+                            unit_price=self.config.models.get(key).price_per_mtok or 0.0,
+                            currency=self._currency(),
+                            amount=amount,
+                            amount_cny=cny,
+                        ),
+                    )
                 if task.status == "failed":
                     raise task_error(task)
                 outputs = await self._retry(
@@ -268,17 +295,7 @@ class Gateway:
             except BaseException as exc:
                 await self.recorder.fail(call_id, exc)
                 raise
-            amount, cny = cost_per_mtok(self.config, key, task.completion_tokens, self.region)
-            await self.recorder.succeed(
-                call_id,
-                Charge(
-                    usage={"completion_tokens": task.completion_tokens, **task.meta},
-                    unit_price=self.config.models.get(key).price_per_mtok or 0.0,
-                    currency=self._currency(),
-                    amount=amount,
-                    amount_cny=cny,
-                ),
-            )
+            await self.recorder.succeed(call_id, None)
             return VideoRun(outputs=outputs, task=task, cost_cny=cny)
 
     async def _poll(self, ctx: CallContext, task_id: str) -> VideoTask:
