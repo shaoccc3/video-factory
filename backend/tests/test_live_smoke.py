@@ -55,7 +55,7 @@ async def test_seedance_live_smoke(tmp_path: Path) -> None:
             ratio="16:9",
             resolution=resolution,
             duration_s=duration,
-            seed=42,
+            seed=None,  # Seedance 2.x 不支援 seed
             generate_audio=False,
             safety_identifier=f"live-smoke-{uuid.uuid4().hex[:8]}",
         ),

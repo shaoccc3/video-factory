@@ -17,7 +17,7 @@ from app.providers.base import ChatMessage, VideoImageInput, VideoRequest
 from app.providers.downloader import download, host_allowed
 from app.providers.errors import BudgetExceededError, ProviderError, classify_code, with_retries
 from app.providers.gateway import CallContext, Gateway, JobCancelledError
-from app.providers.live import ArkLLM, ArkSeedance, parse_task
+from app.providers.live import ArkLLM, ArkSeedance, parse_task, task_error
 from app.providers.mock import MockLLM, MockSeedance, moderation_error
 from app.providers.pricing import video_tokens
 from app.providers.ratelimit import Limit, MemoryRateLimiter
@@ -75,6 +75,18 @@ def test_video_request_payload() -> None:
     assert payload["draft"] is True
     assert payload["safety_identifier"] == "user-1"
     assert "camera_fixed" not in payload
+
+
+def test_parse_task_expired_is_timeout() -> None:
+    task = parse_task({"id": "cgt-1", "status": "expired"})
+    assert task.status == "failed" and task.error_code == "TaskExpired"
+    assert task_error(task).kind is ErrorKind.TIMEOUT
+
+
+def test_video_request_payload_optional_seed_and_adaptive_ratio() -> None:
+    payload = _request(seed=None, adaptive_ratio=True).to_payload()
+    assert "seed" not in payload and payload["ratio"] == "adaptive"
+    assert _request().to_payload()["seed"] == 42 and _request().to_payload()["ratio"] == "9:16"
 
 
 def test_parse_task_success_and_failure() -> None:

@@ -274,6 +274,8 @@ class Gateway:
                     "duration": request.duration_s,
                     "seed": request.seed,
                     "images": [img.role for img in request.images],
+                    "audios": [a.role for a in request.audios],
+                    "adaptive_ratio": request.adaptive_ratio,
                     "generate_audio": request.generate_audio,
                     "draft": request.draft,
                     "resumed": existing_task_id is not None,

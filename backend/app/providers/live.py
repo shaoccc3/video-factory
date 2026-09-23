@@ -203,10 +203,17 @@ class ArkSeedance:
 
 def parse_task(data: dict[str, Any]) -> VideoTask:
     status = str(data.get("status", "queued"))
-    if status not in ("queued", "running", "succeeded", "failed", "cancelled"):
+    error = data.get("error") or {}
+    if status == "expired":
+        # 任務超過 execution_expires_after 被平台終止；按超時類錯誤處理
+        status = "failed"
+        error = {
+            "code": error.get("code") or "TaskExpired",
+            "message": error.get("message") or "影片生成任務已過期",
+        }
+    elif status not in ("queued", "running", "succeeded", "failed", "cancelled"):
         status = "running"
     content = data.get("content") or {}
-    error = data.get("error") or {}
     usage = data.get("usage") or {}
     keys = ("seed", "resolution", "ratio", "duration", "framespersecond")
     meta: dict[str, object] = {k: data[k] for k in keys if k in data}
