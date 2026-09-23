@@ -13,10 +13,13 @@ from app.core.logging import configure_logging
 from app.core.models_config import load_models_config
 from app.core.readiness import Check, postgres_check, storage_check, valkey_check
 from app.core.settings import Settings, get_settings
-from app.services.runtime import Runtime, build_runtime
+from app.pipeline.orchestrator import Dispatcher
+from app.services.runtime import Runtime, build_gateway, build_runtime
 
 
-def create_app(settings: Settings | None = None, *, runtime: Runtime | None = None) -> FastAPI:
+def create_app(
+    settings: Settings | None = None, *, runtime: Runtime | None = None, dispatcher: Dispatcher | None = None
+) -> FastAPI:
     settings = settings or get_settings()
     configure_logging(settings.log_level, json=settings.log_json)
     config = runtime.config if runtime else load_models_config(settings.models_config_path)
@@ -36,6 +39,13 @@ def create_app(settings: Settings | None = None, *, runtime: Runtime | None = No
     app.state.settings = settings
     app.state.models_config = config
     app.state.runtime = rt
+    app.state.gateway = build_gateway(rt)
+    if dispatcher is None:
+        from app.workers import app as celery_app
+        from app.workers.dispatch import CeleryDispatcher
+
+        dispatcher = CeleryDispatcher(celery_app)
+    app.state.dispatcher = dispatcher
     checks: dict[str, Check] = {
         "postgres": postgres_check(rt.engine),
         "storage": storage_check(rt.storage),

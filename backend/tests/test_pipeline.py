@@ -24,11 +24,6 @@ pytestmark = pytest.mark.anyio
 
 
 @pytest.fixture
-def dispatcher(runtime: Runtime, gateway: Gateway) -> InlineDispatcher:
-    return InlineDispatcher(runtime, gateway)
-
-
-@pytest.fixture
 async def templates(runtime: Runtime) -> dict[str, Template]:
     return await setup_templates(runtime)
 

@@ -1,6 +1,7 @@
 import uuid
 from collections.abc import AsyncIterator
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import httpx
 import pytest
@@ -11,6 +12,9 @@ from app.main import create_app
 from app.models import Base, User
 from app.providers.gateway import Gateway
 from app.services.runtime import Runtime, build_gateway, build_runtime
+
+if TYPE_CHECKING:
+    from tests.helpers import InlineDispatcher
 
 
 @pytest.fixture
@@ -81,8 +85,15 @@ async def user(runtime: Runtime) -> User:
 
 
 @pytest.fixture
-def app(settings: Settings, runtime: Runtime) -> FastAPI:
-    return create_app(settings, runtime=runtime)
+def dispatcher(runtime: Runtime, gateway: Gateway) -> "InlineDispatcher":
+    from tests.helpers import InlineDispatcher
+
+    return InlineDispatcher(runtime, gateway)
+
+
+@pytest.fixture
+def app(settings: Settings, runtime: Runtime, dispatcher: "InlineDispatcher") -> FastAPI:
+    return create_app(settings, runtime=runtime, dispatcher=dispatcher)
 
 
 @pytest.fixture
