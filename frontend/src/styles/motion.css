@@ -1,0 +1,240 @@
+/* 動畫規範（規格 14 第 2 節）：只動 transform／opacity；減少動態效果時全部停下 */
+@keyframes vf-kb {
+  from {
+    transform: scale(1.04) translate3d(0, 0, 0);
+  }
+  to {
+    transform: scale(1.16) translate3d(-2.5%, -1.5%, 0);
+  }
+}
+
+@keyframes vf-kb-alt {
+  from {
+    transform: scale(1.15) translate3d(-2%, 1.5%, 0);
+  }
+  to {
+    transform: scale(1.03) translate3d(1.5%, 0, 0);
+  }
+}
+
+@keyframes vf-push {
+  from {
+    transform: scale(1.02);
+  }
+  to {
+    transform: scale(1.22) translate3d(-1%, 2%, 0);
+  }
+}
+
+@keyframes vf-pull {
+  from {
+    transform: scale(1.22);
+  }
+  to {
+    transform: scale(1.02);
+  }
+}
+
+@keyframes vf-pan {
+  from {
+    transform: scale(1.12) translate3d(4%, 0, 0);
+  }
+  to {
+    transform: scale(1.12) translate3d(-4%, 0, 0);
+  }
+}
+
+@keyframes vf-orbit {
+  from {
+    transform: scale(1.14) rotate(-1.2deg) translate3d(2%, 0, 0);
+  }
+  to {
+    transform: scale(1.14) rotate(1.2deg) translate3d(-2%, 0, 0);
+  }
+}
+
+@keyframes vf-breathe {
+  from {
+    transform: scale(1.03);
+  }
+  to {
+    transform: scale(1.07) translate3d(0, -1%, 0);
+  }
+}
+
+@keyframes vf-grain {
+  0% {
+    transform: translate(0, 0);
+  }
+  20% {
+    transform: translate(-6%, 4%);
+  }
+  40% {
+    transform: translate(5%, -7%);
+  }
+  60% {
+    transform: translate(-3%, 8%);
+  }
+  80% {
+    transform: translate(7%, 2%);
+  }
+  100% {
+    transform: translate(0, 0);
+  }
+}
+
+@keyframes vf-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes vf-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.15;
+  }
+}
+
+@keyframes vf-scan {
+  from {
+    transform: translateX(-120%);
+  }
+  to {
+    transform: translateX(520%);
+  }
+}
+
+@keyframes vf-bars {
+  0%,
+  100% {
+    transform: scaleY(0.3);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes vf-stripes {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 0 45px;
+  }
+}
+
+@keyframes vf-drift {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-60px);
+  }
+}
+
+@keyframes vf-fill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes vf-clap {
+  0% {
+    transform: rotate(-16deg);
+  }
+  55% {
+    transform: rotate(1.5deg);
+  }
+  75% {
+    transform: rotate(-1deg);
+  }
+  100% {
+    transform: rotate(0);
+  }
+}
+
+@keyframes vf-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.vf-rise {
+  animation: vf-rise 0.8s var(--vf-ease) both;
+}
+
+.vf-rise-2 {
+  animation: vf-rise 0.9s var(--vf-ease) both 0.12s;
+}
+
+.vf-rise-3 {
+  animation: vf-rise 0.9s var(--vf-ease) both 0.24s;
+}
+
+/* 懸停放大畫面、浮出動作 */
+.vf-zoom img,
+.vf-zoom video {
+  transition:
+    transform 1.4s var(--vf-ease),
+    filter 0.6s;
+}
+
+.vf-zoom:hover img,
+.vf-zoom:hover video,
+.vf-zoom:focus-within img {
+  transform: scale(1.06);
+  filter: brightness(1.1) saturate(1.06);
+}
+
+.vf-zoom .vf-reveal {
+  opacity: 0;
+  transform: translateY(8px);
+  transition:
+    opacity 0.35s,
+    transform 0.35s;
+}
+
+.vf-zoom:hover .vf-reveal,
+.vf-zoom:focus-within .vf-reveal {
+  opacity: 1;
+  transform: none;
+}
+
+.vf-rec-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--vf-rec);
+  animation: vf-pulse 1.2s ease-in-out infinite;
+}
+
+/* 分頁在背景時暫停所有動畫（html.vf-hidden 由 useDocumentVisibility 設定） */
+html.vf-hidden *,
+html.vf-hidden *::before,
+html.vf-hidden *::after {
+  animation-play-state: paused !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

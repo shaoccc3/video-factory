@@ -12,6 +12,7 @@ import {
 import { ApiError } from "./api/client";
 import { queryKeys } from "./api/hooks";
 import { AuthGuard, RequireRole } from "./auth/auth";
+import { usePauseAnimationsWhenHidden } from "./hooks/motion";
 import { ANTD_LOCALES, DEFAULT_LANGUAGE, isLanguage } from "./i18n";
 import { AppLayout } from "./pages/AppLayout";
 import { AssetsPage } from "./pages/AssetsPage";
@@ -25,6 +26,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { ReviewDetailPage, ReviewsPage } from "./pages/ReviewsPage";
 import { UsagePage } from "./pages/UsagePage";
+import { studioTheme } from "./theme";
 
 export const routes: RouteObject[] = [
   { path: "/login", element: <LoginPage /> },
@@ -115,9 +117,14 @@ export function App({ initialPath, queryClient: injected }: AppProps) {
       : createMemoryRouter(routes, { initialEntries: [initialPath] }),
   );
   const language = isLanguage(i18n.language) ? i18n.language : DEFAULT_LANGUAGE;
+  usePauseAnimationsWhenHidden();
 
   return (
-    <ConfigProvider locale={ANTD_LOCALES[language]} button={{ autoInsertSpace: false }}>
+    <ConfigProvider
+      locale={ANTD_LOCALES[language]}
+      theme={studioTheme}
+      button={{ autoInsertSpace: false }}
+    >
       <AntdApp>
         <QueryClientProvider client={queryClient}>
           <RouterProvider router={router} />

@@ -1,0 +1,12 @@
+.vf-grain {
+  position: fixed;
+  inset: -50%;
+  z-index: 1000;
+  pointer-events: none;
+  background-image: var(--vf-grain-image);
+  background-size: 240px 240px;
+  opacity: 0.1;
+  mix-blend-mode: overlay;
+  will-change: transform;
+  animation: vf-grain 1.1s steps(6) infinite;
+}
