@@ -142,3 +142,23 @@ def test_llm_prices_come_in_pairs() -> None:
 def test_image_sizes_format() -> None:
     with pytest.raises(ValidationError, match="寬x高"):
         ModelEntry.model_validate({"id": "m", "price_per_image": 0.035, "image_sizes": {"9:16": "big"}})
+
+
+def test_video_model_needs_a_price_for_every_resolution() -> None:
+    with pytest.raises(ValidationError, match="影片模型缺少單價"):
+        ModelEntry.model_validate(
+            {"id": "m", "price_per_mtok_by_resolution": {"720p": 7.0}, "capabilities": _CAPS}
+        )
+    entry = ModelEntry.model_validate(
+        {"id": "m", "price_per_mtok_by_resolution": {"480p": 7.0, "720p": 7.0}, "capabilities": _CAPS}
+    )
+    assert entry.price_per_mtok is None
+
+
+def test_keyframe_sizes_must_cover_video_ratios(tmp_path: Path) -> None:
+    text = REPO_CONFIG.read_text(encoding="utf-8").replace('      "21:9": "3136x1344"\n', "")
+    assert '"21:9": "3136x1344"' not in text
+    path = tmp_path / "models.yaml"
+    path.write_text(text, encoding="utf-8")
+    with pytest.raises(ModelsConfigError, match=r"image_sizes 缺少 video_draft 的畫幅"):
+        load_models_config(path)

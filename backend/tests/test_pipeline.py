@@ -6,12 +6,12 @@ import pytest
 from sqlalchemy import func, select, update
 
 from app.media.ffmpeg import probe
-from app.models import Asset, Batch, CostLedger, GenerationCall, Scene, Template, User
+from app.models import Asset, Batch, CostLedger, GenerationCall, Job, Scene, Template, User
 from app.models.enums import AssetKind, AudioMode, JobStatus, SceneStatus
 from app.pipeline import orchestrator
 from app.pipeline.common import StoryboardRules, check_storyboard, normalize_storyboard
 from app.pipeline.content_check import check_texts, load_blocklist
-from app.pipeline.generation import FIRST_FRAME_REFERENCE_HINT, keyframe_size
+from app.pipeline.generation import FIRST_FRAME_REFERENCE_HINT, _image_mime, keyframe_size
 from app.pipeline.orchestrator import ActionError
 from app.pipeline.schemas import SceneDraft
 from app.providers.gateway import Gateway
@@ -145,12 +145,41 @@ async def test_tts_mode_still_works_in_volcengine(
     assert (await calls_by_provider(runtime))["tts"] >= 4
 
 
-async def test_consistent_voice_uses_first_shot_audio(
+async def test_consistent_voice_skipped_without_visual_on_seedance_2_0(
     runtime: Runtime, dispatcher: InlineDispatcher, templates: dict[str, Template], user: User
 ) -> None:
+    """規格 13：Seedance 2.0 不支援只送參考音頻；後續鏡頭都沒有圖時不送，也不必等第一鏡。"""
     job = await new_job(
         runtime, user, templates["marketing_multi"], consistent_voice=True, voice_style="沉穩男聲"
     )
+    await orchestrator.submit(runtime, dispatcher, job.id)
+    await dispatcher.drain()
+    await orchestrator.confirm_storyboard(runtime, dispatcher, job.id)
+    scenes = await scenes_of(runtime, job.id)
+    assert len(scenes) >= 3
+    assert [k for k, _ in dispatcher.queue] == ["scene"] * len(scenes)  # 全部鏡頭同時派發
+    await dispatcher.drain()
+    assert (await reload(runtime, job.id)).status == JobStatus.IN_REVIEW
+    created = seedance(runtime).created
+    assert len(created) == len(scenes) and all(r.audios == () for r in created)
+    # 只有第一鏡有關鍵幀首幀；後續鏡頭沒有任何圖
+    assert sum(1 for r in created if r.images) <= 1
+
+
+async def test_consistent_voice_audio_only_on_seedance_2_5(
+    runtime: Runtime, dispatcher: InlineDispatcher, templates: dict[str, Template], user: User
+) -> None:
+    """Seedance 2.5 可以只送參考音頻：先只做第一鏡，第 2 鏡起帶第一鏡的聲音。"""
+    job = await new_job(
+        runtime, user, templates["marketing_multi"], consistent_voice=True, voice_style="沉穩男聲"
+    )
+    async with runtime.sessionmaker() as s:
+        await s.execute(
+            update(Job)
+            .where(Job.id == job.id)
+            .values(template_snapshot={**job.template_snapshot, "video_model": "video_long"})
+        )
+        await s.commit()
     await orchestrator.submit(runtime, dispatcher, job.id)
     await dispatcher.drain()
     await orchestrator.confirm_storyboard(runtime, dispatcher, job.id)
@@ -158,10 +187,9 @@ async def test_consistent_voice_uses_first_shot_audio(
     await dispatcher.drain()
     assert (await reload(runtime, job.id)).status == JobStatus.IN_REVIEW
     created = seedance(runtime).created
-    assert created[0].audios == ()
-    assert len(created) >= 3
-    # 規格 13：Seedance 2.0 不支援只送參考音頻；沒有任何參考圖時不送
-    assert all(r.images == () and r.audios == () for r in created[1:])
+    assert all(r.model_id == runtime.config.models.get("video_long").id for r in created)
+    assert created[0].audios == () and len(created) >= 3
+    assert all(r.images == () and [a.role for a in r.audios] == ["reference_audio"] for r in created[1:])
     scenes = await scenes_of(runtime, job.id)
     assert scenes[0].audio_asset_id is not None
 
@@ -415,6 +443,13 @@ async def test_storyboard_fix_round(
     assert len(llm.calls) == 2
     assert "鏡頭數必須在" in llm.calls[1][-1].content
     assert len(await scenes_of(runtime, job.id)) == 4
+
+
+def test_last_frame_mime_follows_file_header(tmp_path: Path) -> None:
+    jpeg, png = tmp_path / "a.png", tmp_path / "b.jpg"
+    jpeg.write_bytes(b"\xff\xd8\xff\xe0" + b"0" * 28)
+    png.write_bytes(b"\x89PNG\r\n\x1a\n" + b"0" * 24)
+    assert _image_mime(jpeg) == "image/jpeg" and _image_mime(png) == "image/png"
 
 
 async def test_seedream_keyframe_size_uses_config_table(runtime: Runtime) -> None:

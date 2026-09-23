@@ -92,6 +92,13 @@ class ModelEntry(_Strict):
     def _check(self) -> "ModelEntry":
         if (self.price_per_mtok_input is None) != (self.price_per_mtok_output is None):
             raise ValueError("price_per_mtok_input 與 price_per_mtok_output 要一起填")
+        if self.capabilities is not None and self.price_per_mtok is None:
+            covered = set(self.price_per_mtok_by_resolution or {})
+            missing = sorted(set(self.capabilities.resolutions) - covered)
+            if missing:
+                raise ValueError(
+                    f"影片模型缺少單價：填 price_per_mtok，或讓 price_per_mtok_by_resolution 涵蓋 {missing}"
+                )
         if self.price_per_mtok_by_resolution:
             if self.capabilities is None:
                 raise ValueError("price_per_mtok_by_resolution 只用於有 capabilities 的影片模型")
@@ -117,6 +124,12 @@ class Models(_Strict):
             entry = getattr(self, key)
             if entry is not None and entry.capabilities is None:
                 raise ValueError(f"{key} 缺少 capabilities")
+            # 關鍵幀按任務畫幅選尺寸；缺畫幅時會退回影片寬高，Seedream 5.0 會拒絕
+            sizes = self.keyframe.image_sizes
+            if entry is not None and entry.capabilities is not None and sizes is not None:
+                missing = [r for r in entry.capabilities.ratios if r not in sizes]
+                if missing:
+                    raise ValueError(f"keyframe.image_sizes 缺少 {key} 的畫幅：{missing}")
         return self
 
     def get(self, key: ModelKey) -> ModelEntry:

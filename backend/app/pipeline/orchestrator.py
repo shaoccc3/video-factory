@@ -15,7 +15,7 @@ from sqlalchemy import func, select, update
 
 from app.models import Batch, Job, Scene, User
 from app.models.enums import ErrorKind, JobPhase, JobStatus, SceneStatus, VideoType
-from app.pipeline.common import job_options
+from app.pipeline.common import job_options, voice_reference_usable
 from app.pipeline.composing import compose_job
 from app.pipeline.estimate import estimate_job
 from app.pipeline.generation import generate_scene_video
@@ -229,8 +229,12 @@ async def advance(runtime: Runtime, dispatcher: Dispatcher, job_id: uuid.UUID) -
                 nxt = pending[0]
                 earlier_ok = all(s.status == SceneStatus.SUCCEEDED for s in scenes if s.index < nxt.index)
                 candidates = [nxt] if earlier_ok and not in_flight else []
-            elif opts.consistent_voice and first.status != SceneStatus.SUCCEEDED:
-                # 聲音一致：第一鏡的聲音是後續鏡頭的參考音頻，先只做第一鏡
+            elif (
+                opts.consistent_voice
+                and first.status != SceneStatus.SUCCEEDED
+                and voice_reference_usable(runtime.config, job, scenes)
+            ):
+                # 聲音一致：第一鏡的聲音是後續鏡頭的參考音頻，先只做第一鏡；模型用不上參考音頻時不必等
                 candidates = [first] if first.status == SceneStatus.PENDING else []
             else:
                 candidates = pending

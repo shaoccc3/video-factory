@@ -44,7 +44,8 @@ async def test_downloads_do_not_carry_api_key(tmp_path: Path) -> None:
         video_url="https://tos.volces.com/v.mp4?X-Amz-Signature=abc",
         last_frame_url="https://tos.volces.com/l.png",
     )
-    await sd.fetch_outputs(task, tmp_path)
+    outputs = await sd.fetch_outputs(task, tmp_path)
+    assert outputs.last_frame is not None and outputs.last_frame.name == "last_frame.jpg"  # 官方返回 JPEG
     await http.request("GET", "/x")
     assert seen["tos.volces.com"] is None
     assert seen["ark.test"] == "Bearer real-key"

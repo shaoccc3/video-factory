@@ -195,7 +195,7 @@ class ArkSeedance:
             last = await download(
                 self._http.downloader,
                 task.last_frame_url,
-                dest_dir / "last_frame.png",
+                dest_dir / "last_frame.jpg",  # return_last_frame 返回 JPEG
                 allowed_hosts=self._allowed,
                 max_bytes=self._max,
             )
