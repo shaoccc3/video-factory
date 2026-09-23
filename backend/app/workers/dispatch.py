@@ -8,6 +8,7 @@ TASK_SCRIPT = "video_factory.script"
 TASK_SCENE = "video_factory.scene"
 TASK_COMPOSE = "video_factory.compose"
 TASK_BATCH = "video_factory.batch"
+TASK_KEYFRAME = "video_factory.keyframe"
 
 
 class CeleryDispatcher:
@@ -25,3 +26,6 @@ class CeleryDispatcher:
 
     def batch(self, batch_id: uuid.UUID) -> None:
         self._app.send_task(TASK_BATCH, args=[str(batch_id)])
+
+    def keyframe(self, job_id: uuid.UUID, scene_id: uuid.UUID) -> None:
+        self._app.send_task(TASK_KEYFRAME, args=[str(job_id), str(scene_id)])
