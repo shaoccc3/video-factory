@@ -19,15 +19,15 @@ import {
   Tag,
   Typography,
 } from "antd";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { api } from "../api/client";
-import { useTemplates } from "../api/hooks";
+import { useMeta, useTemplates } from "../api/hooks";
 import {
-  AUDIO_MODES,
   type AudioMode,
   type JobCreate,
+  type PlatformMeta,
   RATIOS,
   type Ratio,
   type Template,
@@ -48,7 +48,28 @@ export interface WizardValues {
   audio_mode: AudioMode;
   draft_mode: boolean;
   continuous_shots: boolean;
+  /** 以下三項只在 audio_mode = native 時送出（v1.1） */
+  voice_style?: string;
+  music?: string;
+  consistent_voice?: boolean;
 }
+
+/** 精靈裡聲音方式的顯示順序：原生聲音優先 */
+const AUDIO_MODE_ORDER: readonly AudioMode[] = ["native", "tts", "none"];
+
+/** 依 /meta 決定可選的聲音方式；/meta 尚未載入或失敗時不隱藏任何選項 */
+export function availableAudioModes(meta: PlatformMeta | undefined): AudioMode[] {
+  if (!meta) return [...AUDIO_MODE_ORDER];
+  const allowed = new Set(meta.audio_modes.length > 0 ? meta.audio_modes : AUDIO_MODE_ORDER);
+  return AUDIO_MODE_ORDER.filter((m) => allowed.has(m) && (m !== "tts" || meta.tts_available));
+}
+
+/** 模板預設的聲音方式在目前區域不可用時改用 native */
+export function defaultAudioMode(template: Template, meta: PlatformMeta | undefined): AudioMode {
+  return availableAudioModes(meta).includes(template.audio_mode) ? template.audio_mode : "native";
+}
+
+const MAX_VOICE_TEXT = 100;
 
 /** 把精靈表單轉成 JobCreate（只送契約內的欄位） */
 export function buildJobCreate(template: Template, values: WizardValues): JobCreate {
@@ -68,6 +89,14 @@ export function buildJobCreate(template: Template, values: WizardValues): JobCre
     body.image_asset_id = values.image_asset_ids?.[0] ?? null;
   } else {
     body.product_asset_ids = values.product_asset_ids ?? [];
+  }
+  if (values.audio_mode === "native") {
+    // 空字串不送，讓後端用預設值
+    const voiceStyle = values.voice_style?.trim() ?? "";
+    const music = values.music?.trim() ?? "";
+    if (voiceStyle) body.voice_style = voiceStyle;
+    if (music) body.music = music;
+    body.consistent_voice = values.consistent_voice ?? false;
   }
   return body;
 }
@@ -107,6 +136,9 @@ function TemplateCard({
           {template.min_duration_s}–{template.max_duration_s}s
         </Tag>
         <Tag>{t(`audioMode.${template.audio_mode}`)}</Tag>
+        {template.video_model === "video_long" && (
+          <Tag color="purple">{t("wizard.longShotTag")}</Tag>
+        )}
       </Flex>
     </Card>
   );
@@ -116,6 +148,7 @@ export function JobWizardPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const templates = useTemplates();
+  const meta = useMeta();
   const [form] = Form.useForm<WizardValues>();
   const [step, setStep] = useState(0);
   const [templateId, setTemplateId] = useState<string | null>(null);
@@ -125,17 +158,33 @@ export function JobWizardPage() {
 
   const template = templates.data?.find((tpl) => tpl.id === templateId) ?? null;
   const isQuick = template?.video_type === "quick";
+  const audioModes = availableAudioModes(meta.data);
+  const audioMode = Form.useWatch("audio_mode", { form, preserve: true }) as AudioMode | undefined;
+  /** 模板預設 TTS，但目前區域不提供 */
+  const ttsFallback = template?.audio_mode === "tts" && !audioModes.includes("tts");
 
   const selectTemplate = (tpl: Template) => {
     setTemplateId(tpl.id);
     form.setFieldsValue({
       ratio: tpl.ratio,
-      audio_mode: tpl.audio_mode,
+      audio_mode: defaultAudioMode(tpl, meta.data),
       target_duration_s: null,
       draft_mode: false,
       continuous_shots: false,
+      voice_style: "",
+      music: "",
+      consistent_voice: false,
     });
   };
+
+  // /meta 在選模板之後才載入時，把已不可用的聲音方式改回 native
+  useEffect(() => {
+    if (!meta.data || !template) return;
+    const current = form.getFieldValue("audio_mode") as AudioMode | undefined;
+    if (current && !availableAudioModes(meta.data).includes(current)) {
+      form.setFieldsValue({ audio_mode: "native" });
+    }
+  }, [meta.data, template, form]);
 
   const next = async () => {
     if (step === 0) {
@@ -297,9 +346,44 @@ export function JobWizardPage() {
             >
               <Select
                 style={{ width: 240 }}
-                options={AUDIO_MODES.map((m) => ({ value: m, label: t(`audioMode.${m}`) }))}
+                options={audioModes.map((m) => ({ value: m, label: t(`wizard.audioOption.${m}`) }))}
               />
             </Form.Item>
+            {ttsFallback && (
+              <Alert
+                type="info"
+                showIcon
+                title={t("wizard.ttsUnavailable")}
+                style={{ marginBottom: 16 }}
+                data-testid="tts-unavailable"
+              />
+            )}
+            {audioMode === "native" && (
+              <>
+                <Form.Item name="voice_style" label={t("wizard.fields.voiceStyle")}>
+                  <Input
+                    maxLength={MAX_VOICE_TEXT}
+                    showCount
+                    placeholder={t("wizard.fields.voiceStylePlaceholder")}
+                  />
+                </Form.Item>
+                <Form.Item name="music" label={t("wizard.fields.music")}>
+                  <Input
+                    maxLength={MAX_VOICE_TEXT}
+                    showCount
+                    placeholder={t("wizard.fields.musicPlaceholder")}
+                  />
+                </Form.Item>
+                <Form.Item
+                  name="consistent_voice"
+                  label={t("wizard.fields.consistentVoice")}
+                  valuePropName="checked"
+                  tooltip={t("wizard.fields.consistentVoiceHelp")}
+                >
+                  <Switch />
+                </Form.Item>
+              </>
+            )}
             <Form.Item
               name="draft_mode"
               label={t("wizard.fields.draftMode")}
@@ -356,6 +440,25 @@ export function JobWizardPage() {
                 label: t("wizard.fields.audioMode"),
                 children: values.audio_mode ? t(`audioMode.${values.audio_mode}`) : "—",
               },
+              ...(values.audio_mode === "native"
+                ? [
+                    {
+                      key: "voice_style",
+                      label: t("wizard.fields.voiceStyle"),
+                      children: values.voice_style?.trim() || "—",
+                    },
+                    {
+                      key: "music",
+                      label: t("wizard.fields.music"),
+                      children: values.music?.trim() || "—",
+                    },
+                    {
+                      key: "consistent_voice",
+                      label: t("wizard.fields.consistentVoice"),
+                      children: values.consistent_voice ? t("common.yes") : t("common.no"),
+                    },
+                  ]
+                : []),
               {
                 key: "draft",
                 label: t("wizard.fields.draftMode"),

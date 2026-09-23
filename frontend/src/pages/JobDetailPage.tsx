@@ -171,6 +171,25 @@ export function JobDetailPage() {
               label: t("wizard.fields.audioMode"),
               children: t(`audioMode.${data.options.audio_mode}`),
             },
+            ...(data.options.audio_mode === "native"
+              ? [
+                  {
+                    key: "voice_style",
+                    label: t("wizard.fields.voiceStyle"),
+                    children: data.options.voice_style || "—",
+                  },
+                  {
+                    key: "music",
+                    label: t("wizard.fields.music"),
+                    children: data.options.music || "—",
+                  },
+                  {
+                    key: "consistent_voice",
+                    label: t("wizard.fields.consistentVoice"),
+                    children: data.options.consistent_voice ? t("common.yes") : t("common.no"),
+                  },
+                ]
+              : []),
             { key: "owner", label: t("jobs.columns.owner"), children: data.owner_name },
             {
               key: "created",

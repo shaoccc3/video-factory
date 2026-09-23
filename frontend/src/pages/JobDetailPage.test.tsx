@@ -2,7 +2,7 @@ import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { JobDetail } from "../api/types";
-import { makeEstimate, makeJob, makeScene, makeUser } from "../test/fixtures";
+import { makeEstimate, makeJob, makeMeta, makeScene, makeUser } from "../test/fixtures";
 import { json, mockApi, renderApp } from "../test/utils";
 
 const scenes = [
@@ -60,6 +60,69 @@ describe("分鏡確認", () => {
     await userEvent.click(await screen.findByRole("button", { name: "確定" }));
     await waitFor(() => expect(api.find("POST", "/jobs/job-1/confirm-storyboard")).toHaveLength(1));
     expect(await screen.findByTestId("job-status")).toHaveAttribute("data-status", "generating");
+  });
+
+  it("旁白顯示字數與建議上限（時長 × chars_per_second），超過時警告但仍可儲存", async () => {
+    const job = storyboardJob();
+    const api = mockApi({
+      ...baseRoutes(job),
+      "GET /meta": makeMeta({ chars_per_second: 3.5 }),
+      "PATCH /jobs/job-1/scenes/s-0": job,
+    });
+    renderApp("/jobs/job-1");
+
+    const card = await screen.findByTestId("scene-editor-0");
+    // 5 秒 × 3.5 = 17.5 → 建議上限 17 字；「清晨的茶園」5 字
+    const counter = await within(card).findByTestId("narration-count-0");
+    await waitFor(() => expect(counter).toHaveTextContent("5／建議上限 17 字"));
+    expect(counter).toHaveAttribute("data-over", "false");
+
+    const narration = within(card).getByLabelText("旁白");
+    await userEvent.clear(narration);
+    await userEvent.type(narration, "晨霧裡的茶園，陽光慢慢灑落在每一片嫩綠的葉子上");
+    expect(counter).toHaveTextContent("23／建議上限 17 字");
+    expect(counter).toHaveAttribute("data-over", "true");
+    expect(counter).toHaveTextContent("超過建議上限");
+
+    // 時長拉長後上限跟著變
+    const duration = within(card).getByLabelText("時長");
+    await userEvent.clear(duration);
+    await userEvent.type(duration, "8");
+    expect(counter).toHaveTextContent("23／建議上限 28 字");
+    expect(counter).toHaveAttribute("data-over", "false");
+    await userEvent.clear(duration);
+    await userEvent.type(duration, "5");
+    expect(counter).toHaveAttribute("data-over", "true");
+
+    // 不阻擋儲存
+    await userEvent.click(within(card).getByRole("button", { name: /儲存此鏡頭/ }));
+    await waitFor(() => expect(api.find("PATCH", "/jobs/job-1/scenes/s-0")).toHaveLength(1));
+    expect(api.find("PATCH", "/jobs/job-1/scenes/s-0")[0]?.body).toEqual({
+      narration: "晨霧裡的茶園，陽光慢慢灑落在每一片嫩綠的葉子上",
+    });
+  });
+
+  it("修改說話者與音效時 PATCH 只帶這兩個欄位", async () => {
+    const job = storyboardJob();
+    const api = mockApi({
+      ...baseRoutes(job),
+      "PATCH /jobs/job-1/scenes/s-1": job,
+    });
+    renderApp("/jobs/job-1");
+
+    const card = await screen.findByTestId("scene-editor-1");
+    const speaker = within(card).getByLabelText("說話者");
+    expect(speaker).toHaveValue("旁白");
+    await userEvent.clear(speaker);
+    await userEvent.type(speaker, "一位年輕女店員");
+    await userEvent.type(within(card).getByLabelText("音效"), "倒茶水聲");
+    await userEvent.click(within(card).getByRole("button", { name: /儲存此鏡頭/ }));
+
+    await waitFor(() => expect(api.find("PATCH", "/jobs/job-1/scenes/s-1")).toHaveLength(1));
+    expect(api.find("PATCH", "/jobs/job-1/scenes/s-1")[0]?.body).toEqual({
+      speaker: "一位年輕女店員",
+      sound: "倒茶水聲",
+    });
   });
 
   it("allowed_actions 不含編輯與確認時，欄位唯讀且不顯示按鈕", async () => {
@@ -155,6 +218,40 @@ describe("任務詳情", () => {
         target: "video",
       }),
     );
+  });
+
+  it("原生聲音任務顯示聲音風格、配樂、聲音一致；分鏡卡片顯示說話者與音效", async () => {
+    const job = makeJob({
+      status: "generating",
+      options: {
+        ...makeJob().options,
+        audio_mode: "native",
+        voice_style: "溫暖的年輕女聲",
+        music: "none",
+        consistent_voice: true,
+      },
+      scenes: [
+        makeScene({ speaker: "一位年輕女店員", sound: "倒茶水聲" }),
+        makeScene({ id: "s-1", index: 1, speaker: "", sound: "" }),
+      ],
+    });
+    mockApi(baseRoutes(job));
+    renderApp("/jobs/job-1");
+    expect(await screen.findByText("溫暖的年輕女聲")).toBeInTheDocument();
+    expect(screen.getByText("none")).toBeInTheDocument();
+    expect(screen.getByText("聲音一致（較慢）")).toBeInTheDocument();
+
+    expect(screen.getByTestId("scene-speaker-0")).toHaveTextContent("說話者：一位年輕女店員");
+    expect(screen.getByTestId("scene-sound-0")).toHaveTextContent("音效：倒茶水聲");
+    expect(screen.queryByTestId("scene-speaker-1")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("scene-sound-1")).not.toBeInTheDocument();
+  });
+
+  it("TTS 任務不顯示原生聲音的設定", async () => {
+    mockApi(baseRoutes(makeJob({ status: "generating" })));
+    renderApp("/jobs/job-1");
+    expect(await screen.findByText("TTS 配音")).toBeInTheDocument();
+    expect(screen.queryByText("聲音風格")).not.toBeInTheDocument();
   });
 
   it("有 download 動作時顯示下載連結", async () => {

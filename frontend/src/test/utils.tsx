@@ -2,6 +2,7 @@ import { QueryClient } from "@tanstack/react-query";
 import { render } from "@testing-library/react";
 import { vi } from "vitest";
 import { App } from "../App";
+import { makeMeta } from "./fixtures";
 
 export interface RecordedCall {
   method: string;
@@ -27,11 +28,18 @@ function isResponseSpec(
   return typeof value === "object" && value !== null && "__response" in value;
 }
 
+/** 每個測試都有的預設路由；個別測試可覆寫 */
+const DEFAULT_ROUTES: Record<string, Handler | unknown> = {
+  "GET /meta": makeMeta(),
+};
+
 /**
  * 以 "METHOD /path" 為鍵的假後端；路徑不含 /api/v1 前綴與查詢字串。
  * 找不到對應時回 404，並記錄所有請求供斷言。
+ * GET /meta 預設回 makeMeta()，需要其他值時在 routes 覆寫。
  */
-export function mockApi(routes: Record<string, Handler | unknown>): MockApi {
+export function mockApi(overrides: Record<string, Handler | unknown>): MockApi {
+  const routes = { ...DEFAULT_ROUTES, ...overrides };
   const calls: RecordedCall[] = [];
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(String(input), "http://localhost");

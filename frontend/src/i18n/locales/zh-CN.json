@@ -40,9 +40,13 @@
     "training": "培训讲解片"
   },
   "audioMode": {
-    "tts": "TTS 旁白",
-    "native": "模型原生音频",
+    "tts": "TTS 配音",
+    "native": "模型原生声音",
     "none": "无声"
+  },
+  "videoModel": {
+    "video_final": "Seedance 2.0",
+    "video_long": "Seedance 2.5（最长 30 秒）"
   },
   "jobStatus": {
     "draft": "草稿",
@@ -161,12 +165,25 @@
       "ratio": "画幅",
       "duration": "目标时长",
       "durationHelp": "留空由模板决定（{{min}}～{{max}} 秒）",
-      "audioMode": "音频方式",
+      "audioMode": "声音方式",
       "draftMode": "样片模式",
       "draftModeHelp": "先用低成本样片确认效果，满意后再出正片",
       "continuousShots": "连续镜头",
-      "continuousShotsHelp": "以上一镜头的尾帧作为下一镜头的首帧，画面更连贯但只能依序生成"
+      "continuousShotsHelp": "以上一镜头的尾帧作为下一镜头的首帧，画面更连贯但只能依序生成",
+      "voiceStyle": "声音风格",
+      "voiceStylePlaceholder": "例如：温暖、语速适中的年轻女声，普通话",
+      "music": "配乐",
+      "musicPlaceholder": "例如：轻快的钢琴；填 none 表示不要配乐",
+      "consistentVoice": "声音一致（较慢）",
+      "consistentVoiceHelp": "以第一镜的声音作为后续镜头的参考音频，全片声音更一致；后续镜头要等第一镜完成才开始生成，所以较慢。"
     },
+    "audioOption": {
+      "native": "模型原生声音（推荐）",
+      "tts": "TTS 配音",
+      "none": "无声"
+    },
+    "ttsUnavailable": "当前区域不提供 TTS 配音，已改用模型原生声音。",
+    "longShotTag": "Seedance 2.5 长镜头",
     "assetCount": "已选 {{count}} 个",
     "durationAuto": "由模板决定",
     "submitHint": "提交后会先由大模型撰写脚本与分镜，确认分镜前不会生成视频。",
@@ -195,12 +212,19 @@
     "summary": "共 {{count}} 个镜头，约 {{seconds}} 秒",
     "sceneTitle": "镜头 {{index}}",
     "narration": "旁白",
+    "narrationCount": "{{count}} 字",
+    "narrationCountLimit": "{{count}}／建议上限 {{max}} 字",
+    "narrationTooLong": "超过建议上限，这个时长可能念不完",
     "visualPrompt": "画面描述",
     "visualRequired": "请输入画面描述",
     "shotType": "景别",
     "cameraMove": "运镜",
     "duration": "时长",
     "screenText": "画面文字",
+    "speaker": "说话者",
+    "speakerPlaceholder": "旁白或角色泛称，例如：一位年轻女店员",
+    "sound": "音效",
+    "soundPlaceholder": "例如：清晨鸟鸣、倒茶水声",
     "needsFirstFrame": "需要首帧",
     "firstFrame": "首帧",
     "replaceFirstFrame": "从素材库替换首帧",
@@ -235,7 +259,9 @@
     "attempt": "第 {{count}} 次",
     "regenerateVideo": "重做",
     "regenerateKeyframe": "重做关键帧",
-    "regenerateConfirm": "重做这个镜头会产生额外费用，确定？"
+    "regenerateConfirm": "重做这个镜头会产生额外费用，确定？",
+    "speaker": "说话者",
+    "sound": "音效"
   },
   "final": {
     "title": "成片",
@@ -377,6 +403,7 @@
       "name": "名称",
       "description": "说明",
       "resolution": "分辨率",
+      "videoModel": "视频模型",
       "minDuration": "最短秒数",
       "maxDuration": "最长秒数",
       "minShots": "最少镜头",

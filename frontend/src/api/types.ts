@@ -1,4 +1,4 @@
-// 與 docs/specs/api-contract.md（v1）一一對應；欄位名保持 snake_case。
+// 與 docs/specs/api-contract.md（v1.1）一一對應；欄位名保持 snake_case。
 
 export const ROLES = ["admin", "creator", "reviewer"] as const;
 export type Role = (typeof ROLES)[number];
@@ -8,6 +8,12 @@ export type VideoType = (typeof VIDEO_TYPES)[number];
 
 export const AUDIO_MODES = ["tts", "native", "none"] as const;
 export type AudioMode = (typeof AUDIO_MODES)[number];
+
+/** 正片用的影片模型（v1.1）：video_long = Seedance 2.5，單鏡最長 30 秒 */
+export const VIDEO_MODELS = ["video_final", "video_long"] as const;
+export type VideoModel = (typeof VIDEO_MODELS)[number];
+
+export type Region = "byteplus" | "volcengine";
 
 export const RATIOS = ["9:16", "16:9", "1:1", "4:3", "3:4", "21:9"] as const;
 export type Ratio = (typeof RATIOS)[number];
@@ -123,6 +129,8 @@ export interface Template {
   prompt_template: string;
   is_active: boolean;
   version: number;
+  /** v1.1 */
+  video_model: VideoModel;
 }
 
 export type TemplateCreate = Omit<Template, "id" | "version">;
@@ -154,6 +162,10 @@ export interface Scene {
   duration_s: number;
   needs_first_frame: boolean;
   screen_text: string;
+  /** v1.1：說話者（「旁白」或角色泛稱） */
+  speaker: string;
+  /** v1.1：音效／環境音描述 */
+  sound: string;
   first_frame_asset_id: string | null;
   status: SceneStatus;
   attempt: number;
@@ -173,6 +185,8 @@ export interface SceneUpdate {
   duration_s?: number;
   needs_first_frame?: boolean;
   screen_text?: string;
+  speaker?: string;
+  sound?: string;
   first_frame_asset_id?: string | null;
 }
 
@@ -239,6 +253,10 @@ export interface JobOptions {
   logo_asset_id: string | null;
   bgm_asset_id: string | null;
   image_asset_id: string | null;
+  /** v1.1 */
+  voice_style: string;
+  music: string;
+  consistent_voice: boolean;
 }
 
 export interface JobDetail extends JobSummary {
@@ -302,6 +320,21 @@ export interface JobCreate {
   bgm_asset_id?: string | null;
   /** quick 類型：圖生影片的首幀 */
   image_asset_id?: string | null;
+  /** v1.1：聲音風格，≤ 100 字 */
+  voice_style?: string;
+  /** v1.1：配樂描述，≤ 100 字；"none" 表示不要配樂 */
+  music?: string;
+  /** v1.1：用第一鏡的聲音作後續鏡頭的參考音頻（較慢） */
+  consistent_voice?: boolean;
+}
+
+/** GET /meta（v1.1） */
+export interface PlatformMeta {
+  region: Region;
+  tts_available: boolean;
+  /** 每秒建議旁白字數；每鏡上限 = floor(時長 × chars_per_second) */
+  chars_per_second: number;
+  audio_modes: AudioMode[];
 }
 
 export interface Page<T> {

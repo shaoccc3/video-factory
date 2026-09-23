@@ -22,6 +22,7 @@ import {
   RATIOS,
   type Template,
   type TemplateCreate,
+  VIDEO_MODELS,
   VIDEO_TYPES,
 } from "../../api/types";
 import { ErrorAlert } from "../../components/ErrorResult";
@@ -42,6 +43,7 @@ const EMPTY: TemplateCreate = {
   style_prefix: "",
   prompt_template: "",
   is_active: true,
+  video_model: "video_final",
 };
 
 function toCreate(tpl: Template): TemplateCreate {
@@ -107,7 +109,7 @@ function TemplateModal({
               <Input.TextArea rows={2} />
             </Form.Item>
           </Col>
-          <Col span={8}>
+          <Col span={6}>
             <Form.Item
               name="video_type"
               label={t("jobs.columns.type")}
@@ -118,18 +120,29 @@ function TemplateModal({
               />
             </Form.Item>
           </Col>
-          <Col span={8}>
+          <Col span={6}>
             <Form.Item name="ratio" label={t("wizard.fields.ratio")} rules={[{ required: true }]}>
               <Select options={RATIOS.map((r) => ({ value: r, label: r }))} />
             </Form.Item>
           </Col>
-          <Col span={8}>
+          <Col span={6}>
             <Form.Item
               name="resolution"
               label={t("admin.templates.resolution")}
               rules={[{ required: true }]}
             >
               <Select options={["480p", "720p", "1080p"].map((r) => ({ value: r, label: r }))} />
+            </Form.Item>
+          </Col>
+          <Col span={6}>
+            <Form.Item
+              name="video_model"
+              label={t("admin.templates.videoModel")}
+              rules={[{ required: true }]}
+            >
+              <Select
+                options={VIDEO_MODELS.map((m) => ({ value: m, label: t(`videoModel.${m}`) }))}
+              />
             </Form.Item>
           </Col>
           <Col span={6}>
@@ -234,6 +247,11 @@ export function TemplatesTab() {
             title: t("wizard.fields.audioMode"),
             dataIndex: "audio_mode",
             render: (v: Template["audio_mode"]) => t(`audioMode.${v}`),
+          },
+          {
+            title: t("admin.templates.videoModel"),
+            dataIndex: "video_model",
+            render: (v: Template["video_model"]) => t(`videoModel.${v}`),
           },
           { title: t("admin.templates.version"), dataIndex: "version", align: "right" },
           {

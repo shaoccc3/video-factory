@@ -74,6 +74,20 @@ function SceneCard({
       <Typography.Paragraph ellipsis={{ rows: 2, expandable: true }} style={{ marginBottom: 4 }}>
         {scene.narration || scene.visual_prompt}
       </Typography.Paragraph>
+      {(scene.speaker || scene.sound) && (
+        <Flex vertical gap={2} style={{ marginBottom: 8 }}>
+          {scene.speaker && (
+            <Typography.Text type="secondary" data-testid={`scene-speaker-${scene.index}`}>
+              {t("scene.speaker")}：{scene.speaker}
+            </Typography.Text>
+          )}
+          {scene.sound && (
+            <Typography.Text type="secondary" data-testid={`scene-sound-${scene.index}`}>
+              {t("scene.sound")}：{scene.sound}
+            </Typography.Text>
+          )}
+        </Flex>
+      )}
       {scene.error_message && (
         <Alert
           type={errorCategory(scene.error_kind) === "system" ? "error" : "warning"}

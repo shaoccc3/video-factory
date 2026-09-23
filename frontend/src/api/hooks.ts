@@ -27,6 +27,7 @@ import type {
 
 export const queryKeys = {
   me: ["auth", "me"] as const,
+  meta: ["meta"] as const,
   users: ["users"] as const,
   templates: (includeInactive: boolean) => ["templates", { includeInactive }] as const,
   templatesAll: ["templates"] as const,
@@ -82,6 +83,18 @@ export function useLogout() {
     onSettled: () => {
       client.clear();
     },
+  });
+}
+
+// ---- 平台資訊 ----
+
+/** 區域、TTS 是否可用、每秒旁白字數；一個會話內不會變，只取一次 */
+export function useMeta() {
+  return useQuery({
+    queryKey: queryKeys.meta,
+    queryFn: api.meta,
+    staleTime: Number.POSITIVE_INFINITY,
+    gcTime: Number.POSITIVE_INFINITY,
   });
 }
 

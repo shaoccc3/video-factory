@@ -166,6 +166,26 @@ describe("管理", () => {
     });
   });
 
+  it("模板表單可選影片模型，編輯後 PATCH 帶 video_model", async () => {
+    const tpl = makeTemplate();
+    const api = mockApi({
+      "GET /auth/me": makeUser(),
+      "GET /templates": [tpl],
+      "PATCH /templates/tpl-marketing": { ...tpl, video_model: "video_long", version: 2 },
+    });
+    renderApp("/admin?tab=templates");
+    expect(await screen.findByText("Seedance 2.0")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /編輯/ }));
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.click(within(dialog).getByLabelText("影片模型"));
+    await userEvent.click(await screen.findByTitle("Seedance 2.5（最長 30 秒）"));
+    await userEvent.click(within(dialog).getByRole("button", { name: /儲存/ }));
+    await waitFor(() => expect(api.find("PATCH", "/templates/tpl-marketing")).toHaveLength(1));
+    expect(api.find("PATCH", "/templates/tpl-marketing")[0]?.body).toMatchObject({
+      video_model: "video_long",
+    });
+  });
+
   it("用戶管理列出用戶與角色", async () => {
     mockApi({
       "GET /auth/me": makeUser(),

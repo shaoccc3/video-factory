@@ -1,9 +1,9 @@
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import { makeJob, makeTemplate, makeUser } from "../test/fixtures";
+import { makeJob, makeMeta, makeTemplate, makeUser } from "../test/fixtures";
 import { json, mockApi, renderApp } from "../test/utils";
-import { buildJobCreate } from "./JobWizardPage";
+import { availableAudioModes, buildJobCreate, defaultAudioMode } from "./JobWizardPage";
 
 const marketing = makeTemplate();
 const quick = makeTemplate({
@@ -110,7 +110,129 @@ describe("新建任務精靈", () => {
   });
 });
 
+describe("新建任務精靈：聲音方式（v1.1）", () => {
+  async function goToSettings(title: string) {
+    await userEvent.click(await screen.findByRole("radio", { name: /行銷短影音/ }));
+    await userEvent.click(screen.getByRole("button", { name: "下一步" }));
+    await userEvent.type(await screen.findByLabelText("任務標題"), title);
+    await userEvent.type(screen.getByLabelText("主題"), "清晨的茶園");
+    await userEvent.click(screen.getByRole("button", { name: "下一步" }));
+    await screen.findByLabelText("目標時長");
+  }
+
+  it("TTS 不可用時隱藏 TTS 選項、模板預設 TTS 改選原生聲音，並送出聲音風格、配樂與聲音一致", async () => {
+    const created = makeJob({ id: "job-n", title: "茶園", status: "draft" });
+    const api = mockApi({
+      "GET /meta": makeMeta({
+        region: "byteplus",
+        tts_available: false,
+        audio_modes: ["native", "none"],
+      }),
+      "GET /auth/me": makeUser(),
+      "GET /templates": [marketing],
+      "POST /jobs": created,
+      "POST /jobs/job-n/submit": { ...created, status: "scripting" },
+      "GET /jobs/job-n": { ...created, status: "scripting" },
+      "GET /jobs/job-n/calls": [],
+    });
+    renderApp("/jobs/new");
+    await goToSettings("茶園");
+
+    // 模板預設是 tts，但目前區域不提供：改選 native 並提示
+    expect(screen.getByTestId("tts-unavailable")).toHaveTextContent("目前區域不提供 TTS 配音");
+    await userEvent.click(screen.getByLabelText("聲音方式"));
+    expect((await screen.findAllByTitle("模型原生聲音（推薦）")).length).toBeGreaterThan(0);
+    expect(screen.getByTitle("無聲")).toBeInTheDocument();
+    expect(screen.queryByTitle("TTS 配音")).not.toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
+
+    // 原生聲音的欄位
+    await userEvent.type(screen.getByLabelText("聲音風格"), "溫暖的年輕女聲，國語");
+    await userEvent.type(screen.getByLabelText("配樂"), "輕快的鋼琴");
+    await userEvent.click(screen.getByRole("switch", { name: /聲音一致/ }));
+    await userEvent.click(screen.getByRole("button", { name: "下一步" }));
+
+    expect(await screen.findByText("溫暖的年輕女聲，國語")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "建立並提交" }));
+    expect(await screen.findByRole("heading", { name: "茶園" })).toBeInTheDocument();
+    expect(api.find("POST", "/jobs")[0]?.body).toMatchObject({
+      audio_mode: "native",
+      voice_style: "溫暖的年輕女聲，國語",
+      music: "輕快的鋼琴",
+      consistent_voice: true,
+    });
+  });
+
+  it("TTS 可用時保留模板預設的 TTS，不顯示原生聲音欄位", async () => {
+    mockApi({
+      "GET /auth/me": makeUser(),
+      "GET /templates": [marketing],
+    });
+    renderApp("/jobs/new");
+    await goToSettings("t");
+    expect(screen.queryByTestId("tts-unavailable")).not.toBeInTheDocument();
+    expect(screen.getByTitle("TTS 配音")).toBeInTheDocument();
+    expect(screen.queryByLabelText("聲音風格")).not.toBeInTheDocument();
+    expect(screen.queryByRole("switch", { name: /聲音一致/ })).not.toBeInTheDocument();
+
+    // 切到原生聲音後出現三個欄位
+    await userEvent.click(screen.getByLabelText("聲音方式"));
+    await userEvent.click(await screen.findByTitle("模型原生聲音（推薦）"));
+    expect(await screen.findByLabelText("聲音風格")).toBeInTheDocument();
+    expect(screen.getByLabelText("配樂")).toHaveAttribute("maxlength", "100");
+    expect(screen.getByRole("switch", { name: /聲音一致/ })).not.toBeChecked();
+  });
+
+  it("選到長鏡頭模板時顯示 Seedance 2.5 標籤", async () => {
+    mockApi({
+      "GET /auth/me": makeUser(),
+      "GET /templates": [marketing, { ...quick, video_model: "video_long" }],
+    });
+    renderApp("/jobs/new");
+    const longCard = await screen.findByRole("radio", { name: /圖文轉短片/ });
+    expect(longCard).toHaveTextContent("Seedance 2.5 長鏡頭");
+    expect(screen.getByRole("radio", { name: /行銷短影音/ })).not.toHaveTextContent("Seedance");
+  });
+});
+
+describe("聲音方式的可選項", () => {
+  it("依 /meta 過濾，原生聲音排第一；/meta 未載入時不隱藏", () => {
+    expect(availableAudioModes(undefined)).toEqual(["native", "tts", "none"]);
+    expect(availableAudioModes(makeMeta())).toEqual(["native", "tts", "none"]);
+    expect(
+      availableAudioModes(
+        makeMeta({ tts_available: false, audio_modes: ["native", "tts", "none"] }),
+      ),
+    ).toEqual(["native", "none"]);
+    expect(defaultAudioMode(marketing, makeMeta({ tts_available: false }))).toBe("native");
+    expect(defaultAudioMode(marketing, makeMeta())).toBe("tts");
+    expect(defaultAudioMode(quick, makeMeta({ tts_available: false }))).toBe("none");
+  });
+});
+
 describe("buildJobCreate", () => {
+  it("native 時送出聲音欄位（空字串不送），其他模式不送", () => {
+    const base = {
+      title: "t",
+      topic: "topic",
+      ratio: "9:16" as const,
+      draft_mode: false,
+      continuous_shots: false,
+      voice_style: "  ",
+      music: " none ",
+      consistent_voice: false,
+    };
+    const native = buildJobCreate(marketing, { ...base, audio_mode: "native" });
+    expect(native.voice_style).toBeUndefined();
+    expect(native.music).toBe("none");
+    expect(native.consistent_voice).toBe(false);
+
+    const tts = buildJobCreate(marketing, { ...base, audio_mode: "tts" });
+    expect(tts).not.toHaveProperty("voice_style");
+    expect(tts).not.toHaveProperty("music");
+    expect(tts).not.toHaveProperty("consistent_voice");
+  });
+
   it("quick 類型送首幀 image_asset_id，不送商品圖", () => {
     const body = buildJobCreate(quick, {
       title: " 單圖 ",

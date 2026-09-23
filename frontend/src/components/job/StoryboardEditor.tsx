@@ -17,7 +17,7 @@ import {
 } from "antd";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "../../api/client";
-import { useEstimate, useJobCommand } from "../../api/hooks";
+import { useEstimate, useJobCommand, useMeta } from "../../api/hooks";
 import type { JobDetail, Scene, SceneUpdate } from "../../api/types";
 import { formatSeconds } from "../../utils/format";
 import { AssetPicker } from "../AssetPicker";
@@ -31,6 +31,8 @@ interface SceneFormValues {
   camera_move: string;
   duration_s: number;
   screen_text: string;
+  speaker: string;
+  sound: string;
   needs_first_frame: boolean;
   /** 只有 needs_first_frame 時才掛載這個欄位 */
   first_frame_asset_ids?: string[];
@@ -44,6 +46,8 @@ function toFormValues(scene: Scene): SceneFormValues {
     camera_move: scene.camera_move,
     duration_s: scene.duration_s,
     screen_text: scene.screen_text,
+    speaker: scene.speaker,
+    sound: scene.sound,
     needs_first_frame: scene.needs_first_frame,
     first_frame_asset_ids: scene.first_frame_asset_id ? [scene.first_frame_asset_id] : [],
   };
@@ -58,6 +62,8 @@ export function sceneDiff(scene: Scene, values: SceneFormValues): SceneUpdate {
   if (values.camera_move !== scene.camera_move) diff.camera_move = values.camera_move;
   if (values.duration_s !== scene.duration_s) diff.duration_s = values.duration_s;
   if (values.screen_text !== scene.screen_text) diff.screen_text = values.screen_text;
+  if (values.speaker !== scene.speaker) diff.speaker = values.speaker;
+  if (values.sound !== scene.sound) diff.sound = values.sound;
   if (values.needs_first_frame !== scene.needs_first_frame) {
     diff.needs_first_frame = values.needs_first_frame;
   }
@@ -68,20 +74,64 @@ export function sceneDiff(scene: Scene, values: SceneFormValues): SceneUpdate {
   return diff;
 }
 
+/** 旁白字數（按 Unicode 字元計，與後端 len() 一致） */
+export function countChars(text: string): number {
+  return Array.from(text).length;
+}
+
+/** 每鏡旁白建議上限 = floor(時長 × chars_per_second) */
+export function narrationLimit(durationS: number, charsPerSecond: number): number {
+  return Math.floor(durationS * charsPerSecond);
+}
+
+function NarrationCounter({
+  index,
+  count,
+  max,
+}: {
+  index: number;
+  count: number;
+  max: number | null;
+}) {
+  const { t } = useTranslation();
+  const over = max !== null && count > max;
+  return (
+    <Typography.Text
+      type={over ? "warning" : "secondary"}
+      data-testid={`narration-count-${index}`}
+      data-over={over}
+    >
+      {max === null
+        ? t("storyboard.narrationCount", { count })
+        : t("storyboard.narrationCountLimit", { count, max })}
+      {over && ` · ${t("storyboard.narrationTooLong")}`}
+    </Typography.Text>
+  );
+}
+
 function SceneEditorCard({
   job,
   scene,
   editable,
+  charsPerSecond,
 }: {
   job: JobDetail;
   scene: Scene;
   editable: boolean;
+  /** 來自 /meta；尚未載入時只顯示字數 */
+  charsPerSecond: number | null;
 }) {
   const { t } = useTranslation();
   const { message } = AntdApp.useApp();
   const [form] = Form.useForm<SceneFormValues>();
   const command = useJobCommand(job.id);
   const needsFirstFrame = Form.useWatch("needs_first_frame", form) ?? scene.needs_first_frame;
+  const narration = (Form.useWatch("narration", form) as string | undefined) ?? scene.narration;
+  const duration = (Form.useWatch("duration_s", form) as number | null | undefined) ?? 0;
+  const narrationCount = countChars(narration ?? "");
+  const narrationMax =
+    charsPerSecond === null ? null : narrationLimit(duration || 0, charsPerSecond);
+  const narrationOver = narrationMax !== null && narrationCount > narrationMax;
 
   const save = (values: SceneFormValues) => {
     const body = sceneDiff(scene, values);
@@ -102,6 +152,8 @@ function SceneEditorCard({
       <ErrorAlert error={command.error} />
       <Form<SceneFormValues>
         form={form}
+        // 每個鏡頭一個表單：用 name 讓欄位 id 不重複，label 才能對到正確的輸入框
+        name={`scene-${scene.id}`}
         layout="vertical"
         initialValues={toFormValues(scene)}
         disabled={!editable}
@@ -109,7 +161,14 @@ function SceneEditorCard({
       >
         <Row gutter={16}>
           <Col xs={24} md={12}>
-            <Form.Item name="narration" label={t("storyboard.narration")}>
+            <Form.Item
+              name="narration"
+              label={t("storyboard.narration")}
+              {...(narrationOver ? { validateStatus: "warning" as const } : {})}
+              extra={
+                <NarrationCounter index={scene.index} count={narrationCount} max={narrationMax} />
+              }
+            >
               <Input.TextArea rows={3} />
             </Form.Item>
           </Col>
@@ -153,6 +212,16 @@ function SceneEditorCard({
             </Form.Item>
           </Col>
           <Col xs={24} md={12}>
+            <Form.Item name="speaker" label={t("storyboard.speaker")}>
+              <Input placeholder={t("storyboard.speakerPlaceholder")} />
+            </Form.Item>
+          </Col>
+          <Col xs={24} md={12}>
+            <Form.Item name="sound" label={t("storyboard.sound")}>
+              <Input placeholder={t("storyboard.soundPlaceholder")} />
+            </Form.Item>
+          </Col>
+          <Col xs={24} md={12}>
             <Form.Item name="screen_text" label={t("storyboard.screenText")}>
               <Input />
             </Form.Item>
@@ -189,6 +258,7 @@ export function StoryboardEditor({ job }: { job: JobDetail }) {
   const editable = actions.has("edit_storyboard");
   const canConfirm = actions.has("confirm_storyboard");
   const estimate = useEstimate(job.id, true);
+  const meta = useMeta();
   const confirm = useJobCommand(job.id);
   const regenerate = useJobCommand(job.id);
   const current = estimate.data ?? job.estimate;
@@ -234,12 +304,15 @@ export function StoryboardEditor({ job }: { job: JobDetail }) {
                 scene.camera_move,
                 scene.duration_s,
                 scene.screen_text,
+                scene.speaker,
+                scene.sound,
                 scene.needs_first_frame,
                 scene.first_frame_asset_id,
               ].join("|")}
               job={job}
               scene={scene}
               editable={editable}
+              charsPerSecond={meta.data?.chars_per_second ?? null}
             />
           ))}
         </Space>

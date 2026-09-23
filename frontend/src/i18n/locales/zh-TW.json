@@ -1,5 +1,7 @@
 {
-  "app": { "name": "影音工廠" },
+  "app": {
+    "name": "影音工廠"
+  },
   "nav": {
     "jobs": "任務",
     "batches": "批量",
@@ -27,9 +29,25 @@
     "forbidden": "你沒有權限查看這個頁面",
     "backHome": "回到任務列表"
   },
-  "role": { "admin": "管理員", "creator": "創作者", "reviewer": "審核者" },
-  "videoType": { "marketing": "行銷短影音", "quick": "圖文轉短片", "training": "培訓講解片" },
-  "audioMode": { "tts": "TTS 旁白", "native": "模型原生音頻", "none": "無聲" },
+  "role": {
+    "admin": "管理員",
+    "creator": "創作者",
+    "reviewer": "審核者"
+  },
+  "videoType": {
+    "marketing": "行銷短影音",
+    "quick": "圖文轉短片",
+    "training": "培訓講解片"
+  },
+  "audioMode": {
+    "tts": "TTS 配音",
+    "native": "模型原生聲音",
+    "none": "無聲"
+  },
+  "videoModel": {
+    "video_final": "Seedance 2.0",
+    "video_long": "Seedance 2.5（最長 30 秒）"
+  },
   "jobStatus": {
     "draft": "草稿",
     "scripting": "撰寫腳本中",
@@ -147,12 +165,25 @@
       "ratio": "畫幅",
       "duration": "目標時長",
       "durationHelp": "留空由模板決定（{{min}}～{{max}} 秒）",
-      "audioMode": "音頻方式",
+      "audioMode": "聲音方式",
       "draftMode": "樣片模式",
       "draftModeHelp": "先用低成本樣片確認效果，滿意後再出正片",
       "continuousShots": "連續鏡頭",
-      "continuousShotsHelp": "以上一鏡頭的尾幀作為下一鏡頭的首幀，畫面更連貫但只能依序生成"
+      "continuousShotsHelp": "以上一鏡頭的尾幀作為下一鏡頭的首幀，畫面更連貫但只能依序生成",
+      "voiceStyle": "聲音風格",
+      "voiceStylePlaceholder": "例如：溫暖、語速適中的年輕女聲，國語",
+      "music": "配樂",
+      "musicPlaceholder": "例如：輕快的鋼琴；填 none 表示不要配樂",
+      "consistentVoice": "聲音一致（較慢）",
+      "consistentVoiceHelp": "以第一鏡的聲音作為後續鏡頭的參考音頻，全片聲音更一致；後續鏡頭要等第一鏡完成才開始生成，所以較慢。"
     },
+    "audioOption": {
+      "native": "模型原生聲音（推薦）",
+      "tts": "TTS 配音",
+      "none": "無聲"
+    },
+    "ttsUnavailable": "目前區域不提供 TTS 配音，已改用模型原生聲音。",
+    "longShotTag": "Seedance 2.5 長鏡頭",
     "assetCount": "已選 {{count}} 個",
     "durationAuto": "由模板決定",
     "submitHint": "提交後會先由大模型撰寫腳本與分鏡，確認分鏡前不會生成影片。",
@@ -181,12 +212,19 @@
     "summary": "共 {{count}} 個鏡頭，約 {{seconds}} 秒",
     "sceneTitle": "鏡頭 {{index}}",
     "narration": "旁白",
+    "narrationCount": "{{count}} 字",
+    "narrationCountLimit": "{{count}}／建議上限 {{max}} 字",
+    "narrationTooLong": "超過建議上限，這個時長可能念不完",
     "visualPrompt": "畫面描述",
     "visualRequired": "請輸入畫面描述",
     "shotType": "景別",
     "cameraMove": "運鏡",
     "duration": "時長",
     "screenText": "畫面文字",
+    "speaker": "說話者",
+    "speakerPlaceholder": "旁白或角色泛稱，例如：一位年輕女店員",
+    "sound": "音效",
+    "soundPlaceholder": "例如：清晨鳥鳴、倒茶水聲",
     "needsFirstFrame": "需要首幀",
     "firstFrame": "首幀",
     "replaceFirstFrame": "從素材庫替換首幀",
@@ -221,7 +259,9 @@
     "attempt": "第 {{count}} 次",
     "regenerateVideo": "重做",
     "regenerateKeyframe": "重做關鍵幀",
-    "regenerateConfirm": "重做這個鏡頭會產生額外費用，確定？"
+    "regenerateConfirm": "重做這個鏡頭會產生額外費用，確定？",
+    "speaker": "說話者",
+    "sound": "音效"
   },
   "final": {
     "title": "成片",
@@ -325,8 +365,14 @@
     "source": "來源",
     "createdAt": "上傳時間"
   },
-  "assetSource": { "upload": "上傳", "generated": "生成" },
-  "assetPicker": { "library": "從素材庫選擇", "upload": "上傳新素材" },
+  "assetSource": {
+    "upload": "上傳",
+    "generated": "生成"
+  },
+  "assetPicker": {
+    "library": "從素材庫選擇",
+    "upload": "上傳新素材"
+  },
   "usage": {
     "title": "用量看板",
     "days": "近 {{count}} 天",
@@ -357,6 +403,7 @@
       "name": "名稱",
       "description": "說明",
       "resolution": "解析度",
+      "videoModel": "影片模型",
       "minDuration": "最短秒數",
       "maxDuration": "最長秒數",
       "minShots": "最少鏡頭",
@@ -409,5 +456,9 @@
       "detail": "詳情"
     }
   },
-  "language": { "label": "語言", "zh-TW": "繁體中文", "zh-CN": "简体中文" }
+  "language": {
+    "label": "語言",
+    "zh-TW": "繁體中文",
+    "zh-CN": "简体中文"
+  }
 }

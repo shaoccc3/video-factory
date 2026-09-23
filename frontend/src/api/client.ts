@@ -19,6 +19,7 @@ import type {
   LoginRequest,
   ModelsConfig,
   Page,
+  PlatformMeta,
   ReviewRequest,
   SceneRegenerateTarget,
   SceneUpdate,
@@ -240,6 +241,9 @@ export const api = {
     request<Page<Asset>>(`/assets${buildQuery({ ...params })}`),
   getAsset: (id: string) => request<Asset>(`/assets/${id}`),
   deleteAsset: (id: string) => request<void>(`/assets/${id}`, { method: "DELETE" }),
+
+  // 平台資訊（v1.1）
+  meta: () => request<PlatformMeta>("/meta"),
 
   // 用量與配置
   usageSummary: (days = 30) => request<UsageSummary>(`/usage/summary${buildQuery({ days })}`),

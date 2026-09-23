@@ -1,4 +1,12 @@
-import type { CostEstimate, JobDetail, JobSummary, Scene, Template, User } from "../api/types";
+import type {
+  CostEstimate,
+  JobDetail,
+  JobSummary,
+  PlatformMeta,
+  Scene,
+  Template,
+  User,
+} from "../api/types";
 
 export function makeUser(overrides: Partial<User> = {}): User {
   return {
@@ -32,6 +40,7 @@ export function makeTemplate(overrides: Partial<Template> = {}): Template {
     prompt_template: "",
     is_active: true,
     version: 1,
+    video_model: "video_final",
     ...overrides,
   };
 }
@@ -47,6 +56,8 @@ export function makeScene(overrides: Partial<Scene> = {}): Scene {
     duration_s: 5,
     needs_first_frame: false,
     screen_text: "",
+    speaker: "旁白",
+    sound: "",
     first_frame_asset_id: null,
     status: "pending",
     attempt: 0,
@@ -112,6 +123,9 @@ export function makeJob(overrides: Partial<JobDetail> = {}): JobDetail {
       logo_asset_id: null,
       bgm_asset_id: null,
       image_asset_id: null,
+      voice_style: "",
+      music: "",
+      consistent_voice: false,
     },
     seed: 42,
     scenes: [],
@@ -123,6 +137,17 @@ export function makeJob(overrides: Partial<JobDetail> = {}): JobDetail {
     subtitle_asset_id: null,
     reviews: [],
     allowed_actions: [],
+    ...overrides,
+  };
+}
+
+/** GET /meta：預設為國內版（TTS 可用），每秒 4 字 */
+export function makeMeta(overrides: Partial<PlatformMeta> = {}): PlatformMeta {
+  return {
+    region: "volcengine",
+    tts_available: true,
+    chars_per_second: 4,
+    audio_modes: ["native", "tts", "none"],
     ...overrides,
   };
 }
