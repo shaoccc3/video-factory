@@ -138,6 +138,7 @@ export function makeJob(overrides: Partial<JobDetail> = {}): JobDetail {
     subtitle_asset_id: null,
     reviews: [],
     allowed_actions: [],
+    shot_duration_s: { min_s: 4, max_s: 15 },
     ...overrides,
   };
 }

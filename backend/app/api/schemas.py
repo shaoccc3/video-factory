@@ -251,6 +251,13 @@ class JobOptionsOut(BaseModel):
     consistent_voice: bool
 
 
+class ShotDurationOut(BaseModel):
+    """v1.3：單鏡時長範圍（秒），來自目前階段影片模型的能力；生成時超出會被夾回這個範圍。"""
+
+    min_s: int
+    max_s: int
+
+
 class JobDetail(JobSummary):
     inputs: JobInputs
     options: JobOptionsOut
@@ -264,6 +271,7 @@ class JobDetail(JobSummary):
     subtitle_asset_id: uuid.UUID | None
     reviews: list[ReviewOut]
     allowed_actions: list[str]
+    shot_duration_s: ShotDurationOut
 
 
 class JobCreate(BaseModel):

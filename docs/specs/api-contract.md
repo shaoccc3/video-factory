@@ -104,6 +104,7 @@ JobDetail = JobSummary & {
   subtitle_asset_id: string | null;
   reviews: Review[];                          // 由新到舊
   allowed_actions: string[];                  // 見下方「動作」
+  shot_duration_s: { min_s: number; max_s: number };  // v1.3：單鏡時長範圍，依目前階段的影片模型（樣片用 video_draft）；生成時超出會被夾回
 }
 
 Review = {

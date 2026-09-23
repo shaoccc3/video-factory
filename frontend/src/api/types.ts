@@ -293,6 +293,8 @@ export interface JobDetail extends JobSummary {
   reviews: Review[];
   /** 後端決定的可用動作；前端只看這個決定按鈕，不自行推導狀態機 */
   allowed_actions: string[];
+  /** v1.3：單鏡時長範圍，依目前階段的影片模型；生成時超出會被夾回 */
+  shot_duration_s: { min_s: number; max_s: number };
 }
 
 export interface GenerationCall {

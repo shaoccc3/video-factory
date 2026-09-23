@@ -19,6 +19,7 @@ from sqlalchemy import event, func, select, update
 from app.api.jobs import job_event_stream
 from app.models import CostLedger, GenerationCall, Job, Scene, Template, User
 from app.models.enums import AssetKind, ErrorKind, JobStatus, SceneStatus
+from app.pipeline.common import video_model_key
 from app.pipeline.estimate import synthetic_scenes
 from app.providers.errors import ProviderError
 from app.providers.mock import MockLLM, MockSeedance, MockSeedream
@@ -118,6 +119,20 @@ async def test_list_jobs_multi_status_and_sort(
     assert listed(first_page) == [ids[3], ids[2]]
     assert (await client.get("/api/v1/jobs", params={"sort": "title"})).status_code == 422
     assert (await client.get("/api/v1/jobs", params={"status": "nope"})).status_code == 422
+
+
+async def test_job_detail_shot_duration_follows_video_model(
+    client: httpx.AsyncClient, runtime: Runtime, templates: dict[str, Template], creator: User
+) -> None:
+    """JobDetail.shot_duration_s：分鏡表的時長 ± 範圍，跟著目前階段的影片模型（樣片用 video_draft）。"""
+    await login(client, creator)
+    final = await new_job(runtime, creator, templates["marketing"])
+    draft = await new_job(runtime, creator, templates["marketing"], draft_mode=True)
+    assert video_model_key(draft, runtime.config) == "video_draft"
+    for job in (final, draft):
+        caps = runtime.config.video_caps(video_model_key(job, runtime.config))
+        body = (await client.get(f"/api/v1/jobs/{job.id}")).json()
+        assert body["shot_duration_s"] == {"min_s": caps.min_duration_s, "max_s": caps.max_duration_s}
 
 
 # ---- JobSummary.preview_asset_id ---------------------------------------------

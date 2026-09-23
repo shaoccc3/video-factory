@@ -17,10 +17,11 @@ from app.api.schemas import (
     Progress,
     ReviewOut,
     SceneOut,
+    ShotDurationOut,
 )
 from app.models import Asset, Job, Review, Scene, Template, User
 from app.models.enums import AudioMode, JobStatus, SceneStatus
-from app.pipeline.common import job_options
+from app.pipeline.common import job_options, video_model_key
 from app.pipeline.estimate import CostEstimate, estimate_job
 from app.services.jobs import allowed_actions
 from app.services.runtime import Runtime
@@ -167,6 +168,7 @@ async def job_detail(session: AsyncSession, runtime: Runtime, job: Job, viewer: 
         if owner is not None:
             estimate = estimate_out(await estimate_job(session, runtime.config, job, scenes, owner))
     opts = job_options(job)
+    caps = runtime.config.video_caps(video_model_key(job, runtime.config))
     return JobDetail(
         **summary.model_dump(),
         inputs=JobInputs(
@@ -205,4 +207,5 @@ async def job_detail(session: AsyncSession, runtime: Runtime, job: Job, viewer: 
             for r in reviews
         ],
         allowed_actions=allowed_actions(job, viewer),
+        shot_duration_s=ShotDurationOut(min_s=caps.min_duration_s, max_s=caps.max_duration_s),
     )
