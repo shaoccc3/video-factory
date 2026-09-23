@@ -28,6 +28,7 @@ from app.api.schemas import (
     JobCreate,
     JobDetail,
     JobSummary,
+    KeyframePreviewIn,
     Page,
     RegenerateIn,
     ReviewIn,
@@ -311,6 +312,31 @@ async def regenerate_scene(
     return await _detail(session, runtime, job_id, user)
 
 
+@router.post(
+    "/{job_id}/scenes/{scene_id}/keyframe-preview",
+    response_model=JobDetail,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def keyframe_preview(
+    job_id: uuid.UUID,
+    scene_id: uuid.UUID,
+    user: CurrentUser,
+    session: SessionDep,
+    runtime: RuntimeDep,
+    dispatcher: DispatcherDep,
+    body: KeyframePreviewIn | None = None,
+) -> JobDetail:
+    """首幀預覽（v1.3）：交給 worker 生成，回 202；進度由 SSE 推送。"""
+    await _load(session, job_id, user, manage=True)
+    try:
+        await orchestrator.preview_keyframe(
+            runtime, dispatcher, job_id, scene_id, force=body is not None and body.force
+        )
+    except ActionError as exc:
+        raise _http(exc) from exc
+    return await _detail(session, runtime, job_id, user)
+
+
 @router.post("/{job_id}/render-final", response_model=JobDetail)
 async def render_final(
     job_id: uuid.UUID, user: CurrentUser, session: SessionDep, runtime: RuntimeDep, dispatcher: DispatcherDep
@@ -461,7 +487,14 @@ async def job_event_stream(
                 detail.status,
                 detail.updated_at.isoformat(),
                 [
-                    (sc.status, sc.attempt, str(sc.video_asset_id), str(sc.audio_asset_id))
+                    (
+                        sc.status,
+                        sc.attempt,
+                        str(sc.video_asset_id),
+                        str(sc.audio_asset_id),
+                        str(sc.first_frame_asset_id),
+                        sc.error_kind,
+                    )
                     for sc in detail.scenes
                 ],
                 detail.actual_cost_cny,

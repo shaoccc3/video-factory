@@ -126,7 +126,7 @@ Batch = {
 }
 ```
 
-`allowed_actions` 可能的值：`submit`、`edit_storyboard`、`regenerate_script`、`confirm_storyboard`、`regenerate_scene`、`render_final`、`cancel`、`resume`、`review`、`download`。前端按這個決定按鈕是否顯示，不要自己推導狀態機。
+`allowed_actions` 可能的值：`submit`、`edit_storyboard`、`regenerate_script`、`confirm_storyboard`、`regenerate_scene`、`render_final`、`cancel`、`resume`、`review`、`download`、`preview_keyframe`（v1.3：分鏡待確認時可生成首幀預覽）。前端按這個決定按鈕是否顯示，不要自己推導狀態機。
 
 審核清單的鍵（`checklist`）：`ai_label`（AI 標識存在）、`no_real_person`（無未授權真人肖像）、`no_third_party_ip`（無第三方品牌或影視 IP）、`brand_guideline`（符合品牌規範）、`subtitle_ok`（字幕無錯字）。通過時五項都必須為 true。
 
@@ -162,16 +162,17 @@ Batch = {
 | GET | `/jobs?status=&video_type=&mine=&q=&batch_id=&sort=&page=&page_size=` | — | `{ items: JobSummary[], total }`；creator 只看到自己的。v1.3：`status` 可重複帶多個值（`?status=generating&status=composing`），只帶一個時行為不變；`sort=created\|updated`（預設 `created`），按建立或更新時間由新到舊 |
 | GET | `/jobs/{id}` | — | `JobDetail` |
 | POST | `/jobs/{id}/submit` | — | `JobDetail`（→ `scripting`，完成後自動 → `storyboard_ready`） |
-| POST | `/jobs/{id}/regenerate-script` | — | `JobDetail` |
+| POST | `/jobs/{id}/regenerate-script` | — | `JobDetail`；v1.3：首幀預覽還在生成時 409 |
 | PATCH | `/jobs/{id}/scenes/{scene_id}` | `{ narration?, visual_prompt?, shot_type?, camera_move?, duration_s?, needs_first_frame?, screen_text?, speaker?, sound?, first_frame_asset_id? }` | `JobDetail` |
 | GET | `/jobs/{id}/estimate` | — | `CostEstimate` |
-| POST | `/jobs/{id}/confirm-storyboard` | — | `JobDetail`（→ `generating`）；超預算 409 |
+| POST | `/jobs/{id}/confirm-storyboard` | — | `JobDetail`（→ `generating`）；超預算 409；v1.3：首幀預覽還在生成時 409 |
 | POST | `/jobs/{id}/scenes/{scene_id}/regenerate` | `{ target: "keyframe" \| "video" }` | `JobDetail` |
+| POST | `/jobs/{id}/scenes/{scene_id}/keyframe-preview`（v1.3） | `{ force?: boolean }`（可省略） | 202 `JobDetail`；見下方「首幀預覽」 |
 | POST | `/jobs/{id}/render-final` | — | `JobDetail`（樣片確認後出正片） |
 | POST | `/jobs/{id}/cancel` | — | `JobDetail` |
 | POST | `/jobs/{id}/resume` | — | `JobDetail` |
 | GET | `/jobs/{id}/calls` | — | `GenerationCall[]` |
-| GET | `/jobs/{id}/events` | — | SSE：`event: job`，`data: JobDetail`（狀態變化時推送；每 15 秒 `: ping`） |
+| GET | `/jobs/{id}/events` | — | SSE：`event: job`，`data: JobDetail`（狀態變化時推送；每 15 秒 `: ping`）；v1.3：鏡頭首幀或錯誤變化時也推送 |
 | POST | `/jobs/{id}/review`（reviewer） | `{ decision, checklist, reason }` | `JobDetail`；退回時 reason 必填 |
 
 ```ts
@@ -200,6 +201,14 @@ EstimateCreate = {
 - 時長：`target_duration_s`（省略時取模板時長範圍的中間值）平均分到各鏡，按模型能力表取整並夾緊到單鏡上下限。
 - 保守估算：每鏡都生成首幀；TTS 旁白按念滿鏡頭時長計字數。
 - 分鏡相同（鏡頭數、各鏡時長相同且都要生成首幀）的任務，`GET /jobs/{id}/estimate` 的 `items`、`total_cny` 與此相同；腳本（大模型）費用兩者都不計入。
+
+首幀預覽（v1.3）：分鏡待確認時先生成某一鏡的首幀，不改變任務狀態。
+- 只在任務為 `storyboard_ready` 時可用，否則 409；需要任務建立者或管理員（看得到但不能操作 403、看不到 404）；鏡頭不屬於此任務 404。
+- 鏡頭已有首幀（`first_frame_asset_id` 不為 null）且 `force` 不為 true 時 409；鏡頭狀態已是 `keyframe`（預覽還在生成）時 409「首幀預覽還在生成」。
+- 接口只把鏡頭狀態設為 `keyframe`、清除 `error_kind`／`error_message`（`force` 時一併清除首幀），交給 worker，回 202；不在請求內等待生成。
+- worker 照常經網關生成（預算檢查、記賬、調用記錄），並把 `needs_first_frame` 設為 true；成功後鏡頭回到 `pending`、`first_frame_asset_id` 為新首幀。失敗時鏡頭同樣回到 `pending`，原因寫在鏡頭的 `error_kind`、`error_message`（內容審核不自動重試；超出預算為 `budget`，任務仍為 `storyboard_ready`）。可再送一次重試。
+- 鏡頭處於 `keyframe` 時，`confirm-storyboard` 與 `regenerate-script` 回 409「首幀預覽還在生成」，`PATCH` 該鏡頭也回 409。
+- 開拍後生成影片時直接沿用預覽的首幀，不重複生成、不重複計費。
 
 ### 審核
 | 方法 | 路徑 | 回應 |

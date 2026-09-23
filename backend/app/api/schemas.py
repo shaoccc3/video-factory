@@ -301,6 +301,12 @@ class RegenerateIn(BaseModel):
     target: Literal["keyframe", "video"]
 
 
+class KeyframePreviewIn(BaseModel):
+    """v1.3：首幀預覽。鏡頭已有首幀時要帶 force=true 才會重新生成。"""
+
+    force: bool = False
+
+
 class ReviewIn(BaseModel):
     decision: ReviewDecision
     checklist: dict[str, bool]

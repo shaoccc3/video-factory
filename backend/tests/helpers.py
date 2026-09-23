@@ -40,6 +40,9 @@ class InlineDispatcher:
     def batch(self, batch_id: uuid.UUID) -> None:
         self.queue.append(("batch", (batch_id,)))
 
+    def keyframe(self, job_id: uuid.UUID, scene_id: uuid.UUID) -> None:
+        self.queue.append(("keyframe", (job_id, scene_id)))
+
     async def drain(self, limit: int = 1000) -> None:
         for _ in range(limit):
             if not self.queue:
@@ -59,6 +62,8 @@ class InlineDispatcher:
             await orchestrator.task_compose(rt, gw, self, args[0])
         elif kind == "batch":
             await orchestrator.task_batch(rt, self, args[0])
+        elif kind == "keyframe":
+            await orchestrator.task_keyframe(rt, gw, args[0], args[1])
 
 
 async def setup_templates(runtime: Runtime, resolution: str = "480p") -> dict[str, Template]:

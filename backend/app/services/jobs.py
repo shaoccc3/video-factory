@@ -260,6 +260,8 @@ def allowed_actions(job: Job, user: User) -> list[str]:
             actions += ["submit"]
         if s in EDITABLE:
             actions += ["edit_storyboard", "regenerate_script", "confirm_storyboard"]
+        if s == JobStatus.STORYBOARD_READY:
+            actions += ["preview_keyframe"]  # 規格 14：首幀預覽只在分鏡待確認時
         if s in (
             JobStatus.GENERATING,
             JobStatus.IN_REVIEW,
