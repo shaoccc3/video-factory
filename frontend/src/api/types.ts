@@ -83,6 +83,7 @@ export const JOB_ACTIONS = [
   "edit_storyboard",
   "regenerate_script",
   "confirm_storyboard",
+  "preview_keyframe",
   "regenerate_scene",
   "render_final",
   "cancel",
@@ -208,6 +209,23 @@ export interface CostEstimate {
   near_limit: boolean;
 }
 
+/** POST /jobs/estimate（v1.3）：開新片的即時預估 */
+export interface EstimatePreviewRequest {
+  template_id: string;
+  target_duration_s?: number | null;
+  ratio?: Ratio | null;
+  audio_mode?: AudioMode | null;
+  draft_mode?: boolean;
+  resolution?: "480p" | "720p" | "1080p" | null;
+}
+
+export interface EstimatePreview {
+  total_cny: number;
+  items: CostItem[];
+  budget_per_job_cny: number;
+  within_budget: boolean;
+}
+
 export interface JobProgress {
   total: number;
   succeeded: number;
@@ -230,6 +248,10 @@ export interface JobSummary {
   actual_cost_cny: number;
   final_asset_id: string | null;
   cover_asset_id: string | null;
+  /** v1.3：封面，否則最後一個成功鏡頭的尾幀，否則第一個有首幀的鏡頭的首幀 */
+  preview_asset_id: string | null;
+  /** v1.3：片長（秒），各鏡時長加總；還沒有分鏡時為 null */
+  runtime_s: number | null;
   progress: JobProgress;
   created_at: string;
   updated_at: string;
@@ -273,6 +295,8 @@ export interface JobDetail extends JobSummary {
   reviews: Review[];
   /** 後端決定的可用動作；前端只看這個決定按鈕，不自行推導狀態機 */
   allowed_actions: string[];
+  /** v1.3：單鏡時長範圍，依目前階段的影片模型；生成時超出會被夾回 */
+  shot_duration_s: { min_s: number; max_s: number };
 }
 
 export interface GenerationCall {
@@ -335,6 +359,8 @@ export interface PlatformMeta {
   /** 每秒建議旁白字數；每鏡上限 = floor(時長 × chars_per_second) */
   chars_per_second: number;
   audio_modes: AudioMode[];
+  /** v1.3：一張關鍵幀（首幀預覽）的預估金額，來自 models.yaml */
+  keyframe_unit_cny: number;
 }
 
 export interface Page<T> {
@@ -343,7 +369,10 @@ export interface Page<T> {
 }
 
 export interface JobListParams {
-  status?: JobStatus | undefined;
+  /** v1.3：可帶多個狀態 */
+  status?: JobStatus | JobStatus[] | undefined;
+  /** v1.3：created（預設）或 updated */
+  sort?: "created" | "updated" | undefined;
   video_type?: VideoType | undefined;
   mine?: boolean | undefined;
   q?: string | undefined;

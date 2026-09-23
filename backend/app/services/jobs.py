@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.models_config import ModelsConfig
 from app.models import Asset, Job, Scene, Template, User
 from app.models.enums import AssetKind, AudioMode, JobPhase, JobStatus, Role, SceneStatus, VideoType
+from app.pipeline.common import video_model_key
 from app.pipeline.orchestrator import IN_FLIGHT, ActionError
 from app.pipeline.templates import template_snapshot
 from app.services.settings_store import get_budget
@@ -53,30 +54,64 @@ async def _check_asset(
         raise ActionError(f"{label}素材不存在或類型不符", 422)
 
 
+async def active_template(session: AsyncSession, template_id: uuid.UUID) -> Template:
+    tpl = await session.get(Template, template_id)
+    if tpl is None or not tpl.is_active:
+        raise ActionError("模板不存在或已停用", 422)
+    return tpl
+
+
+@dataclass(frozen=True)
+class ResolvedOptions:
+    ratio: str
+    target_duration_s: float | None
+    audio_mode: AudioMode
+
+
+def resolve_options(
+    tpl: Template,
+    config: ModelsConfig,
+    region: str,
+    *,
+    ratio: str | None,
+    target_duration_s: float | None,
+    audio_mode: AudioMode | None,
+) -> ResolvedOptions:
+    """畫幅、時長、聲音方式：套用模板預設並校驗。建立任務與開新片的預估共用，不合法時拋 422。"""
+    caps = config.video_caps("video_final")
+    resolved_ratio = ratio or tpl.ratio
+    if resolved_ratio not in caps.ratios:
+        raise ActionError(f"模型不支援畫幅 {resolved_ratio}", 422)
+    target = target_duration_s
+    if target is not None and not tpl.min_duration_s <= target <= tpl.max_duration_s:
+        raise ActionError(f"時長必須在 {tpl.min_duration_s}～{tpl.max_duration_s} 秒之間", 422)
+    mode = audio_mode or AudioMode(tpl.audio_mode)
+    if mode == AudioMode.TTS and not tts_available(region):
+        if audio_mode == AudioMode.TTS:
+            raise ActionError("國際版暫不提供 TTS 配音，請改用模型原生聲音", 422)
+        mode = AudioMode.NATIVE  # 模板預設 TTS（培訓片）但國際版不提供：改用原生聲音
+    if mode == AudioMode.NATIVE and not caps.supports_audio:
+        raise ActionError("目前的模型不支援原生聲音", 422)
+    if tpl.video_type == VideoType.TRAINING and mode == AudioMode.NONE:
+        raise ActionError("培訓講解片以旁白為主軸，不能選擇無聲", 422)
+    return ResolvedOptions(ratio=resolved_ratio, target_duration_s=target, audio_mode=mode)
+
+
 async def create_job(
     session: AsyncSession, config: ModelsConfig, region: str, owner: User, data: JobInput
 ) -> Job:
-    tpl = await session.get(Template, data.template_id)
-    if tpl is None or not tpl.is_active:
-        raise ActionError("模板不存在或已停用", 422)
+    tpl = await active_template(session, data.template_id)
     if not data.topic.strip():
         raise ActionError("請填寫主題", 422)
-    caps = config.video_caps("video_final")
-    ratio = data.ratio or tpl.ratio
-    if ratio not in caps.ratios:
-        raise ActionError(f"模型不支援畫幅 {ratio}", 422)
-    target = data.target_duration_s
-    if target is not None and not tpl.min_duration_s <= target <= tpl.max_duration_s:
-        raise ActionError(f"時長必須在 {tpl.min_duration_s}～{tpl.max_duration_s} 秒之間", 422)
-    audio_mode = data.audio_mode or AudioMode(tpl.audio_mode)
-    if audio_mode == AudioMode.TTS and not tts_available(region):
-        if data.audio_mode == AudioMode.TTS:
-            raise ActionError("國際版暫不提供 TTS 配音，請改用模型原生聲音", 422)
-        audio_mode = AudioMode.NATIVE  # 模板預設 TTS（培訓片）但國際版不提供：改用原生聲音
-    if audio_mode == AudioMode.NATIVE and not caps.supports_audio:
-        raise ActionError("目前的模型不支援原生聲音", 422)
-    if tpl.video_type == VideoType.TRAINING and audio_mode == AudioMode.NONE:
-        raise ActionError("培訓講解片以旁白為主軸，不能選擇無聲", 422)
+    resolved = resolve_options(
+        tpl,
+        config,
+        region,
+        ratio=data.ratio,
+        target_duration_s=data.target_duration_s,
+        audio_mode=data.audio_mode,
+    )
+    ratio, target, audio_mode = resolved.ratio, resolved.target_duration_s, resolved.audio_mode
     image_kinds = {AssetKind.PRODUCT, AssetKind.IMAGE, AssetKind.KEYFRAME}
     for pid in data.product_asset_ids:
         await _check_asset(session, pid, {AssetKind.PRODUCT, AssetKind.IMAGE}, "商品圖", owner)
@@ -118,6 +153,46 @@ async def create_job(
     )
     session.add(job)
     await session.flush()
+    return job
+
+
+@dataclass(frozen=True)
+class EstimateInput:
+    template_id: uuid.UUID
+    target_duration_s: float | None = None
+    ratio: str | None = None
+    audio_mode: AudioMode | None = None
+    draft_mode: bool = False
+    resolution: str | None = None
+
+
+async def preview_job(session: AsyncSession, config: ModelsConfig, region: str, data: EstimateInput) -> Job:
+    """開新片的預估用：按 POST /jobs 相同的規則校驗與套用預設，返回不加入會話的任務物件（不寫數據庫）。"""
+    tpl = await active_template(session, data.template_id)
+    resolved = resolve_options(
+        tpl,
+        config,
+        region,
+        ratio=data.ratio,
+        target_duration_s=data.target_duration_s,
+        audio_mode=data.audio_mode,
+    )
+    job = Job(
+        template_id=tpl.id,
+        template_snapshot=template_snapshot(tpl),
+        video_type=tpl.video_type,
+        options={"target_duration_s": resolved.target_duration_s, "audio_mode": resolved.audio_mode.value},
+        status=JobStatus.DRAFT.value,
+        phase=JobPhase.DRAFT.value if data.draft_mode else JobPhase.FINAL.value,
+        region=region,
+        ratio=resolved.ratio,
+        resolution=data.resolution or tpl.resolution,
+        draft_mode=data.draft_mode,
+    )
+    # 指定的解析度必須是影片模型支援的（不支援時回 422，不靜默改用其他解析度）
+    caps = config.video_caps(video_model_key(job, config))
+    if data.resolution is not None and data.resolution not in caps.resolutions:
+        raise ActionError(f"模型不支援解析度 {data.resolution}", 422)
     return job
 
 
@@ -191,6 +266,8 @@ def allowed_actions(job: Job, user: User) -> list[str]:
             actions += ["submit"]
         if s in EDITABLE:
             actions += ["edit_storyboard", "regenerate_script", "confirm_storyboard"]
+        if s == JobStatus.STORYBOARD_READY:
+            actions += ["preview_keyframe"]  # 規格 14：首幀預覽只在分鏡待確認時
         if s in (
             JobStatus.GENERATING,
             JobStatus.IN_REVIEW,

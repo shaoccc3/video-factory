@@ -3,7 +3,7 @@
 import uuid
 from collections.abc import Sequence
 
-from sqlalchemy import case, func, select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.schemas import (
@@ -17,10 +17,11 @@ from app.api.schemas import (
     Progress,
     ReviewOut,
     SceneOut,
+    ShotDurationOut,
 )
 from app.models import Asset, Job, Review, Scene, Template, User
 from app.models.enums import AudioMode, JobStatus, SceneStatus
-from app.pipeline.common import job_options
+from app.pipeline.common import job_options, video_model_key
 from app.pipeline.estimate import CostEstimate, estimate_job
 from app.services.jobs import allowed_actions
 from app.services.runtime import Runtime
@@ -56,9 +57,35 @@ async def _names(
     return {row[0]: row[1] for row in rows.all()}
 
 
+async def _preview_frames(session: AsyncSession, job_ids: list[uuid.UUID]) -> dict[uuid.UUID, uuid.UUID]:
+    """沒有封面的任務用哪張畫面：最後一個成功鏡頭的尾幀，否則第一個有首幀的鏡頭的首幀。
+
+    整頁任務只查一次，只取需要的欄位。
+    """
+    if not job_ids:
+        return {}
+    rows = await session.execute(
+        select(Scene.job_id, Scene.status, Scene.first_frame_asset_id, Scene.last_frame_asset_id)
+        .where(
+            Scene.job_id.in_(job_ids),
+            or_(Scene.first_frame_asset_id.is_not(None), Scene.last_frame_asset_id.is_not(None)),
+        )
+        .order_by(Scene.job_id, Scene.index)
+    )
+    last: dict[uuid.UUID, uuid.UUID] = {}
+    first: dict[uuid.UUID, uuid.UUID] = {}
+    for job_id, scene_status, first_frame, last_frame in rows.all():
+        if last_frame is not None and scene_status == SceneStatus.SUCCEEDED:
+            last[job_id] = last_frame  # 按鏡頭順序，後面的覆蓋前面的
+        if first_frame is not None:
+            first.setdefault(job_id, first_frame)
+    return {**first, **last}
+
+
 async def job_summaries(session: AsyncSession, jobs: Sequence[Job]) -> list[JobSummary]:
     ids = [j.id for j in jobs]
     progress: dict[uuid.UUID, Progress] = {}
+    runtimes: dict[uuid.UUID, float] = {}
     if ids:
         rows = await session.execute(
             select(
@@ -66,16 +93,17 @@ async def job_summaries(session: AsyncSession, jobs: Sequence[Job]) -> list[JobS
                 func.count(),
                 func.sum(case((Scene.status == SceneStatus.SUCCEEDED.value, 1), else_=0)),
                 func.sum(case((Scene.status == SceneStatus.FAILED.value, 1), else_=0)),
+                func.sum(Scene.duration_s),
             )
             .where(Scene.job_id.in_(ids))
             .group_by(Scene.job_id)
         )
-        progress = {
-            r[0]: Progress(total=int(r[1]), succeeded=int(r[2] or 0), failed=int(r[3] or 0))
-            for r in rows.all()
-        }
+        for r in rows.all():
+            progress[r[0]] = Progress(total=int(r[1]), succeeded=int(r[2] or 0), failed=int(r[3] or 0))
+            runtimes[r[0]] = round(float(r[4] or 0), 2)
     owners = await _names(session, User, {j.owner_id for j in jobs})
     templates = await _names(session, Template, {j.template_id for j in jobs})
+    frames = await _preview_frames(session, [j.id for j in jobs if j.cover_asset_id is None])
     return [
         JobSummary(
             id=j.id,
@@ -93,6 +121,8 @@ async def job_summaries(session: AsyncSession, jobs: Sequence[Job]) -> list[JobS
             actual_cost_cny=round(float(j.actual_cost_cny or 0), 4),
             final_asset_id=j.final_asset_id,
             cover_asset_id=j.cover_asset_id,
+            preview_asset_id=j.cover_asset_id or frames.get(j.id),
+            runtime_s=runtimes.get(j.id),
             progress=progress.get(j.id, Progress(total=0, succeeded=0, failed=0)),
             created_at=j.created_at,
             updated_at=j.updated_at,
@@ -140,6 +170,7 @@ async def job_detail(session: AsyncSession, runtime: Runtime, job: Job, viewer: 
         if owner is not None:
             estimate = estimate_out(await estimate_job(session, runtime.config, job, scenes, owner))
     opts = job_options(job)
+    caps = runtime.config.video_caps(video_model_key(job, runtime.config))
     return JobDetail(
         **summary.model_dump(),
         inputs=JobInputs(
@@ -178,4 +209,5 @@ async def job_detail(session: AsyncSession, runtime: Runtime, job: Job, viewer: 
             for r in reviews
         ],
         allowed_actions=allowed_actions(job, viewer),
+        shot_duration_s=ShotDurationOut(min_s=caps.min_duration_s, max_s=caps.max_duration_s),
     )

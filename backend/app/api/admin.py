@@ -22,7 +22,7 @@ from app.api.schemas import (
 from app.api.serializers import job_summaries
 from app.models import AuditLog, CostLedger, GenerationCall, Job, User
 from app.models.enums import AudioMode, JobPhase, JobStatus, Role
-from app.providers.pricing import CHARS_PER_SECOND
+from app.providers.pricing import CHARS_PER_SECOND, cost_per_image
 from app.services.audit import audit
 from app.services.budget import limits_for, spent_today
 from app.services.jobs import tts_available
@@ -33,11 +33,17 @@ router = APIRouter(tags=["admin"])
 
 @router.get("/meta", response_model=MetaOut)
 async def meta(_: CurrentUser, runtime: RuntimeDep) -> MetaOut:
-    """前端用的平台資訊：區域、是否提供 TTS、旁白語速。"""
+    """前端用的平台資訊：區域、是否提供 TTS、旁白語速、一張關鍵幀的預估金額。"""
     region = runtime.settings.ark_region
     tts = tts_available(region)
     modes = [AudioMode.NATIVE, *([AudioMode.TTS] if tts else []), AudioMode.NONE]
-    return MetaOut(region=region, tts_available=tts, chars_per_second=CHARS_PER_SECOND, audio_modes=modes)
+    return MetaOut(
+        region=region,
+        tts_available=tts,
+        chars_per_second=CHARS_PER_SECOND,
+        audio_modes=modes,
+        keyframe_unit_cny=round(cost_per_image(runtime.config, 1, region)[1], 4),
+    )
 
 
 @router.get("/reviews/queue", response_model=list[JobSummary])

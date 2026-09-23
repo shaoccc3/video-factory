@@ -104,6 +104,8 @@ export function makeJobSummary(overrides: Partial<JobSummary> = {}): JobSummary 
     actual_cost_cny: 0,
     final_asset_id: null,
     cover_asset_id: null,
+    preview_asset_id: null,
+    runtime_s: null,
     progress: { total: 0, succeeded: 0, failed: 0 },
     created_at: "2026-09-23T00:00:00Z",
     updated_at: "2026-09-23T00:00:00Z",
@@ -137,6 +139,7 @@ export function makeJob(overrides: Partial<JobDetail> = {}): JobDetail {
     subtitle_asset_id: null,
     reviews: [],
     allowed_actions: [],
+    shot_duration_s: { min_s: 4, max_s: 15 },
     ...overrides,
   };
 }
@@ -148,6 +151,7 @@ export function makeMeta(overrides: Partial<PlatformMeta> = {}): PlatformMeta {
     tts_available: true,
     chars_per_second: 4,
     audio_modes: ["native", "tts", "none"],
+    keyframe_unit_cny: 0.25,
     ...overrides,
   };
 }

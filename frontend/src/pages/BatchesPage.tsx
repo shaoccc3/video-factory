@@ -1,25 +1,5 @@
-import { InboxOutlined, PlusOutlined } from "@ant-design/icons";
-import {
-  App as AntdApp,
-  Button,
-  Card,
-  Descriptions,
-  Empty,
-  Flex,
-  Form,
-  Input,
-  InputNumber,
-  Modal,
-  Select,
-  Spin,
-  Switch,
-  Table,
-  Tabs,
-  Tag,
-  Typography,
-  Upload,
-} from "antd";
-import { useState } from "react";
+import { App as AntdApp, Modal, Select } from "antd";
+import { type DragEvent, type ReactNode, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router";
 import {
@@ -29,369 +9,436 @@ import {
   useCreateBatchImages,
   useTemplates,
 } from "../api/hooks";
-import type { Batch, JobStatus, JobSummary, Template } from "../api/types";
+import { type Batch, JOB_STATUSES, type JobStatus } from "../api/types";
+import { hasRole, useCurrentUser } from "../auth/auth";
 import { ErrorAlert, ErrorResult } from "../components/ErrorResult";
-import { JOB_STATUS_COLORS, JobStatusTag } from "../components/StatusTag";
-import { formatCny, formatDateTime } from "../utils/format";
-import { JobProgressBar } from "./JobsPage";
+import { jobCode } from "../components/job/JobHeader";
+import { jobTone } from "../components/StatusTag";
+import { Toggle } from "../components/studio/Toggle";
+import { useNow } from "../hooks/motion";
+import { formatDateTime } from "../utils/format";
+import { FilmFrame } from "./StudioPage";
+import "./slate.css";
+import "./batches.css";
 
-function BatchCounts({ counts }: { counts: Batch["counts"] }) {
+const MAX_PARALLEL = 10;
+
+/** 依狀態上色的分段進度條與各狀態數量 */
+function ReelProgress({ batch }: { batch: Batch }) {
   const { t } = useTranslation();
-  const entries = Object.entries(counts) as [JobStatus, number][];
-  if (entries.length === 0) return <>—</>;
+  const entries = JOB_STATUSES.flatMap((status) => {
+    const n = batch.counts[status] ?? 0;
+    return n > 0 ? [[status, n] as [JobStatus, number]] : [];
+  });
+  const total = Math.max(batch.total, 1);
   return (
-    <Flex gap={4} wrap>
-      {entries.map(([status, n]) => (
-        <Tag key={status} color={JOB_STATUS_COLORS[status]}>
-          {t(`jobStatus.${status}`)} {n}
-        </Tag>
-      ))}
-    </Flex>
+    <div className="vf-roll-progress">
+      <div className="vf-segments" aria-hidden="true">
+        {entries.map(([status, n]) => (
+          <span
+            key={status}
+            className={`vf-seg vf-seg-${jobTone(status)}`}
+            style={{ flexGrow: n, flexBasis: `${(n / total) * 100}%` }}
+          />
+        ))}
+      </div>
+      <ul className="vf-roll-counts">
+        {entries.map(([status, n]) => (
+          <li key={status}>
+            <span className={`vf-seg-dot vf-seg-${jobTone(status)}`} aria-hidden="true" />
+            {t(`jobStatus.${status}`)} <span className="vf-mono">{n}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
-interface CsvValues {
-  template_id: string;
-  max_parallel: number;
-  draft_mode: boolean;
+function ReelState({ status }: { status: Batch["status"] }) {
+  const { t } = useTranslation();
+  return (
+    <span className="vf-roll-state vf-mono" data-status={status}>
+      {status === "running" && <span className="vf-rec-dot" aria-hidden="true" />}
+      {t(`batches.${status}`)}
+    </span>
+  );
 }
 
-interface ImagesValues extends CsvValues {
-  topic: string;
-}
-
-function templateOptions(templates: Template[] | undefined, quickOnly: boolean) {
-  return (templates ?? [])
-    .filter((tpl) => !quickOnly || tpl.video_type === "quick")
-    .map((tpl) => ({ value: tpl.id, label: tpl.name }));
-}
-
-function CreateBatchModal({
-  open,
-  onClose,
-  onCreated,
+/** 拖放或選擇檔案的虛線格（場記板裡的一格） */
+function DropCell({
+  label,
+  hint,
+  accept,
+  multiple,
+  files,
+  onFiles,
 }: {
-  open: boolean;
-  onClose: () => void;
-  onCreated: () => void;
+  label: string;
+  hint: string;
+  accept: string;
+  multiple: boolean;
+  files: File[];
+  onFiles: (files: File[]) => void;
 }) {
   const { t } = useTranslation();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [over, setOver] = useState(false);
+  const onDrop = (event: DragEvent) => {
+    event.preventDefault();
+    setOver(false);
+    const dropped = Array.from(event.dataTransfer.files);
+    onFiles(multiple ? dropped : dropped.slice(0, 1));
+  };
+  return (
+    <section
+      className="vf-drop-cell"
+      aria-label={label}
+      data-over={over}
+      onDragOver={(e) => {
+        e.preventDefault();
+        setOver(true);
+      }}
+      onDragLeave={() => setOver(false)}
+      onDrop={onDrop}
+    >
+      <input
+        ref={inputRef}
+        type="file"
+        className="vf-sr-only"
+        accept={accept}
+        multiple={multiple}
+        tabIndex={-1}
+        aria-label={label}
+        onChange={(e) => onFiles(Array.from(e.target.files ?? []))}
+      />
+      {files.length > 0 ? (
+        <ul className="vf-drop-files">
+          {files.map((f) => (
+            <li key={`${f.name}-${f.size}-${f.lastModified}`} className="vf-mono">
+              {f.name}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <span className="vf-muted">{hint}</span>
+      )}
+      <button
+        type="button"
+        className="vf-btn vf-btn-ghost"
+        onClick={() => inputRef.current?.click()}
+      >
+        {files.length > 0 ? t("batches.replaceFiles") : t("assets.chooseFile")}
+      </button>
+    </section>
+  );
+}
+
+type Source = "csv" | "images";
+
+/** 新增批量：場記板風格的對話框（CSV 或多張圖片、並發數、樣片模式） */
+function CreateBatchDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
+  const { message } = AntdApp.useApp();
   const templates = useTemplates();
   const csv = useCreateBatchCsv();
   const images = useCreateBatchImages();
-  const [tab, setTab] = useState("csv");
-  const [csvFile, setCsvFile] = useState<File | null>(null);
-  const [imageFiles, setImageFiles] = useState<File[]>([]);
-  const [csvForm] = Form.useForm<CsvValues>();
-  const [imagesForm] = Form.useForm<ImagesValues>();
+  const [source, setSource] = useState<Source>("csv");
+  const [templateId, setTemplateId] = useState<string | undefined>();
+  const [files, setFiles] = useState<File[]>([]);
+  const [topic, setTopic] = useState("");
+  const [parallel, setParallel] = useState(2);
+  const [draft, setDraft] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const pending = csv.isPending || images.isPending;
+  const options = (templates.data ?? [])
+    .filter((tpl) => source === "csv" || tpl.video_type === "quick")
+    .map((tpl) => ({ value: tpl.id, label: tpl.name }));
+
+  const switchSource = (next: Source) => {
+    setSource(next);
+    setFiles([]);
+    setTemplateId(undefined);
+    setErrors({});
+  };
 
   const done = (batch: Batch) => {
-    onCreated();
+    onClose();
+    void message.success(t("batches.created"));
     void navigate(`/batches/${batch.id}`);
   };
 
-  const submitCsv = (values: CsvValues) => {
-    if (!csvFile) return;
-    csv.mutate({ ...values, file: csvFile }, { onSuccess: done });
-  };
-  const submitImages = (values: ImagesValues) => {
-    if (imageFiles.length === 0) return;
-    images.mutate({ ...values, files: imageFiles }, { onSuccess: done });
+  const submit = () => {
+    const next: Record<string, string> = {};
+    if (!templateId) next.template = t("batches.templateRequired");
+    if (files.length === 0) next.files = t("batches.filesRequired");
+    if (source === "images" && !topic.trim()) next.topic = t("batches.topicRequired");
+    setErrors(next);
+    if (!templateId || Object.keys(next).length > 0) return;
+    const common = { template_id: templateId, max_parallel: parallel, draft_mode: draft };
+    const [first] = files;
+    if (source === "csv" && first) {
+      csv.mutate({ ...common, file: first }, { onSuccess: done });
+    } else {
+      images.mutate({ ...common, files, topic: topic.trim() }, { onSuccess: done });
+    }
   };
 
-  const defaults = { max_parallel: 2, draft_mode: false };
+  const cell = (key: string, label: string, body: ReactNode, wide = false) => (
+    <div className={wide ? "vf-cell vf-cell-wide" : "vf-cell"}>
+      <span className="vf-label" id={`vf-batch-${key}`}>
+        {label}
+      </span>
+      {body}
+      {errors[key] && (
+        <span className="vf-field-error" role="alert">
+          {errors[key]}
+        </span>
+      )}
+    </div>
+  );
 
   return (
     <Modal
       open={open}
-      title={t("batches.create")}
       onCancel={onClose}
       footer={null}
-      width={640}
+      width={720}
+      title={t("batches.create")}
+      rootClassName="vf-batch-dialog"
       destroyOnHidden
     >
-      <Tabs
-        activeKey={tab}
-        onChange={setTab}
-        items={[
-          {
-            key: "csv",
-            label: t("batches.fromCsv"),
-            children: (
-              <Form<CsvValues>
-                form={csvForm}
-                layout="vertical"
-                initialValues={defaults}
-                onFinish={submitCsv}
+      <div className="vf-slate">
+        <div className="vf-slate-top" aria-hidden="true">
+          <div className="vf-slate-stick" />
+          <div className="vf-slate-hinge" />
+          <div className="vf-slate-band" />
+        </div>
+        <div className="vf-slate-grid">
+          {cell(
+            "source",
+            t("batches.sourceLabel"),
+            <fieldset className="vf-tabs" aria-labelledby="vf-batch-source">
+              {(["csv", "images"] as const).map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  className="vf-tab vf-slate-grow"
+                  aria-pressed={source === s}
+                  onClick={() => switchSource(s)}
+                >
+                  {s === "csv" ? t("batches.fromCsv") : t("batches.fromImages")}
+                </button>
+              ))}
+            </fieldset>,
+            true,
+          )}
+          {cell(
+            "template",
+            t("batches.templateLabel"),
+            <Select
+              aria-labelledby="vf-batch-template"
+              loading={templates.isPending}
+              value={templateId}
+              onChange={setTemplateId}
+              options={options}
+              placeholder={source === "images" ? t("batches.quickOnly") : undefined}
+            />,
+            true,
+          )}
+          {cell(
+            "files",
+            source === "csv" ? t("batches.csvLabel") : t("batches.imagesLabel"),
+            <DropCell
+              label={source === "csv" ? t("batches.csvFile") : t("batches.images")}
+              hint={source === "csv" ? t("batches.csvHelp") : t("batches.dropImages")}
+              accept={source === "csv" ? ".csv,text/csv" : "image/png,image/jpeg,image/webp"}
+              multiple={source === "images"}
+              files={files}
+              onFiles={setFiles}
+            />,
+            true,
+          )}
+          {source === "images" &&
+            cell(
+              "topic",
+              t("batches.topicLabel"),
+              <textarea
+                className="vf-slate-input"
+                rows={2}
+                value={topic}
+                aria-labelledby="vf-batch-topic"
+                onChange={(e) => setTopic(e.target.value)}
+              />,
+              true,
+            )}
+          {cell(
+            "parallel",
+            t("batches.parallelLabel"),
+            <div className="vf-stepper">
+              <button
+                type="button"
+                className="vf-icon-btn"
+                aria-label={t("batches.fewer")}
+                disabled={parallel <= 1}
+                onClick={() => setParallel((n) => Math.max(1, n - 1))}
               >
-                <ErrorAlert error={csv.error} />
-                <Form.Item
-                  name="template_id"
-                  label={t("batches.template")}
-                  rules={[{ required: true, message: t("batches.templateRequired") }]}
-                >
-                  <Select
-                    loading={templates.isPending}
-                    options={templateOptions(templates.data, false)}
-                  />
-                </Form.Item>
-                <Form.Item label={t("batches.csvFile")} required extra={t("batches.csvHelp")}>
-                  <Upload.Dragger
-                    accept=".csv,text/csv"
-                    maxCount={1}
-                    beforeUpload={(file) => {
-                      setCsvFile(file);
-                      return false;
-                    }}
-                    onRemove={() => setCsvFile(null)}
-                    fileList={csvFile ? [{ uid: "csv", name: csvFile.name, status: "done" }] : []}
-                  >
-                    <p className="ant-upload-drag-icon">
-                      <InboxOutlined />
-                    </p>
-                    <p>{t("batches.dropCsv")}</p>
-                  </Upload.Dragger>
-                </Form.Item>
-                <Flex gap={24}>
-                  <Form.Item name="max_parallel" label={t("batches.maxParallel")}>
-                    <InputNumber min={1} max={10} />
-                  </Form.Item>
-                  <Form.Item
-                    name="draft_mode"
-                    label={t("wizard.fields.draftMode")}
-                    valuePropName="checked"
-                  >
-                    <Switch />
-                  </Form.Item>
-                </Flex>
-                <Button
-                  type="primary"
-                  htmlType="submit"
-                  disabled={!csvFile}
-                  loading={csv.isPending}
-                >
-                  {t("batches.submit")}
-                </Button>
-              </Form>
-            ),
-          },
-          {
-            key: "images",
-            label: t("batches.fromImages"),
-            children: (
-              <Form<ImagesValues>
-                form={imagesForm}
-                layout="vertical"
-                initialValues={defaults}
-                onFinish={submitImages}
+                −
+              </button>
+              <output className="vf-mono" aria-labelledby="vf-batch-parallel">
+                {parallel}
+              </output>
+              <button
+                type="button"
+                className="vf-icon-btn"
+                aria-label={t("batches.more")}
+                disabled={parallel >= MAX_PARALLEL}
+                onClick={() => setParallel((n) => Math.min(MAX_PARALLEL, n + 1))}
               >
-                <ErrorAlert error={images.error} />
-                <Form.Item
-                  name="template_id"
-                  label={t("batches.template")}
-                  rules={[{ required: true, message: t("batches.templateRequired") }]}
-                  extra={t("batches.quickOnly")}
-                >
-                  <Select
-                    loading={templates.isPending}
-                    options={templateOptions(templates.data, true)}
-                  />
-                </Form.Item>
-                <Form.Item
-                  name="topic"
-                  label={t("batches.topic")}
-                  rules={[
-                    { required: true, whitespace: true, message: t("batches.topicRequired") },
-                  ]}
-                >
-                  <Input.TextArea rows={2} />
-                </Form.Item>
-                <Form.Item label={t("batches.images")} required>
-                  <Upload.Dragger
-                    accept="image/png,image/jpeg,image/webp"
-                    multiple
-                    beforeUpload={(file) => {
-                      setImageFiles((cur) => [...cur, file]);
-                      return false;
-                    }}
-                    onRemove={(file) =>
-                      setImageFiles((cur) => cur.filter((f, i) => `${i}-${f.name}` !== file.uid))
-                    }
-                    fileList={imageFiles.map((f, i) => ({
-                      uid: `${i}-${f.name}`,
-                      name: f.name,
-                      status: "done" as const,
-                    }))}
-                  >
-                    <p className="ant-upload-drag-icon">
-                      <InboxOutlined />
-                    </p>
-                    <p>{t("batches.dropImages")}</p>
-                  </Upload.Dragger>
-                </Form.Item>
-                <Flex gap={24}>
-                  <Form.Item name="max_parallel" label={t("batches.maxParallel")}>
-                    <InputNumber min={1} max={10} />
-                  </Form.Item>
-                  <Form.Item
-                    name="draft_mode"
-                    label={t("wizard.fields.draftMode")}
-                    valuePropName="checked"
-                  >
-                    <Switch />
-                  </Form.Item>
-                </Flex>
-                <Button
-                  type="primary"
-                  htmlType="submit"
-                  disabled={imageFiles.length === 0}
-                  loading={images.isPending}
-                >
-                  {t("batches.submitImages", { count: imageFiles.length })}
-                </Button>
-              </Form>
-            ),
-          },
-        ]}
-      />
+                ＋
+              </button>
+            </div>,
+          )}
+          {cell(
+            "draft",
+            t("batches.draftLabel"),
+            <div className="vf-slate-option">
+              <div>
+                <span className="vf-note">{t("wizard.fields.draftModeHelp")}</span>
+              </div>
+              <Toggle checked={draft} onChange={setDraft} labelledBy="vf-batch-draft" />
+            </div>,
+          )}
+          <div className="vf-cell vf-cell-wide vf-slate-foot">
+            <ErrorAlert error={csv.error ?? images.error} />
+            <span className="vf-mono vf-slate-roll">
+              {t("mono.batch")} · {t("batches.rollHint")}
+            </span>
+            <button
+              type="button"
+              className="vf-btn vf-btn-primary vf-slate-go"
+              disabled={pending}
+              aria-busy={pending}
+              onClick={submit}
+            >
+              {source === "images"
+                ? t("batches.submitImages", { count: files.length })
+                : t("batches.submit")}
+            </button>
+          </div>
+        </div>
+      </div>
     </Modal>
   );
 }
 
+/** 批量清單：每列一卷 */
 export function BatchesPage() {
   const { t, i18n } = useTranslation();
   const batches = useBatches();
   const [open, setOpen] = useState(false);
-  const { message } = AntdApp.useApp();
+  const items = batches.data ?? [];
   return (
-    <>
-      <Flex justify="space-between" align="center" style={{ marginBottom: 16 }}>
-        <Typography.Title level={3} style={{ margin: 0 }}>
-          {t("batches.title")}
-        </Typography.Title>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>
+    <div className="vf-batches">
+      <header className="vf-batches-head vf-rise">
+        <div>
+          <span className="vf-label">
+            {t("mono.batchReels")}
+            {batches.data ? ` · ${items.length}` : ""}
+          </span>
+          <h1 className="vf-serif">{t("batches.title")}</h1>
+        </div>
+        <button
+          type="button"
+          className="vf-btn vf-btn-primary vf-btn-lg"
+          onClick={() => setOpen(true)}
+        >
           {t("batches.create")}
-        </Button>
-      </Flex>
+        </button>
+      </header>
       <ErrorAlert error={batches.error} />
-      <Table<Batch>
-        rowKey="id"
-        loading={batches.isFetching}
-        dataSource={batches.data ?? []}
-        locale={{ emptyText: <Empty description={t("batches.empty")} /> }}
-        columns={[
-          {
-            title: t("batches.createdAt"),
-            dataIndex: "created_at",
-            render: (v: string, batch) => (
-              <Link to={`/batches/${batch.id}`}>{formatDateTime(v, i18n.language)}</Link>
-            ),
-          },
-          { title: t("batches.template"), dataIndex: "template_name" },
-          { title: t("batches.total"), dataIndex: "total", align: "right" },
-          { title: t("batches.maxParallel"), dataIndex: "max_parallel", align: "right" },
-          {
-            title: t("batches.status"),
-            dataIndex: "status",
-            render: (s: Batch["status"]) => (
-              <Tag color={s === "running" ? "processing" : "success"}>{t(`batches.${s}`)}</Tag>
-            ),
-          },
-          {
-            title: t("batches.counts"),
-            dataIndex: "counts",
-            render: (counts: Batch["counts"]) => <BatchCounts counts={counts} />,
-          },
-        ]}
-      />
-      <CreateBatchModal
-        open={open}
-        onClose={() => setOpen(false)}
-        onCreated={() => {
-          setOpen(false);
-          void message.success(t("batches.created"));
-        }}
-      />
-    </>
+      {batches.isPending ? (
+        <span className="vf-skel vf-skel-block" aria-busy="true" />
+      ) : items.length === 0 ? (
+        <p className="vf-batches-empty">{t("batches.empty")}</p>
+      ) : (
+        <ul className="vf-rolls vf-rise-2">
+          {items.map((batch) => (
+            <li key={batch.id} className="vf-roll-row">
+              <div className="vf-roll-id">
+                <span className="vf-mono vf-roll-code">{jobCode(batch)}</span>
+                <ReelState status={batch.status} />
+              </div>
+              <div className="vf-roll-main">
+                <Link to={`/batches/${batch.id}`} className="vf-stretched vf-serif vf-roll-title">
+                  {batch.template_name}
+                </Link>
+                <span className="vf-mono vf-muted">
+                  {t("batches.reelSpec", { total: batch.total, parallel: batch.max_parallel })}
+                  {" · "}
+                  {formatDateTime(batch.created_at, i18n.language)}
+                </span>
+              </div>
+              <ReelProgress batch={batch} />
+            </li>
+          ))}
+        </ul>
+      )}
+      <CreateBatchDialog open={open} onClose={() => setOpen(false)} />
+    </div>
   );
 }
 
+/** 批量詳情：片場底片式的任務網格 */
 export function BatchDetailPage() {
   const { id } = useParams();
   const { t, i18n } = useTranslation();
+  const user = useCurrentUser();
+  const now = useNow(1000);
   const batch = useBatch(id);
-  if (batch.isPending) return <Spin />;
+  if (batch.isPending) {
+    return (
+      <div className="vf-batches" aria-busy="true">
+        <span className="vf-skel vf-skel-heading" />
+        <span className="vf-skel vf-skel-block" />
+      </div>
+    );
+  }
   if (batch.isError)
     return <ErrorResult error={batch.error} onRetry={() => void batch.refetch()} />;
   const data = batch.data;
   return (
-    <>
-      <Typography.Text type="secondary">
-        <Link to="/batches">{t("batches.title")}</Link> /
-      </Typography.Text>
-      <Typography.Title level={3} style={{ marginTop: 0 }}>
-        {t("batches.detailTitle", { name: data.template_name })}
-      </Typography.Title>
-      <Card size="small" style={{ marginBottom: 16 }}>
-        <Descriptions
-          size="small"
-          column={{ xs: 1, sm: 2, lg: 4 }}
-          items={[
-            {
-              key: "created",
-              label: t("batches.createdAt"),
-              children: formatDateTime(data.created_at, i18n.language),
-            },
-            { key: "total", label: t("batches.total"), children: data.total },
-            { key: "parallel", label: t("batches.maxParallel"), children: data.max_parallel },
-            {
-              key: "status",
-              label: t("batches.status"),
-              children: t(`batches.${data.status}`),
-            },
-            {
-              key: "counts",
-              label: t("batches.counts"),
-              span: "filled",
-              children: <BatchCounts counts={data.counts} />,
-            },
-          ]}
-        />
-      </Card>
-      <Table<JobSummary>
-        rowKey="id"
-        dataSource={data.jobs}
-        pagination={{ pageSize: 50, hideOnSinglePage: true }}
-        columns={[
-          {
-            title: t("jobs.columns.title"),
-            dataIndex: "title",
-            render: (title: string, job) => <Link to={`/jobs/${job.id}`}>{title}</Link>,
-          },
-          {
-            title: t("jobs.columns.status"),
-            dataIndex: "status",
-            render: (s: JobStatus) => <JobStatusTag status={s} />,
-          },
-          {
-            title: t("jobs.columns.progress"),
-            key: "progress",
-            render: (_, job) => <JobProgressBar job={job} />,
-          },
-          {
-            title: t("jobs.columns.cost"),
-            dataIndex: "actual_cost_cny",
-            align: "right",
-            render: (v: number) => formatCny(v),
-          },
-          {
-            title: t("jobs.columns.createdAt"),
-            dataIndex: "created_at",
-            render: (v: string) => formatDateTime(v, i18n.language),
-          },
-        ]}
-      />
-    </>
+    <div className="vf-batches">
+      <header className="vf-batch-head vf-rise">
+        <span className="vf-mono vf-batch-kicker">
+          <Link to="/batches" className="vf-link">
+            ← {t("batches.title")}
+          </Link>
+          <span aria-hidden="true"> / </span>
+          {t("mono.batch")} · {jobCode(data)}
+        </span>
+        <div className="vf-batch-title">
+          <h1 className="vf-serif">{t("batches.detailTitle", { name: data.template_name })}</h1>
+          <ReelState status={data.status} />
+        </div>
+        <span className="vf-mono vf-muted">
+          {t("batches.reelSpec", { total: data.total, parallel: data.max_parallel })}
+          {" · "}
+          {formatDateTime(data.created_at, i18n.language)}
+        </span>
+      </header>
+      <ReelProgress batch={data} />
+      <div className="vf-strip vf-batch-strip vf-rise-2">
+        <div className="vf-sprockets" aria-hidden="true" />
+        <ul className="vf-strip-frames vf-batch-frames">
+          {data.jobs.map((job) => (
+            <li key={job.id}>
+              <FilmFrame job={job} now={now} reviewer={hasRole(user, "reviewer")} />
+            </li>
+          ))}
+        </ul>
+        <div className="vf-sprockets" aria-hidden="true" />
+      </div>
+    </div>
   );
 }

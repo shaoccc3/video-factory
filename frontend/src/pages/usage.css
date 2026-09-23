@@ -1,0 +1,315 @@
+/* 用量：三個等寬大數字、每日花費長條圖、按模型／用戶的比例表（規格 14；圖表依 dataviz 準則） */
+.vf-usage {
+  --vf-chart-1: #c4802c; /* 單一系列色：琥珀，已驗證在深色表面的亮度帶與對比 */
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  max-width: 1440px;
+  transition: opacity 0.2s;
+}
+
+.vf-usage-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vf-usage-head h1 {
+  margin: 0;
+  font-size: clamp(30px, 3.6vw, 44px);
+  letter-spacing: 0.04em;
+}
+
+.vf-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 900px) {
+  .vf-tiles {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.vf-tile {
+  --mx: 50%;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: hidden;
+  padding: 20px 22px;
+  border: 1px solid var(--vf-line);
+  background: var(--vf-panel);
+}
+
+/* 游標經過時的一束微光 */
+.vf-tile::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    220px circle at var(--mx) 0,
+    rgba(240, 166, 58, 0.09),
+    transparent 70%
+  );
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+
+.vf-tile:hover::before {
+  opacity: 1;
+}
+
+.vf-tile-value {
+  font-size: clamp(34px, 3.4vw, 48px);
+  line-height: 1.1;
+  color: var(--vf-text);
+}
+
+.vf-tile .vf-muted {
+  font-size: 13px;
+}
+
+.vf-meter {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.vf-meter-track {
+  position: relative;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(95, 191, 142, 0.18);
+  overflow: hidden;
+}
+
+.vf-meter-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: 3px;
+  background: var(--vf-ok);
+  transform-origin: left center;
+  transition: transform 0.6s var(--vf-ease);
+}
+
+.vf-meter[data-level="near"] .vf-meter-track {
+  background: rgba(240, 166, 58, 0.18);
+}
+
+.vf-meter[data-level="near"] .vf-meter-fill {
+  background: var(--vf-accent);
+}
+
+.vf-meter[data-level="over"] .vf-meter-track {
+  background: rgba(229, 72, 77, 0.18);
+}
+
+.vf-meter[data-level="over"] .vf-meter-fill {
+  background: var(--vf-rec);
+}
+
+.vf-usage-warn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--vf-text);
+  font-size: 13px;
+}
+
+.vf-usage-warn-icon {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--vf-accent);
+  color: var(--vf-accent-ink);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.vf-usage-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  padding: 20px 22px;
+  border: 1px solid var(--vf-line);
+  background: var(--vf-panel);
+}
+
+.vf-usage-card h2 {
+  margin: 0;
+}
+
+.vf-usage-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.vf-usage-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+  gap: 16px;
+}
+
+/* 長條圖 */
+.vf-chart {
+  position: relative;
+}
+
+.vf-chart svg {
+  display: block;
+  overflow: visible;
+}
+
+.vf-chart-grid {
+  stroke: var(--vf-line);
+  stroke-width: 1;
+}
+
+.vf-chart-axis {
+  stroke: var(--vf-line-2);
+  stroke-width: 1;
+}
+
+.vf-chart-tick {
+  fill: var(--vf-text-3);
+  font-family: var(--vf-font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.vf-chart-label {
+  fill: var(--vf-text-2);
+  font-family: var(--vf-font-mono);
+  font-size: 12px;
+}
+
+.vf-chart-bar {
+  fill: var(--vf-chart-1);
+  transition: fill 0.15s;
+}
+
+.vf-chart-bar[data-active="true"] {
+  fill: var(--vf-accent);
+}
+
+.vf-chart-hits {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.vf-chart-hit {
+  position: absolute;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: crosshair;
+  pointer-events: auto;
+}
+
+.vf-chart-hit:focus-visible {
+  outline: 1px solid var(--vf-accent);
+  outline-offset: -1px;
+}
+
+.vf-chart-tip {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  border: 1px solid var(--vf-line-2);
+  border-radius: 2px;
+  background: var(--vf-raised);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  transform: translate(-50%, calc(-100% - 12px));
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.vf-chart-tip strong {
+  color: var(--vf-text);
+  font-size: 15px;
+}
+
+.vf-chart-tip-date {
+  color: var(--vf-text-3);
+  font-size: 11px;
+}
+
+/* 表格與行內比例條 */
+.vf-usage-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.vf-usage-table th {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--vf-line);
+  color: var(--vf-text-3);
+  font-family: var(--vf-font-mono);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.16em;
+  text-align: left;
+}
+
+.vf-usage-table td {
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--vf-line);
+}
+
+.vf-usage-table td.vf-mono {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.vf-usage-table tr:last-child td {
+  border-bottom: none;
+}
+
+.vf-usage-table .vf-num {
+  text-align: right;
+}
+
+.vf-share {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 120px;
+  color: var(--vf-text-2);
+  font-size: 12px;
+}
+
+.vf-share-track {
+  position: relative;
+  flex: 1;
+  height: 6px;
+  border-radius: 0 3px 3px 0;
+  background: var(--vf-line);
+}
+
+.vf-share-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 0 3px 3px 0;
+  background: var(--vf-chart-1);
+}
+
+/* 重取期間保留上一張圖，降低不透明度 */
+.vf-usage[data-refetching="true"] .vf-tiles,
+.vf-usage[data-refetching="true"] .vf-usage-card {
+  opacity: 0.55;
+}

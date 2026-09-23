@@ -1,0 +1,369 @@
+/* 共用控件：區塊標題、連結、分頁鈕、欄位錯誤（片場、開新片、其他頁面共用） */
+.vf-section {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding-top: 72px;
+}
+
+.vf-section-pad {
+  padding-left: 40px;
+  padding-right: 40px;
+}
+
+.vf-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.vf-studio .vf-section > .vf-section-head {
+  padding: 0 40px;
+}
+
+.vf-studio .vf-section-pad > .vf-section-head {
+  padding: 0;
+}
+
+.vf-section-title {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+}
+
+.vf-section-title h2 {
+  margin: 0;
+  font-size: 28px;
+}
+
+.vf-link {
+  color: var(--vf-text-2);
+  text-decoration: none;
+  font-size: 14px;
+  transition: color 0.2s;
+}
+
+.vf-link:hover {
+  color: var(--vf-accent);
+}
+
+/* 讓整張卡可點，按鈕仍可單獨點 */
+.vf-stretched::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.vf-field-error {
+  color: #ffb3b5;
+  font-size: 12px;
+}
+
+.vf-tabs {
+  display: flex;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  min-width: 0;
+}
+
+.vf-tab {
+  min-height: 40px;
+  padding: 4px 12px;
+  border-radius: var(--vf-radius);
+  border: 1px solid var(--vf-line-2);
+  background: transparent;
+  color: var(--vf-text-2);
+  font-family: inherit;
+  font-size: 13px;
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 1px;
+  cursor: pointer;
+  transition:
+    color 0.2s,
+    border-color 0.2s,
+    background-color 0.2s;
+}
+
+.vf-tab:hover {
+  color: var(--vf-text);
+}
+
+.vf-tab[aria-pressed="true"] {
+  border-color: var(--vf-accent);
+  background: var(--vf-accent-soft);
+  color: var(--vf-accent);
+}
+
+.vf-tab-sub {
+  font-size: 10px;
+  opacity: 0.8;
+}
+
+/* 開關：方角、琥珀色，用於先出樣片、聲音一致、連續鏡頭 */
+.vf-toggle {
+  width: 48px;
+  height: 26px;
+  flex-shrink: 0;
+  padding: 3px;
+  display: flex;
+  justify-content: flex-start;
+  border-radius: var(--vf-radius);
+  border: 1px solid var(--vf-line-2);
+  background: transparent;
+  cursor: pointer;
+  transition:
+    background-color 0.25s,
+    border-color 0.25s;
+}
+
+.vf-toggle-knob {
+  width: 18px;
+  height: 18px;
+  border-radius: 2px;
+  background: var(--vf-text-3);
+  transition:
+    transform 0.25s var(--vf-ease),
+    background-color 0.25s;
+}
+
+.vf-toggle[aria-checked="true"] {
+  border-color: var(--vf-accent);
+  background: var(--vf-accent);
+}
+
+.vf-toggle[aria-checked="true"] .vf-toggle-knob {
+  transform: translateX(22px);
+  background: var(--vf-accent-ink);
+}
+
+.vf-toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* 大按鈕、危險操作、圖示鈕 */
+.vf-btn-lg {
+  height: 46px;
+  padding: 0 20px;
+  font-size: 15px;
+}
+
+.vf-btn-danger {
+  border-color: rgba(229, 72, 77, 0.5);
+  color: #ffb3b5;
+}
+
+.vf-btn-danger:hover {
+  border-color: var(--vf-rec);
+  color: var(--vf-rec);
+}
+
+.vf-icon-btn {
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--vf-radius);
+  border: 1px solid var(--vf-line-2);
+  background: transparent;
+  color: var(--vf-text-2);
+  font-size: 18px;
+  cursor: pointer;
+  transition:
+    border-color 0.2s,
+    color 0.2s;
+}
+
+.vf-icon-btn:hover:not(:disabled) {
+  border-color: var(--vf-text);
+  color: var(--vf-text);
+}
+
+.vf-icon-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.vf-icon-btn-light {
+  width: 52px;
+  border: none;
+  background: var(--vf-text);
+  color: var(--vf-bg);
+}
+
+.vf-icon-btn-light:hover:not(:disabled) {
+  color: var(--vf-bg);
+  filter: brightness(1.08);
+}
+
+/* 提示框：左側色條 */
+.vf-callout {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 16px;
+  border: 1px solid var(--vf-line);
+  border-left: 3px solid var(--vf-info);
+  background: var(--vf-panel);
+  font-size: 14px;
+}
+
+.vf-callout p,
+.vf-callout ul {
+  margin: 0;
+  color: var(--vf-text-2);
+}
+
+.vf-callout ul {
+  padding-inline-start: 20px;
+}
+
+.vf-callout-warn {
+  border-left-color: var(--vf-accent);
+}
+
+.vf-callout-error {
+  border-left-color: var(--vf-rec);
+}
+
+/* 骨架：載入中的灰塊，帶一道掃光 */
+.vf-skel {
+  display: block;
+  position: relative;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--vf-raised);
+}
+
+.vf-skel::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 30%;
+  background: linear-gradient(90deg, transparent, rgba(232, 236, 243, 0.06), transparent);
+  animation: vf-scan 1.6s ease-in-out infinite;
+}
+
+.vf-skel-heading {
+  width: min(420px, 70%);
+  height: 44px;
+}
+
+.vf-skel-title {
+  width: 40%;
+  height: 34px;
+}
+
+.vf-skel-block {
+  height: 96px;
+}
+
+.vf-skel-row {
+  height: 44px;
+}
+
+/* 表單格：等寬標籤＋輸入框（場記板、分鏡表共用） */
+.vf-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 16px 22px;
+  border-bottom: 1px solid var(--vf-line);
+}
+
+.vf-cell:not(.vf-cell-wide):nth-child(odd of .vf-cell:not(.vf-cell-wide)) {
+  border-right: 1px solid var(--vf-line);
+}
+
+.vf-cell-wide {
+  grid-column: span 2;
+}
+
+.vf-slate-input,
+.vf-slate-story {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: var(--vf-radius);
+  border: 1px solid var(--vf-line);
+  background: var(--vf-input);
+  color: var(--vf-text);
+  font-family: var(--vf-font-sans);
+  font-size: 15px;
+  resize: vertical;
+  transition:
+    border-color 0.2s,
+    background-color 0.2s;
+}
+
+.vf-slate-input::placeholder,
+.vf-slate-story::placeholder {
+  color: var(--vf-text-3);
+}
+
+.vf-slate-input:focus,
+.vf-slate-story:focus {
+  outline: none;
+  border-color: var(--vf-accent);
+  background: #0e1729;
+}
+
+.vf-slate-reset {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--vf-accent);
+  font: inherit;
+  cursor: pointer;
+}
+
+.vf-slate-reset:hover {
+  color: var(--vf-accent-hover);
+}
+
+/* 數字步進：− 值 ＋（分鏡時長、批量並發數） */
+.vf-stepper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  min-width: 0;
+}
+
+.vf-stepper output {
+  flex: 1;
+  text-align: center;
+  font-size: 22px;
+}
+
+/* 底線頁籤：頁面層級的篩選（放映室、用量） */
+.vf-underline-tabs {
+  gap: 0;
+  border-bottom: 1px solid var(--vf-line);
+}
+
+.vf-underline-tabs .vf-tab {
+  min-height: 40px;
+  padding: 0 16px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+}
+
+.vf-underline-tabs .vf-tab[aria-pressed="true"] {
+  border-bottom-color: var(--vf-accent);
+  background: transparent;
+}

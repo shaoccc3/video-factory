@@ -1,14 +1,21 @@
-"""成本預估：按分鏡數、時長、模型單價計算，顯示在分鏡確認頁。"""
+"""成本預估：按分鏡數、時長、模型單價計算，顯示在分鏡確認頁與開新片頁。"""
 
+import math
 from dataclasses import dataclass
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.models_config import ModelKey, ModelsConfig, Region, VideoModelKey
 from app.models import Job, Scene, User
-from app.models.enums import AudioMode, JobPhase
-from app.pipeline.common import clip_duration, job_options, job_resolution, video_model_key
-from app.providers.pricing import cost_per_image, cost_per_kchar, video_cost, video_tokens_for
+from app.models.enums import AudioMode, JobPhase, SceneStatus
+from app.pipeline.common import clip_duration, job_options, job_resolution, storyboard_rules, video_model_key
+from app.providers.pricing import (
+    CHARS_PER_SECOND,
+    cost_per_image,
+    cost_per_kchar,
+    video_cost,
+    video_tokens_for,
+)
 from app.services.budget import NEAR_LIMIT_RATIO, limits_for, spent_on_job, spent_today
 
 
@@ -97,14 +104,18 @@ def estimate_items(config: ModelsConfig, job: Job, scenes: list[Scene]) -> list[
     return items
 
 
-async def estimate_job(
-    session: AsyncSession, config: ModelsConfig, job: Job, scenes: list[Scene], owner: User
+async def _summarize(
+    session: AsyncSession,
+    config: ModelsConfig,
+    job: Job | None,
+    owner: User,
+    items: list[CostItem],
+    used: float,
 ) -> CostEstimate:
-    items = estimate_items(config, job, scenes)
+    """加總並對照預算。job 為 None 時單任務上限取目前的預算設定；used 為任務已花的金額。"""
     total = round(sum(i.amount_cny for i in items), 4)
     limits = await limits_for(session, config, job, owner)
     today = await spent_today(session, owner.id)
-    used = await spent_on_job(session, job.id)
     # 樣片模式下正片是確認後才花的錢，不擋第一步
     now_cost = total - sum(i.amount_cny for i in items if i.label.startswith("正片"))
     within = used + now_cost <= limits.job_budget_cny and today + now_cost <= limits.daily_budget_cny
@@ -121,3 +132,48 @@ async def estimate_job(
         within_budget=within,
         near_limit=near,
     )
+
+
+async def estimate_job(
+    session: AsyncSession, config: ModelsConfig, job: Job, scenes: list[Scene], owner: User
+) -> CostEstimate:
+    items = estimate_items(config, job, scenes)
+    return await _summarize(session, config, job, owner, items, await spent_on_job(session, job.id))
+
+
+def synthetic_scenes(config: ModelsConfig, job: Job) -> list[Scene]:
+    """還沒寫分鏡時的假設分鏡（規格 14：開新片的即時預估）。
+
+    - 鏡頭數：模板鏡頭數上下限取中間值、向上取整。
+    - 時長：目標時長（未填時取模板範圍中間值）平均分到各鏡，再按模型能力表取整與夾緊（同 clip_duration）。
+    - 保守估算：每鏡都要生成首幀；TTS 旁白按念滿鏡頭時長（時長 × 每秒字數）計字數。
+    只建立不加入會話的物件，不寫數據庫。
+    """
+    rules = storyboard_rules(job, config)
+    shots = max(1, math.ceil((rules.min_shots + rules.max_shots) / 2))
+    duration = float(clip_duration(rules.target_total_s / shots, rules.caps))
+    narration = "字" * int(duration * CHARS_PER_SECOND)
+    return [
+        Scene(
+            index=index,
+            duration_s=duration,
+            narration=narration,
+            needs_first_frame=True,
+            first_frame_asset_id=None,
+            audio_asset_id=None,
+            status=SceneStatus.PENDING.value,
+            is_draft=False,
+        )
+        for index in range(shots)
+    ]
+
+
+async def estimate_preview(
+    session: AsyncSession, config: ModelsConfig, job: Job, owner: User
+) -> CostEstimate:
+    """開新片的預估：job 為尚未建立（不加入會話）的任務，用 synthetic_scenes 的假設分鏡計算。
+
+    單任務上限取目前的預算設定；任務還沒有花費，只加上今日已用判斷每日上限。
+    """
+    items = estimate_items(config, job, synthetic_scenes(config, job))
+    return await _summarize(session, config, None, owner, items, 0.0)

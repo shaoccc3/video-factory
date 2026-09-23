@@ -6,12 +6,13 @@ import { useUploadAsset } from "../api/hooks";
 import { type Asset, UPLOAD_KINDS, type UploadKind } from "../api/types";
 import { ErrorAlert } from "./ErrorResult";
 
-const ACCEPT: Record<UploadKind, string> = {
-  logo: "image/png,image/jpeg,image/webp,image/svg+xml",
+/** 各類上傳素材接受的檔案類型（瀏覽器端先擋，後端仍會校驗） */
+export const ACCEPT: Record<UploadKind, string> = {
+  logo: "image/png,image/jpeg,image/webp",
   product: "image/png,image/jpeg,image/webp",
   image: "image/png,image/jpeg,image/webp",
-  bgm: "audio/mpeg,audio/wav,audio/x-wav,audio/aac,audio/mp4",
-  font: ".ttf,.otf,font/ttf,font/otf",
+  bgm: "audio/mpeg,audio/wav,audio/x-wav,audio/mp4,.mp3,.wav,.m4a",
+  font: ".ttf,.otf,.ttc,font/ttf,font/otf,font/collection",
 };
 
 interface UploadValues {

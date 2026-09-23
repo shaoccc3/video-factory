@@ -9,12 +9,12 @@ import { json, mockApi, renderApp } from "./test/utils";
 const emptyJobs = { items: [], total: 0 };
 
 describe("App 與認證", () => {
-  it("已登入時預設繁體中文並顯示任務列表", async () => {
+  it("已登入時預設繁體中文並顯示片場", async () => {
     await i18n.changeLanguage("zh-TW");
-    mockApi({ "GET /auth/me": makeUser(), "GET /jobs": emptyJobs });
+    mockApi({ "GET /auth/me": makeUser(), "GET /jobs": emptyJobs, "GET /templates": [] });
     renderApp("/");
-    expect(await screen.findByRole("heading", { name: "任務列表" })).toBeInTheDocument();
-    expect((await screen.findAllByText("目前還沒有任務")).length).toBeGreaterThan(0);
+    expect(await screen.findByRole("heading", { name: "片場" })).toBeInTheDocument();
+    expect(await screen.findByText("片場目前沒有進行中的片。")).toBeInTheDocument();
   });
 
   it("未登入（401）時導向登入頁並記住原路徑", async () => {
@@ -72,7 +72,7 @@ describe("App 與認證", () => {
     expect(await screen.findByText("請輸入密碼")).toBeInTheDocument();
   });
 
-  it("創作者看不到管理與審核台，且直接進入管理頁顯示 403", async () => {
+  it("創作者看不到管理與審核，且直接進入管理頁顯示 403", async () => {
     mockApi({
       "GET /auth/me": makeUser({ roles: ["creator"], display_name: "小創" }),
       "GET /jobs": emptyJobs,
@@ -82,16 +82,29 @@ describe("App 與認證", () => {
     const header = screen.getByTestId("current-user");
     expect(within(header).getByText("小創")).toBeInTheDocument();
     expect(within(header).getByText("創作者")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /^審核/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "片場" })).toBeInTheDocument();
+    await userEvent.click(header);
+    expect(await screen.findByRole("link", { name: "用量" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "管理" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "審核台" })).not.toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: "任務" }).length).toBeGreaterThan(0);
   });
 
-  it("管理員看得到管理與審核台", async () => {
+  it("管理員看得到管理與審核，審核顯示待審數量", async () => {
+    mockApi({
+      "GET /auth/me": makeUser(),
+      "GET /jobs": emptyJobs,
+      "GET /reviews/queue": [makeJobSummary({ status: "in_review" })],
+    });
+    renderApp("/jobs");
+    expect(await screen.findByRole("link", { name: /^審核.*1 支待審核/ })).toBeInTheDocument();
+    await userEvent.click(screen.getByTestId("current-user"));
+    expect(await screen.findByRole("link", { name: "管理" })).toBeInTheDocument();
+  });
+
+  it("頂部顯示 HH:MM:SS:FF 時間碼", async () => {
     mockApi({ "GET /auth/me": makeUser(), "GET /jobs": emptyJobs });
     renderApp("/jobs");
-    expect((await screen.findAllByRole("link", { name: "管理" })).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("link", { name: "審核台" }).length).toBeGreaterThan(0);
+    expect((await screen.findByRole("timer")).textContent).toMatch(/^TC \d{2}:\d{2}:\d{2}:\d{2}$/);
   });
 
   it("登出後回到登入頁", async () => {
@@ -105,7 +118,8 @@ describe("App 與認證", () => {
       "GET /jobs": emptyJobs,
     });
     renderApp("/jobs");
-    await userEvent.click(await screen.findByRole("button", { name: /登出/ }));
+    await userEvent.click(await screen.findByTestId("current-user"));
+    await userEvent.click(await screen.findByText("登出"));
     expect(await screen.findByRole("button", { name: "登入" })).toBeInTheDocument();
     expect(api.find("POST", "/auth/logout")).toHaveLength(1);
   });
@@ -136,17 +150,27 @@ describe("App 與認證", () => {
     await i18n.changeLanguage("zh-CN");
     mockApi({ "GET /auth/me": makeUser(), "GET /jobs": emptyJobs });
     renderApp("/jobs");
-    expect(await screen.findByRole("heading", { name: "任务列表" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "全部任务" })).toBeInTheDocument();
     await i18n.changeLanguage("zh-TW");
+  });
+});
+
+describe("404", () => {
+  it("未知路徑顯示 NO SIGNAL 字卡與回片場的連結", async () => {
+    mockApi({ "GET /auth/me": makeUser(), "GET /reviews/queue": [] });
+    renderApp("/no-such-page");
+    expect(await screen.findByRole("heading", { name: "這裡沒有畫面" })).toBeInTheDocument();
+    expect(screen.getByText("/no-such-page")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "回到片場" })).toHaveAttribute("href", "/");
   });
 });
 
 describe("safeRedirect", () => {
   it("只接受站內路徑", () => {
     expect(safeRedirect("/jobs/1")).toBe("/jobs/1");
-    expect(safeRedirect(null)).toBe("/jobs");
-    expect(safeRedirect("//evil.example")).toBe("/jobs");
-    expect(safeRedirect("https://evil.example")).toBe("/jobs");
-    expect(safeRedirect("/login")).toBe("/jobs");
+    expect(safeRedirect(null)).toBe("/");
+    expect(safeRedirect("//evil.example")).toBe("/");
+    expect(safeRedirect("https://evil.example")).toBe("/");
+    expect(safeRedirect("/login")).toBe("/");
   });
 });

@@ -16,7 +16,7 @@ test("管理頁：模型表顯示大模型輸入／輸出單價與影片按解�
   await page.getByLabel("電子郵件").fill(EMAIL);
   await page.getByLabel("密碼").fill(PASSWORD);
   await page.getByRole("button", { name: "登入" }).click();
-  await expect(page).toHaveURL(/\/jobs/);
+  await expect(page.getByRole("heading", { name: "片場", exact: true })).toBeVisible();
 
   await page.goto("/admin?tab=budget");
   await expect(page.getByText("seed-2-0-lite-260428")).toBeVisible();

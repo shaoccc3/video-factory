@@ -11,6 +11,8 @@ import type {
   BudgetConfig,
   BudgetUpdate,
   CostEstimate,
+  EstimatePreview,
+  EstimatePreviewRequest,
   GenerationCall,
   JobCreate,
   JobDetail,
@@ -84,9 +86,15 @@ function parseDetail(body: unknown): string | ValidationErrorItem[] | null {
 
 type QueryValue = string | number | boolean | undefined | null;
 
-export function buildQuery(params: Record<string, QueryValue>): string {
+export function buildQuery(params: Record<string, QueryValue | QueryValue[]>): string {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        if (item !== undefined && item !== null && item !== "") search.append(key, String(item));
+      }
+      continue;
+    }
     if (value === undefined || value === null || value === "") continue;
     search.set(key, String(value));
   }
@@ -196,7 +204,11 @@ export const api = {
   updateScene: (jobId: string, sceneId: string, body: SceneUpdate) =>
     patch<JobDetail>(`/jobs/${jobId}/scenes/${sceneId}`, body),
   getEstimate: (id: string) => request<CostEstimate>(`/jobs/${id}/estimate`),
+  estimatePreview: (body: EstimatePreviewRequest) => post<EstimatePreview>("/jobs/estimate", body),
   confirmStoryboard: (id: string) => post<JobDetail>(`/jobs/${id}/confirm-storyboard`),
+  /** v1.3：分鏡待確認時先生成某一鏡的首幀（202，交給 worker） */
+  previewKeyframe: (jobId: string, sceneId: string, force = false) =>
+    post<JobDetail>(`/jobs/${jobId}/scenes/${sceneId}/keyframe-preview`, force ? { force } : {}),
   regenerateScene: (jobId: string, sceneId: string, target: SceneRegenerateTarget) =>
     post<JobDetail>(`/jobs/${jobId}/scenes/${sceneId}/regenerate`, { target }),
   renderFinal: (id: string) => post<JobDetail>(`/jobs/${id}/render-final`),

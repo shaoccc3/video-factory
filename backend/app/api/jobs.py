@@ -4,6 +4,7 @@ import asyncio
 import json
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
+from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
@@ -20,10 +21,14 @@ from app.api.deps import (
 )
 from app.api.schemas import (
     CostEstimateOut,
+    CostItemOut,
+    EstimatePreviewIn,
+    EstimatePreviewOut,
     GenerationCallOut,
     JobCreate,
     JobDetail,
     JobSummary,
+    KeyframePreviewIn,
     Page,
     RegenerateIn,
     ReviewIn,
@@ -34,11 +39,19 @@ from app.models import CostLedger, GenerationCall, Job, Review, Scene, User
 from app.models.enums import REVIEW_CHECKLIST_KEYS, JobPhase, JobStatus, ReviewDecision, Role, VideoType
 from app.pipeline import orchestrator
 from app.pipeline.common import video_model_key
-from app.pipeline.estimate import estimate_job
+from app.pipeline.estimate import estimate_job, estimate_preview
 from app.pipeline.orchestrator import ActionError
 from app.pipeline.state import transition
 from app.services.audit import audit
-from app.services.jobs import JobInput, can_view, create_job, is_owner, update_scene
+from app.services.jobs import (
+    EstimateInput,
+    JobInput,
+    can_view,
+    create_job,
+    is_owner,
+    preview_job,
+    update_scene,
+)
 from app.services.runtime import Runtime
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
@@ -113,23 +126,54 @@ async def create(
     return await job_detail(session, runtime, job, user)
 
 
+@router.post("/estimate", response_model=EstimatePreviewOut)
+async def estimate_new(
+    body: EstimatePreviewIn, user: CreatorUser, session: SessionDep, runtime: RuntimeDep
+) -> EstimatePreviewOut:
+    """開新片的即時預估（v1.3）：校驗同 POST /jobs；按模板鏡頭數假設分鏡，不寫數據庫、不調用模型。"""
+    try:
+        job = await preview_job(
+            session,
+            runtime.config,
+            runtime.settings.ark_region,
+            EstimateInput(
+                template_id=body.template_id,
+                target_duration_s=body.target_duration_s,
+                ratio=body.ratio,
+                audio_mode=body.audio_mode,
+                draft_mode=body.draft_mode,
+                resolution=body.resolution,
+            ),
+        )
+    except ActionError as exc:
+        raise _http(exc) from exc
+    est = await estimate_preview(session, runtime.config, job, user)
+    return EstimatePreviewOut(
+        total_cny=est.total_cny,
+        items=[CostItemOut(**item.__dict__) for item in est.items],
+        budget_per_job_cny=est.budget_per_job_cny,
+        within_budget=est.within_budget,
+    )
+
+
 @router.get("", response_model=Page[JobSummary])
 async def list_jobs(
     user: CurrentUser,
     session: SessionDep,
-    status_: JobStatus | None = Query(default=None, alias="status"),
+    status_: list[JobStatus] | None = Query(default=None, alias="status"),
     video_type: VideoType | None = None,
     mine: bool = False,
     q: str | None = Query(default=None, max_length=100),
     batch_id: uuid.UUID | None = None,
+    sort: Literal["created", "updated"] = "created",
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
 ) -> Page[JobSummary]:
     query = select(Job)
     if mine or not ({Role.ADMIN, Role.REVIEWER} & set(user.roles)):
         query = query.where(Job.owner_id == user.id)
-    if status_ is not None:
-        query = query.where(Job.status == status_.value)
+    if status_:  # v1.3：可重複帶多個 status
+        query = query.where(Job.status.in_([s.value for s in status_]))
     if video_type is not None:
         query = query.where(Job.video_type == video_type.value)
     if batch_id is not None:
@@ -138,10 +182,9 @@ async def list_jobs(
         like = f"%{q.strip()}%"
         query = query.where(or_(Job.title.ilike(like), Job.inputs["topic"].as_string().ilike(like)))
     total = int(await session.scalar(select(func.count()).select_from(query.subquery())) or 0)
+    order = (Job.updated_at.desc(), Job.created_at.desc()) if sort == "updated" else (Job.created_at.desc(),)
     jobs = (
-        await session.scalars(
-            query.order_by(Job.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
-        )
+        await session.scalars(query.order_by(*order).offset((page - 1) * page_size).limit(page_size))
     ).all()
     return Page(items=await job_summaries(session, jobs), total=total)
 
@@ -266,6 +309,37 @@ async def regenerate_scene(
         await orchestrator.regenerate_scene(runtime, dispatcher, job_id, scene_id, body.target)
     except ActionError as exc:
         raise _http(exc) from exc
+    return await _detail(session, runtime, job_id, user)
+
+
+@router.post(
+    "/{job_id}/scenes/{scene_id}/keyframe-preview",
+    response_model=JobDetail,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def keyframe_preview(
+    job_id: uuid.UUID,
+    scene_id: uuid.UUID,
+    user: CurrentUser,
+    session: SessionDep,
+    runtime: RuntimeDep,
+    dispatcher: DispatcherDep,
+    request: Request,
+    body: KeyframePreviewIn | None = None,
+) -> JobDetail:
+    """首幀預覽（v1.3）：交給 worker 生成，回 202；進度由 SSE 推送。"""
+    await _load(session, job_id, user, manage=True)
+    force = body is not None and body.force
+    try:
+        await orchestrator.preview_keyframe(runtime, dispatcher, job_id, scene_id, force=force)
+    except ActionError as exc:
+        raise _http(exc) from exc
+    # 會產生費用的操作都留審計紀錄
+    audit(
+        session, request, user.id, "keyframe_preview", target_type="job", target_id=job_id,
+        scene_id=str(scene_id), force=force,
+    )  # fmt: skip
+    await session.commit()
     return await _detail(session, runtime, job_id, user)
 
 
@@ -419,7 +493,14 @@ async def job_event_stream(
                 detail.status,
                 detail.updated_at.isoformat(),
                 [
-                    (sc.status, sc.attempt, str(sc.video_asset_id), str(sc.audio_asset_id))
+                    (
+                        sc.status,
+                        sc.attempt,
+                        str(sc.video_asset_id),
+                        str(sc.audio_asset_id),
+                        str(sc.first_frame_asset_id),
+                        sc.error_kind,
+                    )
                     for sc in detail.scenes
                 ],
                 detail.actual_cost_cny,

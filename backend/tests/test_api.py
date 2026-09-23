@@ -544,6 +544,8 @@ async def test_meta_and_tts_region_rules(
 ) -> None:
     await login(client, creator)
     meta = (await client.get("/api/v1/meta")).json()
+    # keyframe_unit_cny（v1.3）的值由 test_meta_keyframe_unit_price 檢查
+    assert meta.pop("keyframe_unit_cny") > 0
     assert meta == {
         "region": "byteplus",
         "tts_available": False,

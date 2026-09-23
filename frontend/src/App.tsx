@@ -5,15 +5,15 @@ import { useTranslation } from "react-i18next";
 import {
   createBrowserRouter,
   createMemoryRouter,
-  Navigate,
   type RouteObject,
   RouterProvider,
 } from "react-router";
 import { ApiError } from "./api/client";
 import { queryKeys } from "./api/hooks";
 import { AuthGuard, RequireRole } from "./auth/auth";
+import { AppShell } from "./components/studio/AppShell";
+import { usePauseAnimationsWhenHidden } from "./hooks/motion";
 import { ANTD_LOCALES, DEFAULT_LANGUAGE, isLanguage } from "./i18n";
-import { AppLayout } from "./pages/AppLayout";
 import { AssetsPage } from "./pages/AssetsPage";
 import { AdminPage } from "./pages/admin/AdminPage";
 import { BatchDetailPage, BatchesPage } from "./pages/BatchesPage";
@@ -24,7 +24,9 @@ import { LibraryPage } from "./pages/LibraryPage";
 import { LoginPage } from "./pages/LoginPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { ReviewDetailPage, ReviewsPage } from "./pages/ReviewsPage";
+import { StudioPage } from "./pages/StudioPage";
 import { UsagePage } from "./pages/UsagePage";
+import { studioTheme } from "./theme";
 
 export const routes: RouteObject[] = [
   { path: "/login", element: <LoginPage /> },
@@ -32,11 +34,11 @@ export const routes: RouteObject[] = [
     path: "/",
     element: (
       <AuthGuard>
-        <AppLayout />
+        <AppShell />
       </AuthGuard>
     ),
     children: [
-      { index: true, element: <Navigate to="/jobs" replace /> },
+      { index: true, element: <StudioPage /> },
       { path: "jobs", element: <JobsPage /> },
       { path: "jobs/new", element: <JobWizardPage /> },
       { path: "jobs/:id", element: <JobDetailPage /> },
@@ -115,9 +117,14 @@ export function App({ initialPath, queryClient: injected }: AppProps) {
       : createMemoryRouter(routes, { initialEntries: [initialPath] }),
   );
   const language = isLanguage(i18n.language) ? i18n.language : DEFAULT_LANGUAGE;
+  usePauseAnimationsWhenHidden();
 
   return (
-    <ConfigProvider locale={ANTD_LOCALES[language]} button={{ autoInsertSpace: false }}>
+    <ConfigProvider
+      locale={ANTD_LOCALES[language]}
+      theme={studioTheme}
+      button={{ autoInsertSpace: false }}
+    >
       <AntdApp>
         <QueryClientProvider client={queryClient}>
           <RouterProvider router={router} />

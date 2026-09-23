@@ -1,0 +1,254 @@
+/* 批量：一列一卷的清單、場記板對話框、底片式任務網格（規格 14 第 4 節） */
+.vf-batches {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  max-width: 1440px;
+}
+
+.vf-batches-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.vf-batches-head > div,
+.vf-batch-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vf-batches-head h1,
+.vf-batch-title h1 {
+  margin: 0;
+  font-size: clamp(28px, 3.4vw, 40px);
+  letter-spacing: 0.04em;
+}
+
+.vf-batches-empty {
+  margin: 0;
+  padding: 64px 16px;
+  border: 1px dashed var(--vf-line-2);
+  color: var(--vf-text-2);
+  text-align: center;
+}
+
+/* 一列一卷 */
+.vf-rolls {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--vf-line);
+}
+
+.vf-roll-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 150px minmax(200px, 1fr) minmax(260px, 1.3fr);
+  align-items: center;
+  gap: 16px 28px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--vf-line);
+  transition: background-color 0.2s;
+}
+
+.vf-roll-row:last-child {
+  border-bottom: none;
+}
+
+.vf-roll-row:hover {
+  background: rgba(17, 27, 46, 0.7);
+}
+
+@media (max-width: 900px) {
+  .vf-roll-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.vf-roll-id {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.vf-roll-code {
+  color: var(--vf-accent);
+  font-size: 15px;
+  letter-spacing: 0.12em;
+}
+
+.vf-roll-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--vf-text-3);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+}
+
+.vf-roll-state[data-status="running"] {
+  color: #ff8d90;
+}
+
+.vf-roll-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.vf-roll-title {
+  color: var(--vf-text);
+  font-size: 18px;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.vf-roll-title:hover {
+  color: var(--vf-accent);
+}
+
+.vf-roll-main .vf-mono {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+}
+
+/* 分段進度條：依各片狀態上色 */
+.vf-roll-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.vf-segments {
+  display: flex;
+  gap: 2px;
+  height: 10px;
+  background: var(--vf-line);
+}
+
+.vf-seg {
+  min-width: 4px;
+}
+
+.vf-roll-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--vf-text-2);
+  font-size: 12px;
+}
+
+.vf-roll-counts li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.vf-seg-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+
+.vf-seg-accent {
+  background: var(--vf-accent);
+}
+
+.vf-seg-rec {
+  background: var(--vf-rec);
+}
+
+.vf-seg-live,
+.vf-seg-mix {
+  background: #c9a66b;
+}
+
+.vf-seg-info {
+  background: var(--vf-info);
+}
+
+.vf-seg-ok {
+  background: var(--vf-ok);
+}
+
+.vf-seg-warn {
+  background: repeating-linear-gradient(-45deg, var(--vf-rec) 0 3px, #7a2a2d 3px 6px);
+}
+
+.vf-seg-muted {
+  background: var(--vf-text-3);
+}
+
+/* 場記板對話框 */
+.vf-batch-dialog .ant-modal-container,
+.vf-batch-dialog .ant-modal-content {
+  background: var(--vf-bg);
+}
+
+.vf-drop-cell {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  min-height: 64px;
+  padding: 12px 16px;
+  border: 1.5px dashed var(--vf-line-2);
+  border-radius: var(--vf-radius);
+  transition:
+    border-color 0.2s,
+    background-color 0.2s;
+}
+
+.vf-drop-cell[data-over="true"] {
+  border-color: var(--vf-accent);
+  background: var(--vf-accent-soft);
+}
+
+.vf-drop-files {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+
+/* 詳情：底片網格，換行排列 */
+.vf-batch-kicker {
+  color: var(--vf-text-3);
+  font-size: 12px;
+  letter-spacing: 0.2em;
+}
+
+.vf-batch-kicker .vf-link {
+  color: var(--vf-text-3);
+}
+
+.vf-batch-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+}
+
+.vf-batch-strip {
+  border: 1px solid var(--vf-line);
+}
+
+.vf-batch-frames {
+  flex-wrap: wrap;
+  overflow-x: visible;
+  padding: 0 20px;
+}

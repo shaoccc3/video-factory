@@ -157,6 +157,10 @@ class JobSummary(BaseModel):
     actual_cost_cny: float
     final_asset_id: uuid.UUID | None
     cover_asset_id: uuid.UUID | None
+    # v1.3：列表與卡片的畫面。依序取封面、最後一個成功鏡頭的尾幀、第一個有首幀的鏡頭的首幀
+    preview_asset_id: uuid.UUID | None
+    # v1.3：片長（秒），各鏡時長加總；還沒有分鏡時為 null
+    runtime_s: float | None
     progress: Progress
     created_at: datetime
     updated_at: datetime
@@ -203,6 +207,24 @@ class CostEstimateOut(BaseModel):
     near_limit: bool
 
 
+class EstimatePreviewIn(BaseModel):
+    """v1.3：開新片的即時預估。欄位與校驗同 JobCreate；resolution 省略時用模板預設。"""
+
+    template_id: uuid.UUID
+    target_duration_s: float | None = Field(default=None, gt=0, le=600)
+    ratio: Ratio | None = None
+    audio_mode: AudioMode | None = None
+    draft_mode: bool = False
+    resolution: Literal["480p", "720p", "1080p"] | None = None
+
+
+class EstimatePreviewOut(BaseModel):
+    total_cny: float
+    items: list[CostItemOut]
+    budget_per_job_cny: float
+    within_budget: bool
+
+
 class ReviewOut(BaseModel):
     id: uuid.UUID
     reviewer_id: uuid.UUID
@@ -231,6 +253,13 @@ class JobOptionsOut(BaseModel):
     consistent_voice: bool
 
 
+class ShotDurationOut(BaseModel):
+    """v1.3：單鏡時長範圍（秒），來自目前階段影片模型的能力；生成時超出會被夾回這個範圍。"""
+
+    min_s: int
+    max_s: int
+
+
 class JobDetail(JobSummary):
     inputs: JobInputs
     options: JobOptionsOut
@@ -244,6 +273,7 @@ class JobDetail(JobSummary):
     subtitle_asset_id: uuid.UUID | None
     reviews: list[ReviewOut]
     allowed_actions: list[str]
+    shot_duration_s: ShotDurationOut
 
 
 class JobCreate(BaseModel):
@@ -279,6 +309,12 @@ class SceneUpdate(BaseModel):
 
 class RegenerateIn(BaseModel):
     target: Literal["keyframe", "video"]
+
+
+class KeyframePreviewIn(BaseModel):
+    """v1.3：首幀預覽。鏡頭已有首幀時要帶 force=true 才會重新生成。"""
+
+    force: bool = False
 
 
 class ReviewIn(BaseModel):
@@ -365,6 +401,8 @@ class MetaOut(BaseModel):
     tts_available: bool
     chars_per_second: float
     audio_modes: list[AudioMode]
+    # v1.3：一張關鍵幀（首幀預覽）的預估金額，來自 models.yaml 的 Seedream 單價
+    keyframe_unit_cny: float
 
 
 class ModelsConfigOut(BaseModel):

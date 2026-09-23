@@ -1,0 +1,84 @@
+/* 素材選擇器：已選素材的膠片小卡與虛線新增鈕 */
+.vf-ref-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.vf-ref-chip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 280px;
+  padding: 8px 6px 8px 8px;
+  border: 1px solid var(--vf-line-2);
+  border-radius: var(--vf-radius);
+  background: var(--vf-input);
+}
+
+.vf-ref-thumb {
+  width: 54px;
+  height: 72px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--vf-raised);
+}
+
+.vf-ref-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.vf-ref-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.vf-ref-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+}
+
+.vf-ref-meta .vf-mono {
+  font-size: 11px;
+}
+
+.vf-ref-add {
+  min-height: 44px;
+  min-width: 140px;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px dashed var(--vf-line-2);
+  border-radius: var(--vf-radius);
+  background: transparent;
+  color: var(--vf-text-2);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  transition:
+    border-color 0.2s,
+    color 0.2s;
+}
+
+.vf-ref-add:hover:not(:disabled) {
+  border-color: var(--vf-accent);
+  color: var(--vf-accent);
+}
+
+.vf-ref-add:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}

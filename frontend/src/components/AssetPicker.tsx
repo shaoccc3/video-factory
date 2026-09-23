@@ -17,6 +17,7 @@ import {
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAsset, useAssets } from "../api/hooks";
+import "./assetPicker.css";
 import type { AssetKind, UploadKind } from "../api/types";
 import { AssetThumb } from "./AssetThumb";
 import { UploadAssetForm } from "./UploadAssetForm";
@@ -39,28 +40,26 @@ function SelectedAsset({ id, onRemove }: { id: string; onRemove?: (() => void) |
   const { t } = useTranslation();
   const asset = useAsset(id);
   return (
-    <Card
-      size="small"
-      style={{ width: 96 }}
-      styles={{ body: { padding: 4 } }}
-      data-testid={`selected-asset-${id}`}
-    >
-      {asset.data ? <AssetThumb asset={asset.data} height={80} /> : <Spin size="small" />}
-      <Flex justify="space-between" align="center">
-        <Typography.Text ellipsis style={{ fontSize: 12, maxWidth: 64 }}>
-          {asset.data?.display_name ?? ""}
-        </Typography.Text>
-        {onRemove && (
-          <Button
-            size="small"
-            type="text"
-            icon={<CloseOutlined />}
-            aria-label={t("common.remove")}
-            onClick={onRemove}
-          />
+    <div className="vf-ref-chip" data-testid={`selected-asset-${id}`}>
+      <div className="vf-ref-thumb">
+        {asset.data ? <AssetThumb asset={asset.data} height={72} /> : <Spin size="small" />}
+      </div>
+      <div className="vf-ref-meta">
+        <span className="vf-ref-name">{asset.data?.display_name ?? ""}</span>
+        {asset.data && (
+          <span className="vf-mono vf-muted">{t(`assetKind.${asset.data.kind}`)}</span>
         )}
-      </Flex>
-    </Card>
+      </div>
+      {onRemove && (
+        <Button
+          size="small"
+          type="text"
+          icon={<CloseOutlined />}
+          aria-label={t("common.remove")}
+          onClick={onRemove}
+        />
+      )}
+    </div>
   );
 }
 
@@ -98,7 +97,7 @@ export function AssetPicker({
 
   return (
     <>
-      <Flex gap={8} wrap align="flex-start">
+      <div className="vf-ref-row">
         {value.map((id) => (
           <SelectedAsset
             key={id}
@@ -106,10 +105,11 @@ export function AssetPicker({
             onRemove={disabled ? undefined : () => onChange(value.filter((x) => x !== id))}
           />
         ))}
-        <Button icon={<PictureOutlined />} onClick={openModal} disabled={disabled}>
+        <button type="button" className="vf-ref-add" onClick={openModal} disabled={disabled}>
+          <PictureOutlined aria-hidden="true" />
           {buttonText}
-        </Button>
-      </Flex>
+        </button>
+      </div>
       <Modal
         open={open}
         title={buttonText}
@@ -167,7 +167,7 @@ export function AssetPicker({
                                 onClick={() => toggle(asset.id)}
                                 styles={{ body: { padding: 4 } }}
                                 style={{
-                                  borderColor: selected ? "#1677ff" : undefined,
+                                  borderColor: selected ? "var(--vf-accent)" : undefined,
                                   position: "relative",
                                 }}
                                 aria-pressed={selected}
@@ -184,7 +184,7 @@ export function AssetPicker({
                                       position: "absolute",
                                       top: 6,
                                       right: 6,
-                                      color: "#1677ff",
+                                      color: "var(--vf-accent)",
                                       fontSize: 18,
                                     }}
                                   />

@@ -13,6 +13,7 @@ import type {
   BatchCsvCreate,
   BatchImagesCreate,
   BudgetUpdate,
+  EstimatePreviewRequest,
   JobCreate,
   JobDetail,
   JobListParams,
@@ -35,6 +36,7 @@ export const queryKeys = {
   jobsAll: ["jobs"] as const,
   job: (id: string) => ["job", id] as const,
   estimate: (id: string) => ["job", id, "estimate"] as const,
+  estimatePreview: (body: EstimatePreviewRequest | null) => ["estimate-preview", body] as const,
   calls: (id: string) => ["job", id, "calls"] as const,
   reviewQueue: ["reviews", "queue"] as const,
   batches: ["batches"] as const,
@@ -172,6 +174,18 @@ export function useEstimate(id: string, enabled: boolean) {
   });
 }
 
+/** 開新片的即時預估；body 為 null 時不查詢，重算期間保留上一次結果，數字不閃爍 */
+export function useEstimatePreview(body: EstimatePreviewRequest | null) {
+  return useQuery({
+    queryKey: queryKeys.estimatePreview(body),
+    queryFn: () => api.estimatePreview(body as EstimatePreviewRequest),
+    enabled: body !== null,
+    placeholderData: keepPreviousData,
+    retry: false,
+    staleTime: 60_000,
+  });
+}
+
 export function useCalls(id: string, enabled = true) {
   return useQuery({ queryKey: queryKeys.calls(id), queryFn: () => api.listCalls(id), enabled });
 }
@@ -189,6 +203,7 @@ export type JobCommand =
   | { type: "cancel" }
   | { type: "resume" }
   | { type: "regenerate_scene"; sceneId: string; target: SceneRegenerateTarget }
+  | { type: "preview_keyframe"; sceneId: string; force?: boolean }
   | { type: "update_scene"; sceneId: string; body: SceneUpdate }
   | { type: "review"; body: ReviewRequest };
 
@@ -208,6 +223,8 @@ export function runJobCommand(id: string, command: JobCommand): Promise<JobDetai
       return api.resumeJob(id);
     case "regenerate_scene":
       return api.regenerateScene(id, command.sceneId, command.target);
+    case "preview_keyframe":
+      return api.previewKeyframe(id, command.sceneId, command.force ?? false);
     case "update_scene":
       return api.updateScene(id, command.sceneId, command.body);
     case "review":
@@ -299,7 +316,12 @@ export function useDeleteAsset() {
 // ---- 用量與配置 ----
 
 export function useUsage(days: number) {
-  return useQuery({ queryKey: queryKeys.usage(days), queryFn: () => api.usageSummary(days) });
+  // 切換區間時保留上一次的圖，重取期間降低不透明度，不閃爍
+  return useQuery({
+    queryKey: queryKeys.usage(days),
+    queryFn: () => api.usageSummary(days),
+    placeholderData: keepPreviousData,
+  });
 }
 
 export function useModelsConfig() {

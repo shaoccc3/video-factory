@@ -44,6 +44,20 @@ describe("審核台", () => {
     expect(await screen.findByTestId("final-video")).toBeInTheDocument();
   });
 
+  it("待審片卡由最早送審排起", async () => {
+    mockApi({
+      ...routes(),
+      "GET /reviews/queue": [
+        makeJobSummary({ id: "j-new", title: "晚送審", updated_at: "2026-09-23T10:00:00Z" }),
+        makeJobSummary({ id: "j-old", title: "早送審", updated_at: "2026-09-22T08:00:00Z" }),
+      ],
+    });
+    renderApp("/reviews");
+    await screen.findByRole("link", { name: "早送審" });
+    const titles = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
+    expect(titles).toEqual(["早送審", "晚送審"]);
+  });
+
   it("五項清單全部勾選前不能通過，勾完後送出完整清單", async () => {
     const api = mockApi(routes());
     renderApp("/reviews/job-1");

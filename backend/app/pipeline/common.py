@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 from app.core.models_config import ModelsConfig, VideoCapabilities, VideoModelKey
 from app.models import Job, Scene
-from app.models.enums import AudioMode, JobPhase
+from app.models.enums import AudioMode, JobPhase, VideoType
 from app.pipeline.schemas import SceneDraft
 from app.providers.pricing import CHARS_PER_SECOND, narration_seconds
 
@@ -90,6 +90,25 @@ class StoryboardRules:
     caps: VideoCapabilities
     narration_driven: bool  # 培訓片：時長按旁白估算
     native_audio: bool = False  # 旁白由影片模型在鏡頭內念出：字數不能超過鏡頭時長
+
+
+def storyboard_rules(job: Job, config: ModelsConfig) -> StoryboardRules:
+    """分鏡約束：鏡頭數、總時長與目標時長來自模板快照，單鏡時長上下限來自模型能力表。"""
+    snap = job.template_snapshot
+    caps = config.video_caps(video_model_key(job, config))
+    opts = job_options(job)
+    min_total, max_total = float(snap["min_duration_s"]), float(snap["max_duration_s"])  # type: ignore[arg-type]
+    target = opts.target_duration_s or (min_total + max_total) / 2
+    return StoryboardRules(
+        min_shots=int(snap["min_shots"]),  # type: ignore[call-overload]
+        max_shots=int(snap["max_shots"]),  # type: ignore[call-overload]
+        min_total_s=min_total,
+        max_total_s=max_total,
+        target_total_s=min(max(target, min_total), max_total),
+        caps=caps,
+        narration_driven=job.video_type == VideoType.TRAINING,
+        native_audio=opts.audio_mode == AudioMode.NATIVE,
+    )
 
 
 def check_storyboard(scenes: list[SceneDraft], rules: StoryboardRules) -> list[str]:

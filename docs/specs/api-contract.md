@@ -70,6 +70,11 @@ CostEstimate = {
   budget_per_job_cny: number; spent_today_cny: number; daily_budget_cny: number;
   within_budget: boolean; near_limit: boolean;   // near_limit：已用 + 預估 ≥ 80% 上限
 }
+EstimatePreview = {                           // v1.3：開新片的即時預估（POST /jobs/estimate）
+  total_cny: number; items: CostItem[];
+  budget_per_job_cny: number;                 // 目前的單任務上限
+  within_budget: boolean;                     // 預估（樣片模式不含正片）不超過單任務上限，且加上今日已用不超過每日上限
+}
 
 JobSummary = {
   id: string; title: string; status: JobStatus; video_type: VideoType;
@@ -78,6 +83,8 @@ JobSummary = {
   ratio: Ratio; draft_mode: boolean; batch_id: string | null;
   estimated_cost_cny: number | null; actual_cost_cny: number;
   final_asset_id: string | null; cover_asset_id: string | null;
+  preview_asset_id: string | null;            // v1.3：卡片畫面，依序取封面、最後一個成功鏡頭的尾幀、第一個有首幀的鏡頭的首幀；都沒有時為 null
+  runtime_s: number | null;                   // v1.3：片長（秒），各鏡時長加總；還沒有分鏡時為 null
   progress: { total: number; succeeded: number; failed: number };  // 分鏡數
   created_at: string; updated_at: string;
 }
@@ -98,6 +105,7 @@ JobDetail = JobSummary & {
   subtitle_asset_id: string | null;
   reviews: Review[];                          // 由新到舊
   allowed_actions: string[];                  // 見下方「動作」
+  shot_duration_s: { min_s: number; max_s: number };  // v1.3：單鏡時長範圍，依目前階段的影片模型（樣片用 video_draft）；生成時超出會被夾回
 }
 
 Review = {
@@ -120,7 +128,7 @@ Batch = {
 }
 ```
 
-`allowed_actions` 可能的值：`submit`、`edit_storyboard`、`regenerate_script`、`confirm_storyboard`、`regenerate_scene`、`render_final`、`cancel`、`resume`、`review`、`download`。前端按這個決定按鈕是否顯示，不要自己推導狀態機。
+`allowed_actions` 可能的值：`submit`、`edit_storyboard`、`regenerate_script`、`confirm_storyboard`、`regenerate_scene`、`render_final`、`cancel`、`resume`、`review`、`download`、`preview_keyframe`（v1.3：分鏡待確認時可生成首幀預覽）。前端按這個決定按鈕是否顯示，不要自己推導狀態機。
 
 審核清單的鍵（`checklist`）：`ai_label`（AI 標識存在）、`no_real_person`（無未授權真人肖像）、`no_third_party_ip`（無第三方品牌或影視 IP）、`brand_guideline`（符合品牌規範）、`subtitle_ok`（字幕無錯字）。通過時五項都必須為 true。
 
@@ -152,19 +160,21 @@ Batch = {
 | 方法 | 路徑 | 請求 | 回應 |
 |---|---|---|---|
 | POST | `/jobs` | `JobCreate`（見下） | `JobDetail`（status=`draft`） |
-| GET | `/jobs?status=&video_type=&mine=&q=&batch_id=&page=&page_size=` | — | `{ items: JobSummary[], total }`；creator 只看到自己的 |
+| POST | `/jobs/estimate`（v1.3，creator、admin） | `EstimateCreate`（見下） | `EstimatePreview`；參數不合法 422（規則同 `POST /jobs`） |
+| GET | `/jobs?status=&video_type=&mine=&q=&batch_id=&sort=&page=&page_size=` | — | `{ items: JobSummary[], total }`；creator 只看到自己的。v1.3：`status` 可重複帶多個值（`?status=generating&status=composing`），只帶一個時行為不變；`sort=created\|updated`（預設 `created`），按建立或更新時間由新到舊 |
 | GET | `/jobs/{id}` | — | `JobDetail` |
 | POST | `/jobs/{id}/submit` | — | `JobDetail`（→ `scripting`，完成後自動 → `storyboard_ready`） |
-| POST | `/jobs/{id}/regenerate-script` | — | `JobDetail` |
+| POST | `/jobs/{id}/regenerate-script` | — | `JobDetail`；v1.3：首幀預覽還在生成時 409 |
 | PATCH | `/jobs/{id}/scenes/{scene_id}` | `{ narration?, visual_prompt?, shot_type?, camera_move?, duration_s?, needs_first_frame?, screen_text?, speaker?, sound?, first_frame_asset_id? }` | `JobDetail` |
 | GET | `/jobs/{id}/estimate` | — | `CostEstimate` |
-| POST | `/jobs/{id}/confirm-storyboard` | — | `JobDetail`（→ `generating`）；超預算 409 |
+| POST | `/jobs/{id}/confirm-storyboard` | — | `JobDetail`（→ `generating`）；超預算 409；v1.3：首幀預覽還在生成時 409 |
 | POST | `/jobs/{id}/scenes/{scene_id}/regenerate` | `{ target: "keyframe" \| "video" }` | `JobDetail` |
+| POST | `/jobs/{id}/scenes/{scene_id}/keyframe-preview`（v1.3） | `{ force?: boolean }`（可省略） | 202 `JobDetail`；見下方「首幀預覽」 |
 | POST | `/jobs/{id}/render-final` | — | `JobDetail`（樣片確認後出正片） |
 | POST | `/jobs/{id}/cancel` | — | `JobDetail` |
 | POST | `/jobs/{id}/resume` | — | `JobDetail` |
 | GET | `/jobs/{id}/calls` | — | `GenerationCall[]` |
-| GET | `/jobs/{id}/events` | — | SSE：`event: job`，`data: JobDetail`（狀態變化時推送；每 15 秒 `: ping`） |
+| GET | `/jobs/{id}/events` | — | SSE：`event: job`，`data: JobDetail`（狀態變化時推送；每 15 秒 `: ping`）；v1.3：鏡頭首幀或錯誤變化時也推送 |
 | POST | `/jobs/{id}/review`（reviewer） | `{ decision, checklist, reason }` | `JobDetail`；退回時 reason 必填 |
 
 ```ts
@@ -179,7 +189,28 @@ JobCreate = {
   music?: string;             // v1.1：配樂描述，≤ 100 字；"none" 表示不要配樂
   consistent_voice?: boolean; // v1.1：用第一鏡的聲音作後續鏡頭的參考音頻（較慢）
 }
+
+// v1.3：開新片的即時預估。畫幅、時長、聲音方式的預設與校驗同 JobCreate（例如國際版選 TTS 回 422）
+EstimateCreate = {
+  template_id: string; target_duration_s?: number | null; ratio?: Ratio | null;
+  audio_mode?: AudioMode | null; draft_mode?: boolean;
+  resolution?: "480p" | "720p" | "1080p" | null;  // 省略時用模板預設；影片模型不支援時 422
+}
 ```
+
+`POST /jobs/estimate` 還沒有分鏡，按以下假設計算，再沿用 `GET /jobs/{id}/estimate` 的計價邏輯與 models.yaml 單價；不寫數據庫、不調用模型：
+- 鏡頭數：模板 `min_shots`～`max_shots` 的中間值，向上取整。
+- 時長：`target_duration_s`（省略時取模板時長範圍的中間值）平均分到各鏡，按模型能力表取整並夾緊到單鏡上下限。
+- 保守估算：每鏡都生成首幀；TTS 旁白按念滿鏡頭時長計字數。
+- 分鏡相同（鏡頭數、各鏡時長相同且都要生成首幀）的任務，`GET /jobs/{id}/estimate` 的 `items`、`total_cny` 與此相同；腳本（大模型）費用兩者都不計入。
+
+首幀預覽（v1.3）：分鏡待確認時先生成某一鏡的首幀，不改變任務狀態。
+- 只在任務為 `storyboard_ready` 時可用，否則 409；需要任務建立者或管理員（看得到但不能操作 403、看不到 404）；鏡頭不屬於此任務 404。
+- 鏡頭已有首幀（`first_frame_asset_id` 不為 null）且 `force` 不為 true 時 409；鏡頭狀態已是 `keyframe`（預覽還在生成）時 409「首幀預覽還在生成」。
+- 接口只把鏡頭狀態設為 `keyframe`、清除 `error_kind`／`error_message`，交給 worker，回 202；不在請求內等待生成。原首幀保留到新首幀生成成功才替換。派發失敗時釋放佔用並回 503。每次送出寫一筆審計紀錄（`keyframe_preview`）。
+- worker 照常經網關生成（預算檢查、記賬、調用記錄）；成功後鏡頭回到 `pending`、`first_frame_asset_id` 為新首幀、`needs_first_frame` 設為 true。失敗時鏡頭同樣回到 `pending`，首幀與 `needs_first_frame` 不變，原因寫在鏡頭的 `error_kind`、`error_message`（內容審核不自動重試；超出預算為 `budget`，任務仍為 `storyboard_ready`）。可再送一次重試。
+- 鏡頭處於 `keyframe` 時，`confirm-storyboard` 與 `regenerate-script` 回 409「首幀預覽還在生成」，`PATCH` 該鏡頭也回 409。佔用、確認開拍與重寫分鏡都鎖住任務列，彼此不會交錯。
+- 開拍後生成影片時直接沿用預覽的首幀，不重複生成、不重複計費。
 
 ### 審核
 | 方法 | 路徑 | 回應 |
@@ -210,7 +241,7 @@ JobCreate = {
 ### 平台資訊（v1.1）
 | 方法 | 路徑 | 回應 |
 |---|---|---|
-| GET | `/meta` | `{ region: "byteplus" \| "volcengine", tts_available: boolean, chars_per_second: number, audio_modes: AudioMode[] }`（任何登入用戶）。`tts_available=false` 時前端不顯示 TTS 選項；`chars_per_second` 用來提示每鏡旁白字數上限（時長 × chars_per_second） |
+| GET | `/meta` | `{ region: "byteplus" \| "volcengine", tts_available: boolean, chars_per_second: number, audio_modes: AudioMode[], keyframe_unit_cny: number }`（任何登入用戶；v1.3：`keyframe_unit_cny` 為一張關鍵幀的預估金額，來自 models.yaml）。`tts_available=false` 時前端不顯示 TTS 選項；`chars_per_second` 用來提示每鏡旁白字數上限（時長 × chars_per_second） |
 
 聲音方式（AudioMode）說明（v1.1）：`native` 由影片模型直接生成旁白、對白、音效、配樂（行銷、quick 預設）；`tts` 影片無聲另配旁白（僅國內版，培訓片預設）；`none` 無聲。
 

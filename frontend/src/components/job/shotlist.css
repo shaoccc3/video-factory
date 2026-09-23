@@ -1,0 +1,857 @@
+/* 任務頁：頁頭、分鏡表（監看、鏡頭編輯、時間軸）、寫分鏡中骨架、其他狀態（規格 14 第 4 節） */
+.vf-shotlist {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  max-width: 1440px;
+}
+
+.vf-shotlist-tail {
+  margin-top: 28px;
+}
+
+/* ---- 頁頭 ---- */
+.vf-job-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 20px 32px;
+}
+
+.vf-job-head-main {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.vf-job-kicker {
+  color: var(--vf-text-3);
+  font-size: 12px;
+  letter-spacing: 0.2em;
+}
+
+.vf-job-kicker .vf-link {
+  color: var(--vf-text-3);
+}
+
+.vf-job-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+}
+
+.vf-job-title h1 {
+  margin: 0;
+  font-size: clamp(28px, 3.4vw, 40px);
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.vf-job-chip {
+  padding: 2px 8px;
+  border: 1px solid var(--vf-accent);
+  border-radius: var(--vf-radius);
+  color: var(--vf-accent);
+  font-size: 12px;
+}
+
+.vf-job-spec {
+  color: var(--vf-text-2);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+}
+
+.vf-job-head-side {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px 22px;
+}
+
+.vf-head-actions-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.vf-head-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.vf-head-estimate {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  font-size: 11px;
+}
+
+.vf-head-estimate-total {
+  font-size: 24px;
+  color: var(--vf-text);
+}
+
+.vf-shotlist-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vf-shotlist-notes p {
+  margin: 0;
+}
+
+/* ---- 監看＋鏡頭編輯 ---- */
+.vf-shot-layout {
+  display: grid;
+  grid-template-columns: minmax(300px, 500px) minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+
+@media (max-width: 1080px) {
+  .vf-shot-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.vf-shot-monitor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.vf-monitor-tall {
+  height: min(700px, 72vh);
+}
+
+.vf-monitor-tall .vf-monitor-frame {
+  width: min(94cqw, calc(90cqh * var(--vf-rw) / var(--vf-rh)));
+  height: min(90cqh, calc(94cqw * var(--vf-rh) / var(--vf-rw)));
+}
+
+.vf-shot-layer {
+  position: absolute;
+  inset: 0;
+  animation: vf-fade 0.45s ease both;
+}
+
+/* 運鏡示意：由播放頭驅動（animation-delay 設為負的進度），不自行播放 */
+.vf-shot-motion {
+  position: absolute;
+  inset: 0;
+  animation-duration: 1s;
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+  animation-play-state: paused;
+}
+
+.vf-shot-motion img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.vf-motion-kb {
+  animation-name: vf-kb;
+}
+
+.vf-motion-push {
+  animation-name: vf-push;
+}
+
+.vf-motion-pull {
+  animation-name: vf-pull;
+}
+
+.vf-motion-pan {
+  animation-name: vf-pan;
+}
+
+.vf-motion-orbit {
+  animation-name: vf-orbit;
+}
+
+.vf-motion-breathe {
+  animation-name: vf-breathe;
+}
+
+/* 沒有首幀時的文字分鏡卡 */
+.vf-shot-card {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 14px;
+  padding: 22% 10% 12%;
+  background:
+    radial-gradient(120% 80% at 20% 10%, rgba(127, 163, 224, 0.16), transparent 60%),
+    linear-gradient(160deg, #0e1a30, #070c18 70%);
+}
+
+.vf-shot-card p {
+  margin: 0;
+  font-size: clamp(16px, 2.2cqw + 8px, 22px);
+  line-height: 1.7;
+  color: var(--vf-text);
+}
+
+.vf-shot-developing {
+  position: absolute;
+  inset: auto 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px;
+  background: var(--vf-scrim);
+  color: var(--vf-accent);
+  font-size: 13px;
+}
+
+.vf-corner {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border: 0 solid rgba(232, 236, 243, 0.7);
+  pointer-events: none;
+}
+
+.vf-corner-tl {
+  top: 14px;
+  left: 14px;
+  border-top-width: 1.5px;
+  border-left-width: 1.5px;
+}
+
+.vf-corner-tr {
+  top: 14px;
+  right: 14px;
+  border-top-width: 1.5px;
+  border-right-width: 1.5px;
+}
+
+.vf-corner-bl {
+  bottom: 14px;
+  left: 14px;
+  border-bottom-width: 1.5px;
+  border-left-width: 1.5px;
+}
+
+.vf-corner-br {
+  bottom: 14px;
+  right: 14px;
+  border-bottom-width: 1.5px;
+  border-right-width: 1.5px;
+}
+
+.vf-shot-tag,
+.vf-shot-local {
+  position: absolute;
+  top: 20px;
+  color: rgba(232, 236, 243, 0.9);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
+}
+
+.vf-shot-tag {
+  left: 44px;
+  right: 110px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.vf-shot-local {
+  right: 44px;
+}
+
+.vf-shot-subtitle {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: 9%;
+  margin: 0;
+  text-align: center;
+  font-size: clamp(14px, 1.4cqw + 10px, 19px);
+  font-weight: 700;
+  line-height: 1.6;
+  color: #fff;
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.9),
+    0 0 14px rgba(0, 0, 0, 0.6);
+}
+
+.vf-transport {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.vf-transport-tc {
+  margin-left: auto;
+  font-size: 15px;
+  letter-spacing: 0.06em;
+}
+
+.vf-transport-now {
+  color: var(--vf-accent);
+}
+
+/* 鏡頭編輯 */
+.vf-shot-editor {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.vf-shot-editor-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--vf-line);
+}
+
+.vf-shot-editor-head > div {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.vf-shot-count {
+  color: var(--vf-accent);
+  font-size: 12px;
+  letter-spacing: 0.22em;
+}
+
+.vf-shot-editor-head h2 {
+  margin: 0;
+  font-size: 28px;
+  letter-spacing: 0.04em;
+  overflow-wrap: anywhere;
+}
+
+.vf-save {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--vf-text-3);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.vf-save-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--vf-ok);
+}
+
+.vf-save[data-state="editing"] .vf-save-dot,
+.vf-save[data-state="saving"] .vf-save-dot {
+  background: var(--vf-accent);
+  animation: vf-pulse 1.2s ease-in-out infinite;
+}
+
+.vf-save[data-state="invalid"],
+.vf-save[data-state="error"] {
+  color: #ffb3b5;
+}
+
+.vf-save[data-state="invalid"] .vf-save-dot,
+.vf-save[data-state="error"] .vf-save-dot {
+  background: var(--vf-rec);
+}
+
+.vf-shot-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  border: none;
+  border-left: 1px solid var(--vf-line);
+  border-right: 1px solid var(--vf-line);
+}
+
+.vf-shot-grid .vf-cell {
+  padding: 14px 18px;
+}
+
+.vf-shot-grid .vf-cell:not(.vf-cell-wide):nth-child(odd of .vf-cell:not(.vf-cell-wide)) {
+  border-right: 1px solid var(--vf-line);
+}
+
+.vf-shot-grid:disabled .vf-slate-input {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.vf-shot-count-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.vf-narration-count {
+  color: var(--vf-text-3);
+  font-size: 11px;
+  text-align: right;
+}
+
+.vf-narration-count[data-over="true"] {
+  color: #ff8d90;
+}
+
+.vf-shot-narration {
+  font-family: var(--vf-font-serif);
+  font-size: 17px;
+  line-height: 1.7;
+}
+
+.vf-shot-grid .vf-cell.vf-shot-trio {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  padding: 0;
+}
+
+.vf-shot-trio > * {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 14px 18px;
+}
+
+.vf-shot-trio > :not(:last-child) {
+  border-right: 1px solid var(--vf-line);
+}
+
+@media (max-width: 720px) {
+  .vf-shot-grid,
+  .vf-shot-grid .vf-cell.vf-shot-trio {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .vf-shot-grid .vf-cell-wide {
+    grid-column: auto;
+  }
+
+  .vf-shot-grid .vf-cell:not(.vf-cell-wide):nth-child(odd of .vf-cell:not(.vf-cell-wide)),
+  .vf-shot-trio > :not(:last-child) {
+    border-right: none;
+  }
+}
+
+.vf-shot-frame-row {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 14px 18px;
+  border: 1px solid var(--vf-line);
+  border-top: none;
+}
+
+.vf-shot-frame-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.vf-shot-frame {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.vf-shot-thumb {
+  width: 64px;
+  height: 108px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px dashed var(--vf-line-2);
+  border-radius: 2px;
+  color: var(--vf-text-3);
+  font-size: 10px;
+  text-align: center;
+}
+
+.vf-shot-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.vf-shot-thumb[data-developing="true"] {
+  border-color: var(--vf-accent);
+  animation: vf-pulse 1.6s ease-in-out infinite;
+}
+
+.vf-shot-frame-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.vf-shot-voice {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--vf-text-2);
+}
+
+/* ---- 時間軸 ---- */
+.vf-timeline-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 12px;
+}
+
+.vf-timeline {
+  position: relative;
+  border: 1px solid var(--vf-line);
+  background: #050a14;
+}
+
+.vf-timeline.vf-skeleton {
+  display: flex;
+  gap: 3px;
+  height: 120px;
+  padding: 10px 10px 10px 94px;
+}
+
+.vf-skel-clip {
+  flex-basis: 0;
+  height: 100%;
+}
+
+.vf-track {
+  display: flex;
+  border-bottom: 1px solid var(--vf-line);
+}
+
+.vf-track:last-child {
+  border-bottom: none;
+}
+
+.vf-track-head {
+  width: 84px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding-left: 12px;
+  border-right: 1px solid var(--vf-line);
+  color: var(--vf-text-2);
+  font-size: 11px;
+}
+
+.vf-track-ruler {
+  height: 28px;
+}
+
+.vf-track-ruler .vf-track-head {
+  color: var(--vf-text-3);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+}
+
+.vf-track-body {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.vf-tick {
+  position: absolute;
+  bottom: 0;
+  width: 1px;
+  height: 5px;
+  background: var(--vf-line-2);
+}
+
+.vf-tick-major {
+  height: 10px;
+  background: var(--vf-text-3);
+}
+
+.vf-tick span {
+  position: absolute;
+  bottom: 12px;
+  left: 4px;
+  color: var(--vf-text-3);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.vf-tracks {
+  position: relative;
+}
+
+.vf-track-clips,
+.vf-track-blocks {
+  display: flex;
+  gap: 3px;
+}
+
+.vf-track-video {
+  height: 92px;
+}
+
+.vf-track-clips {
+  padding: 8px 0;
+}
+
+.vf-clip {
+  position: relative;
+  flex-basis: 0;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 2px solid var(--vf-line-2);
+  border-radius: 2px;
+  background: var(--vf-panel);
+  color: var(--vf-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.vf-clip:hover {
+  border-color: var(--vf-text-3);
+}
+
+.vf-clip[aria-pressed="true"] {
+  border-color: var(--vf-accent);
+}
+
+.vf-clip img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.85;
+}
+
+.vf-clip-text {
+  position: absolute;
+  inset: 24px 8px 6px;
+  overflow: hidden;
+  color: var(--vf-text-2);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.vf-clip-label {
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  color: #fff;
+  font-size: 11px;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+  white-space: nowrap;
+}
+
+.vf-clip-status {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 6px;
+  border-radius: 2px;
+  background: var(--vf-scrim);
+  color: var(--vf-text-2);
+  font-size: 11px;
+}
+
+.vf-clip-rec {
+  color: #ff8d90;
+  font-family: var(--vf-font-mono);
+}
+
+.vf-clip-ok {
+  color: var(--vf-ok);
+}
+
+.vf-clip-failed {
+  color: #ff8d90;
+}
+
+.vf-clip[data-status="failed"] {
+  border-color: rgba(229, 72, 77, 0.7);
+}
+
+.vf-track-audio {
+  height: 50px;
+}
+
+.vf-track-subs {
+  height: 40px;
+}
+
+.vf-track-blocks {
+  align-items: stretch;
+  padding: 6px 0;
+}
+
+.vf-block {
+  flex-basis: 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  overflow: hidden;
+  border: 1px solid var(--vf-line-2);
+  border-radius: 2px;
+  background: var(--vf-raised);
+  color: #c9d1df;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.vf-block-speaker {
+  flex-shrink: 0;
+  color: var(--vf-info);
+}
+
+.vf-block-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vf-playhead-lane {
+  position: absolute;
+  inset: 0 0 0 84px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.vf-playhead-track {
+  position: absolute;
+  inset: 0;
+  will-change: transform;
+}
+
+.vf-playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 1px;
+  background: var(--vf-rec);
+}
+
+.vf-playhead::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -6px;
+  width: 13px;
+  height: 12px;
+  background: var(--vf-rec);
+  clip-path: polygon(0 0, 100% 0, 100% 55%, 50% 100%, 0 55%);
+}
+
+.vf-timeline-failures {
+  margin: 0;
+  padding: 10px 14px;
+  list-style: none;
+  border-top: 1px solid var(--vf-line);
+  color: #ffb3b5;
+  font-size: 13px;
+}
+
+.vf-timeline-failures .vf-mono {
+  margin-right: 10px;
+  color: var(--vf-text-3);
+  font-size: 11px;
+}
+
+/* ---- 寫分鏡中 ---- */
+.vf-writing {
+  overflow: hidden;
+}
+
+.vf-writing-scan {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 22%;
+  background: linear-gradient(90deg, transparent, rgba(240, 166, 58, 0.08), transparent);
+  animation: vf-scan 2.4s ease-in-out infinite;
+}
+
+.vf-writing-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12%;
+  text-align: center;
+}
+
+.vf-writing-card p {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.7;
+}
+
+.vf-shot-editor.vf-skeleton {
+  gap: 14px;
+}
+
+/* ---- 基本資料 ---- */
+.vf-facts {
+  border-top: 1px solid var(--vf-line);
+  padding-top: 18px;
+}
+
+.vf-facts dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px 28px;
+  margin: 0;
+}
+
+.vf-facts dl > div {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.vf-facts dd {
+  margin: 0;
+  color: var(--vf-text-2);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}

@@ -25,3 +25,9 @@ export function percent(part: number, total: number): number {
   if (total <= 0) return 0;
   return Math.min(100, Math.round((part / total) * 100));
 }
+
+/** 由想法推出片名：壓成一行，超過 24 字截斷 */
+export function deriveTitle(topic: string): string {
+  const flat = topic.replace(/\s+/g, " ").trim();
+  return flat.length > 24 ? `${flat.slice(0, 24)}…` : flat;
+}

@@ -6,16 +6,15 @@ import uuid
 import structlog
 from sqlalchemy import delete, select
 
-from app.core.models_config import ModelsConfig
 from app.models import Job, Scene, User
-from app.models.enums import AudioMode, JobStatus, VideoType
+from app.models.enums import JobStatus, VideoType
 from app.pipeline.common import (
     StoryboardRules,
     check_storyboard,
     clip_duration,
     job_options,
     normalize_storyboard,
-    video_model_key,
+    storyboard_rules,
 )
 from app.pipeline.content_check import check_texts, load_blocklist
 from app.pipeline.estimate import estimate_job
@@ -41,24 +40,6 @@ SYSTEM_PROMPT = f"""你是資深的短影音編劇與分鏡師，為公司內部
 - 需要以商品圖或特定畫面作為開場時，把該鏡頭的 needs_first_frame 設為 true。
 - speaker 填說話者（「旁白」或角色泛稱），沒有人說話時留空；sound 填環境音與音效，沒有就留空。
 - 用戶訊息末尾 constraints 標籤內的 JSON 是硬性約束。"""
-
-
-def storyboard_rules(job: Job, config: ModelsConfig) -> StoryboardRules:
-    snap = job.template_snapshot
-    caps = config.video_caps(video_model_key(job, config))
-    opts = job_options(job)
-    min_total, max_total = float(snap["min_duration_s"]), float(snap["max_duration_s"])  # type: ignore[arg-type]
-    target = opts.target_duration_s or (min_total + max_total) / 2
-    return StoryboardRules(
-        min_shots=int(snap["min_shots"]),  # type: ignore[call-overload]
-        max_shots=int(snap["max_shots"]),  # type: ignore[call-overload]
-        min_total_s=min_total,
-        max_total_s=max_total,
-        target_total_s=min(max(target, min_total), max_total),
-        caps=caps,
-        narration_driven=job.video_type == VideoType.TRAINING,
-        native_audio=opts.audio_mode == AudioMode.NATIVE,
-    )
 
 
 def build_messages(job: Job, rules: StoryboardRules) -> list[ChatMessage]:

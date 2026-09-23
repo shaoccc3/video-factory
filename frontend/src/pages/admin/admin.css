@@ -1,0 +1,77 @@
+/* 管理：等寬底線頁籤；表格與表單換成細線格線（規格 14 第 4 節，沿用現有功能） */
+.vf-admin {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-width: 1440px;
+}
+
+.vf-admin-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vf-admin-head h1 {
+  margin: 0;
+  font-size: clamp(30px, 3.6vw, 44px);
+  letter-spacing: 0.04em;
+}
+
+/* 頁籤：等寬字、全大寫字距、琥珀底線 */
+.vf-admin-tabs .ant-tabs-nav::before {
+  border-bottom-color: var(--vf-line);
+}
+
+.vf-admin-tabs .ant-tabs-tab {
+  padding: 10px 2px;
+  font-family: var(--vf-font-mono);
+  font-size: 13px;
+  letter-spacing: 0.16em;
+}
+
+.vf-admin-tabs .ant-tabs-ink-bar {
+  height: 2px;
+  background: var(--vf-accent);
+}
+
+/* 細線格線的表格 */
+.vf-admin .ant-table {
+  border: 1px solid var(--vf-line);
+  border-radius: 0;
+  background: var(--vf-panel);
+}
+
+.vf-admin .ant-table-thead > tr > th {
+  border-bottom: 1px solid var(--vf-line);
+  background: var(--vf-bg);
+  color: var(--vf-text-3);
+  font-family: var(--vf-font-mono);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.16em;
+}
+
+.vf-admin .ant-table-thead > tr > th::before {
+  display: none;
+}
+
+.vf-admin .ant-table-tbody > tr > td {
+  border-bottom: 1px solid var(--vf-line);
+}
+
+.vf-admin .ant-table-tbody > tr:last-child > td {
+  border-bottom: none;
+}
+
+/* 表單：卡片改為細線框，標籤用等寬小字 */
+.vf-admin .ant-card {
+  border: 1px solid var(--vf-line);
+  border-radius: 0;
+  background: var(--vf-panel);
+}
+
+.vf-admin .ant-form-item-label > label {
+  color: var(--vf-text-2);
+  font-size: 13px;
+}

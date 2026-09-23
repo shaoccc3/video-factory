@@ -1,0 +1,87 @@
+/* 剪輯台設計：色值、字體、形狀（規格 14 第 2 節）。改色只改這裡 */
+:root {
+  --vf-bg: #070c18;
+  --vf-bg-deep: #03060d;
+  --vf-panel: #0b1322;
+  --vf-raised: #111b2e;
+  --vf-input: #09101e;
+  --vf-line: #1c2842;
+  --vf-line-2: #26344f;
+  --vf-text: #e8ecf3;
+  --vf-text-2: #a6b0c3;
+  --vf-text-3: #7f8ba1;
+  --vf-accent: #f0a63a;
+  --vf-accent-hover: #f7c170;
+  --vf-accent-ink: #1a0f00;
+  --vf-accent-soft: rgba(240, 166, 58, 0.12);
+  --vf-rec: #e5484d;
+  --vf-info: #7fa3e0;
+  --vf-ok: #5fbf8e;
+  --vf-scrim: rgba(4, 7, 15, 0.9);
+  --vf-font-serif: "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+  --vf-font-sans: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  --vf-font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --vf-radius: 3px;
+  --vf-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --vf-grain-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  color-scheme: dark;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--vf-bg);
+  color: var(--vf-text);
+  font-family: var(--vf-font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: rgba(240, 166, 58, 0.35);
+}
+
+:focus-visible {
+  outline: 2px solid var(--vf-accent);
+  outline-offset: 2px;
+}
+
+/* 等寬的小標籤：時間碼、SHOT 01、IN PRODUCTION */
+.vf-label {
+  font-family: var(--vf-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  color: var(--vf-text-3);
+  text-transform: uppercase;
+}
+
+.vf-mono {
+  font-family: var(--vf-font-mono);
+  letter-spacing: 0.04em;
+}
+
+.vf-serif {
+  font-family: var(--vf-font-serif);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.vf-muted {
+  color: var(--vf-text-2);
+}
+
+.vf-note {
+  color: var(--vf-text-3);
+  font-size: 12px;
+}
+
+.vf-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

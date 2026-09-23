@@ -1,0 +1,107 @@
+/* 監看畫面：黑底、依畫幅等比縮放的畫框、三分線、安全區（開新片與分鏡表共用） */
+.vf-monitor {
+  position: relative;
+  height: 440px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--vf-bg-deep);
+  border: 1px solid var(--vf-line);
+  container-type: size;
+}
+
+/* 畫框依畫幅在監看區內等比縮放，切換時以寬高過渡變形 */
+.vf-monitor-frame {
+  position: relative;
+  overflow: hidden;
+  width: min(92cqw, calc(80cqh * var(--vf-rw) / var(--vf-rh)));
+  height: min(80cqh, calc(92cqw * var(--vf-rh) / var(--vf-rw)));
+  box-shadow: 0 0 0 1px rgba(232, 236, 243, 0.18);
+  transition:
+    width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1),
+    height 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.vf-monitor-image {
+  position: absolute;
+  inset: 0;
+  animation: vf-kb 14s ease-in-out infinite alternate;
+}
+
+.vf-monitor-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.vf-monitor-third {
+  position: absolute;
+  background: rgba(232, 236, 243, 0.22);
+  pointer-events: none;
+}
+
+.vf-monitor-third-h1,
+.vf-monitor-third-h2 {
+  left: 0;
+  right: 0;
+  height: 1px;
+}
+
+.vf-monitor-third-h1 {
+  top: 33.33%;
+}
+
+.vf-monitor-third-h2 {
+  top: 66.66%;
+}
+
+.vf-monitor-third-v1,
+.vf-monitor-third-v2 {
+  top: 0;
+  bottom: 0;
+  width: 1px;
+}
+
+.vf-monitor-third-v1 {
+  left: 33.33%;
+}
+
+.vf-monitor-third-v2 {
+  left: 66.66%;
+}
+
+.vf-monitor-safe {
+  position: absolute;
+  inset: 6%;
+  border: 1px dashed rgba(240, 166, 58, 0.55);
+  pointer-events: none;
+}
+
+.vf-monitor-tag {
+  position: absolute;
+  top: 12px;
+  left: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--vf-text-2);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+}
+
+.vf-monitor-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--vf-accent);
+  animation: vf-pulse 1.6s ease-in-out infinite;
+}
+
+.vf-monitor-safe-note {
+  position: absolute;
+  right: 14px;
+  bottom: 12px;
+  color: var(--vf-text-3);
+  font-size: 11px;
+}

@@ -1,0 +1,239 @@
+/* 放映室：成片藝廊（按畫幅等高混排）與放映燈箱（規格 14 第 4 節） */
+.vf-library {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  max-width: 1440px;
+}
+
+.vf-library-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vf-library-head h1 {
+  margin: 0;
+  font-size: clamp(30px, 3.6vw, 44px);
+  letter-spacing: 0.04em;
+}
+
+.vf-library-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.vf-library-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+}
+
+.vf-library-tools .vf-tab {
+  min-height: 32px;
+  font-size: 13px;
+}
+
+.vf-library-search {
+  width: 260px;
+}
+
+/* 等高混排：每張片 flex-grow = 寬高比，最後一列用填充塊避免被拉寬 */
+.vf-gallery {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 28px 18px;
+}
+
+.vf-gallery-filler {
+  flex-grow: 10;
+  flex-basis: 0;
+}
+
+.vf-gallery-skel {
+  flex: 1 1 300px;
+  height: 240px;
+}
+
+.vf-film {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.vf-film-still {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  overflow: hidden;
+  border: none;
+  border-radius: 2px;
+  background: var(--vf-raised);
+  cursor: pointer;
+}
+
+.vf-film-still img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.vf-film-still .vf-poster {
+  position: absolute;
+  inset: 0;
+}
+
+.vf-film-play {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 56px;
+  height: 56px;
+  margin: -28px 0 0 -28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(7, 12, 24, 0.72);
+  color: var(--vf-text);
+  box-shadow: 0 0 0 1px rgba(232, 236, 243, 0.4);
+}
+
+.vf-film-caption {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.vf-film-caption h2 {
+  margin: 0;
+  overflow: hidden;
+  font-size: 17px;
+  letter-spacing: 0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vf-film-caption .vf-mono {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+}
+
+.vf-film-actions {
+  margin-top: 2px;
+  font-size: 13px;
+}
+
+.vf-library-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 72px 16px;
+  border: 1px dashed var(--vf-line-2);
+}
+
+.vf-library-empty p {
+  margin: 0;
+  font-size: 22px;
+}
+
+.vf-library-pager {
+  align-self: flex-end;
+}
+
+/* 放映燈箱 */
+.vf-lightbox .ant-modal-mask {
+  background: rgba(2, 4, 9, 0.92);
+  animation: vf-fade 0.35s ease both;
+}
+
+.vf-lightbox .ant-modal {
+  animation: vf-rise 0.45s var(--vf-ease) both;
+}
+
+.vf-lightbox .ant-modal-container,
+.vf-lightbox .ant-modal-content {
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--vf-line);
+  border-radius: 2px;
+  background: #000;
+}
+
+.vf-lightbox .ant-modal-header {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.vf-lightbox .ant-modal-close {
+  z-index: 2;
+  color: var(--vf-text-2);
+}
+
+.vf-lightbox-body {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 上下黑邊：播放器置中在黑底舞台上 */
+.vf-lightbox-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: min(72vh, 680px);
+  padding: 44px 0;
+  box-sizing: border-box;
+  background: #000;
+}
+
+.vf-lightbox-stage video {
+  max-width: 100%;
+  max-height: 100%;
+  background: #000;
+}
+
+.vf-lightbox-meta {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 18px 24px 22px;
+  border-top: 1px solid var(--vf-line);
+  background: var(--vf-panel);
+}
+
+.vf-lightbox-meta > div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.vf-lightbox-meta h2 {
+  margin: 0;
+  font-size: 24px;
+  letter-spacing: 0.04em;
+}
+
+.vf-lightbox-meta .vf-mono {
+  font-size: 12px;
+  letter-spacing: 0.12em;
+}
+
+.vf-lightbox-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}

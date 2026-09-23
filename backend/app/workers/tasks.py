@@ -12,7 +12,14 @@ from app.pipeline import orchestrator
 from app.providers.gateway import Gateway
 from app.services.runtime import Runtime, build_gateway, build_runtime
 from app.workers import app
-from app.workers.dispatch import TASK_BATCH, TASK_COMPOSE, TASK_SCENE, TASK_SCRIPT, CeleryDispatcher
+from app.workers.dispatch import (
+    TASK_BATCH,
+    TASK_COMPOSE,
+    TASK_KEYFRAME,
+    TASK_SCENE,
+    TASK_SCRIPT,
+    CeleryDispatcher,
+)
 
 _settings = get_settings()
 configure_logging(_settings.log_level, json=_settings.log_json)
@@ -61,3 +68,10 @@ def compose(job_id: str) -> None:
 def batch(batch_id: str) -> None:
     bid = uuid.UUID(batch_id)
     _run(lambda rt, gw, d: orchestrator.task_batch(rt, d, bid), batch_id=batch_id)
+
+
+@app.task(name=TASK_KEYFRAME)
+def keyframe(job_id: str, scene_id: str) -> None:
+    """首幀預覽（規格 14）。"""
+    jid, sid = uuid.UUID(job_id), uuid.UUID(scene_id)
+    _run(lambda rt, gw, d: orchestrator.task_keyframe(rt, gw, jid, sid), job_id=job_id, scene_id=scene_id)

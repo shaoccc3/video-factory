@@ -7,7 +7,7 @@ import type { Asset } from "../api/types";
 const box: CSSProperties = {
   width: "100%",
   aspectRatio: "1 / 1",
-  background: "#f5f5f5",
+  background: "var(--vf-raised)",
   objectFit: "cover",
   display: "block",
 };
@@ -31,7 +31,11 @@ export function AssetThumb({ asset, height }: { asset: Asset; height?: number })
     <FileOutlined />
   );
   return (
-    <Flex justify="center" align="center" style={{ ...style, fontSize: 32, color: "#999" }}>
+    <Flex
+      justify="center"
+      align="center"
+      style={{ ...style, fontSize: 32, color: "var(--vf-text-3)" }}
+    >
       {icon}
     </Flex>
   );
@@ -45,7 +49,7 @@ export function AssetIdThumb({ id, size = 64, alt }: { id: string; size?: number
       alt={alt}
       width={size}
       height={size}
-      style={{ objectFit: "cover", background: "#f5f5f5", borderRadius: 4 }}
+      style={{ objectFit: "cover", background: "var(--vf-raised)", borderRadius: 2 }}
     />
   );
 }
