@@ -1,0 +1,254 @@
+/* 素材：拖曳上傳條、印樣表（contact sheet）、右側抽屜（規格 14 第 4 節） */
+.vf-assets {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  max-width: 1440px;
+}
+
+.vf-assets-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vf-assets-head h1 {
+  margin: 0;
+  font-size: clamp(30px, 3.6vw, 44px);
+  letter-spacing: 0.04em;
+}
+
+/* 拖曳上傳條 */
+.vf-drop-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 22px;
+  border: 1.5px dashed var(--vf-line-2);
+  border-radius: var(--vf-radius);
+  background: var(--vf-panel);
+  transition:
+    border-color 0.2s,
+    background-color 0.2s;
+}
+
+.vf-drop-strip[data-over="true"] {
+  border-color: var(--vf-accent);
+  background: var(--vf-accent-soft);
+}
+
+.vf-drop-idle,
+.vf-drop-pending {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+}
+
+.vf-drop-icon {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--vf-line-2);
+  border-radius: 50%;
+  color: var(--vf-accent);
+  font-size: 18px;
+}
+
+.vf-drop-types {
+  margin-left: auto;
+  font-size: 11px;
+}
+
+.vf-drop-file {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  font-size: 14px;
+}
+
+.vf-drop-file .vf-mono {
+  font-size: 11px;
+}
+
+.vf-assets-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.vf-assets-kinds {
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.vf-assets-kinds .vf-tab {
+  min-height: 32px;
+  font-size: 13px;
+}
+
+.vf-assets-kinds > .vf-label {
+  margin-right: 6px;
+}
+
+.vf-assets-search {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.vf-assets-search > * {
+  width: 240px;
+}
+
+/* 抽屜 */
+.vf-asset-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.vf-asset-detail h3 {
+  margin: 0 0 6px;
+}
+
+.vf-asset-detail p {
+  margin: 0;
+  color: var(--vf-text-2);
+}
+
+.vf-asset-media {
+  display: flex;
+  justify-content: center;
+  padding: 16px;
+  background: #000;
+}
+
+.vf-asset-media img,
+.vf-asset-media video {
+  max-width: 100%;
+  max-height: 56vh;
+}
+
+.vf-asset-media audio {
+  width: 100%;
+}
+
+.vf-asset-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.vf-asset-tags li {
+  padding: 2px 10px;
+  border: 1px solid var(--vf-line-2);
+  border-radius: 2px;
+  font-size: 13px;
+}
+
+.vf-asset-specs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 20px;
+  margin: 0;
+}
+
+.vf-asset-specs dd {
+  margin: 4px 0 0;
+  color: var(--vf-text-2);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+/* 印樣表：黑底格線，每格一幀，下方等寬編號與類型 */
+.vf-sheet {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.vf-sheet-skel {
+  height: 190px;
+}
+
+.vf-sheet li {
+  min-width: 0;
+}
+
+.vf-sheet-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  height: 100%;
+  padding: 10px 10px 12px;
+  border: 1px solid var(--vf-line);
+  background: #04080f;
+  color: var(--vf-text-2);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.vf-sheet-cell:hover,
+.vf-sheet-cell:focus-visible {
+  background: var(--vf-raised);
+}
+
+.vf-sheet-frame {
+  display: block;
+  overflow: hidden;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(232, 236, 243, 0.08);
+}
+
+.vf-sheet-frame img {
+  transition: transform 0.5s var(--vf-ease);
+}
+
+.vf-sheet-cell:hover .vf-sheet-frame img {
+  transform: scale(1.05);
+}
+
+.vf-sheet-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--vf-accent);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+
+.vf-sheet-meta span:last-child {
+  color: var(--vf-text-3);
+}
+
+.vf-sheet-name {
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vf-assets-empty {
+  margin: 0;
+  padding: 64px 16px;
+  border: 1px dashed var(--vf-line-2);
+  color: var(--vf-text-2);
+  text-align: center;
+}
+
+.vf-assets-pager {
+  align-self: flex-end;
+}

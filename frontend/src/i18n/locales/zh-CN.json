@@ -393,7 +393,29 @@
     "dimensions": "尺寸",
     "duration": "时长",
     "source": "来源",
-    "createdAt": "上传时间"
+    "createdAt": "上传时间",
+    "dropHint": "把商品图、Logo、背景音乐或字体拖到这里",
+    "dropTypes": "PNG · JPG · WEBP · SVG · MP3 · WAV · TTF",
+    "tagsComma": "标签，用逗号分隔",
+    "rejectedType": "「{{name}}」的文件类型不支持",
+    "kindsUploaded": "上传的素材类型",
+    "kindsGenerated": "生成的素材类型",
+    "usageTitle": "用途",
+    "usage": {
+      "logo": "成片角落的品牌标志。",
+      "product": "开新片时的商品图，也可作为首帧参考。",
+      "image": "一般图片，可作为首帧或参考图。",
+      "font": "字幕与叠字用的字体（须可商用）。",
+      "bgm": "成片的背景音乐。",
+      "keyframe": "分镜的首帧，生成视频时使用。",
+      "clip": "单一镜头生成的视频片段。",
+      "last_frame": "镜头的尾帧，连续镜头时作为下一镜的首帧。",
+      "voice": "TTS 配音音频。",
+      "subtitle": "成片的字幕文件。",
+      "final": "合成后的成片。",
+      "cover": "成片封面。",
+      "csv": "批量创建任务的 CSV。"
+    }
   },
   "assetSource": {
     "upload": "上传",

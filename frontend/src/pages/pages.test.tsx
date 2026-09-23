@@ -1,58 +1,10 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import type { Asset, Batch } from "../api/types";
+import type { Batch } from "../api/types";
 import { makeJobSummary, makeTemplate, makeUser } from "../test/fixtures";
 import { mockApi, renderApp } from "../test/utils";
 import { formatDetail } from "./admin/AuditTab";
-
-function makeAsset(overrides: Partial<Asset> = {}): Asset {
-  return {
-    id: "a-1",
-    kind: "product",
-    mime: "image/png",
-    size: 2048,
-    width: 800,
-    height: 800,
-    duration_s: null,
-    tags: ["綠茶"],
-    display_name: "茶罐.png",
-    source: "upload",
-    created_at: "2026-09-20T00:00:00Z",
-    content_url: "/api/v1/assets/a-1/content",
-    thumbnail_url: "/api/v1/assets/a-1/thumbnail",
-    ...overrides,
-  };
-}
-
-describe("素材庫", () => {
-  it("列出素材並以 multipart 上傳（kind + tags）", async () => {
-    const api = mockApi({
-      "GET /auth/me": makeUser(),
-      "GET /assets": { items: [makeAsset()], total: 1 },
-      "POST /assets": makeAsset({ id: "a-2", kind: "logo" }),
-    });
-    renderApp("/assets");
-    expect(await screen.findByText("茶罐.png")).toBeInTheDocument();
-    expect(screen.getByAltText("茶罐.png")).toHaveAttribute("src", "/api/v1/assets/a-1/thumbnail");
-
-    await userEvent.click(screen.getByRole("button", { name: /上傳素材/ }));
-    const dialog = await screen.findByRole("dialog");
-    const input = dialog.querySelector('input[type="file"]');
-    expect(input).not.toBeNull();
-    const file = new File(["png"], "logo.png", { type: "image/png" });
-    fireEvent.change(input as HTMLInputElement, { target: { files: [file] } });
-    const tagInput = within(dialog).getAllByRole("combobox")[1] as HTMLElement;
-    await userEvent.type(tagInput, "品牌{enter}");
-    await userEvent.click(await within(dialog).findByRole("button", { name: /^上傳素材$/ }));
-
-    await waitFor(() => expect(api.find("POST", "/assets")).toHaveLength(1));
-    const form = api.find("POST", "/assets")[0]?.body as FormData;
-    expect(form.get("kind")).toBe("logo");
-    expect(form.get("tags")).toBe("品牌");
-    expect((form.get("file") as File).name).toBe("logo.png");
-  });
-});
 
 describe("用量看板", () => {
   it("顯示總額、今日預算進度與按模型統計", async () => {

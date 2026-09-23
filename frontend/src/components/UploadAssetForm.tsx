@@ -6,7 +6,8 @@ import { useUploadAsset } from "../api/hooks";
 import { type Asset, UPLOAD_KINDS, type UploadKind } from "../api/types";
 import { ErrorAlert } from "./ErrorResult";
 
-const ACCEPT: Record<UploadKind, string> = {
+/** 各類上傳素材接受的檔案類型（瀏覽器端先擋，後端仍會校驗） */
+export const ACCEPT: Record<UploadKind, string> = {
   logo: "image/png,image/jpeg,image/webp,image/svg+xml",
   product: "image/png,image/jpeg,image/webp",
   image: "image/png,image/jpeg,image/webp",
