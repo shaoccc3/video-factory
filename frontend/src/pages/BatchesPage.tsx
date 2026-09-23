@@ -311,7 +311,9 @@ function CreateBatchDialog({ open, onClose }: { open: boolean; onClose: () => vo
           )}
           <div className="vf-cell vf-cell-wide vf-slate-foot">
             <ErrorAlert error={csv.error ?? images.error} />
-            <span className="vf-mono vf-slate-roll">BATCH · {t("batches.rollHint")}</span>
+            <span className="vf-mono vf-slate-roll">
+              {t("mono.batch")} · {t("batches.rollHint")}
+            </span>
             <button
               type="button"
               className="vf-btn vf-btn-primary vf-slate-go"
@@ -340,7 +342,10 @@ export function BatchesPage() {
     <div className="vf-batches">
       <header className="vf-batches-head vf-rise">
         <div>
-          <span className="vf-label">BATCH REELS{batches.data ? ` · ${items.length}` : ""}</span>
+          <span className="vf-label">
+            {t("mono.batchReels")}
+            {batches.data ? ` · ${items.length}` : ""}
+          </span>
           <h1 className="vf-serif">{t("batches.title")}</h1>
         </div>
         <button
@@ -410,7 +415,7 @@ export function BatchDetailPage() {
             ← {t("batches.title")}
           </Link>
           <span aria-hidden="true"> / </span>
-          BATCH · {jobCode(data)}
+          {t("mono.batch")} · {jobCode(data)}
         </span>
         <div className="vf-batch-title">
           <h1 className="vf-serif">{t("batches.detailTitle", { name: data.template_name })}</h1>

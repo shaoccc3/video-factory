@@ -261,16 +261,16 @@ describe("開新片：聲音方式（v1.1）", () => {
     );
   });
 
-  it("選到長鏡頭模板時顯示 Seedance 2.5 標籤", async () => {
+  it("選到長鏡頭模板時顯示長鏡頭標籤（不顯示模型名稱）", async () => {
     mockApi({
       "GET /auth/me": makeUser(),
       "GET /templates": [marketing, { ...quick, video_model: "video_long" }],
     });
     renderApp("/jobs/new");
     await waitFor(() => pressed("行銷短影音"));
-    expect(screen.queryByText("Seedance 2.5 長鏡頭")).not.toBeInTheDocument();
+    expect(screen.queryByText("長鏡頭模型")).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "圖文轉短片" }));
-    expect(screen.getByText("Seedance 2.5 長鏡頭")).toBeInTheDocument();
+    expect(screen.getByText("長鏡頭模型")).toBeInTheDocument();
   });
 });
 

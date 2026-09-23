@@ -12,6 +12,7 @@ import {
   type Ratio,
   type Template,
 } from "../api/types";
+import { canCreate, useCurrentUser } from "../auth/auth";
 import { AssetPicker } from "../components/AssetPicker";
 import { ErrorAlert, ErrorResult } from "../components/ErrorResult";
 import { PosterFallback } from "../components/studio/PosterFallback";
@@ -190,10 +191,12 @@ function BudgetCard({
   request,
   draftMode,
   onDraftMode,
+  disabled,
 }: {
   request: EstimatePreviewRequest | null;
   draftMode: boolean;
   onDraftMode: (on: boolean) => void;
+  disabled: boolean;
 }) {
   const { t } = useTranslation();
   const debounced = useDebouncedValue(request, ESTIMATE_DEBOUNCE_MS);
@@ -252,7 +255,12 @@ function BudgetCard({
           <span id="vf-draft-label">{t("slate.draft")}</span>
           <span className="vf-note">{t("wizard.fields.draftModeHelp")}</span>
         </div>
-        <Toggle checked={draftMode} onChange={onDraftMode} labelledBy="vf-draft-label" />
+        <Toggle
+          checked={draftMode}
+          onChange={onDraftMode}
+          labelledBy="vf-draft-label"
+          disabled={disabled}
+        />
       </div>
     </section>
   );
@@ -260,6 +268,7 @@ function BudgetCard({
 
 export function JobWizardPage() {
   const { t } = useTranslation();
+  const user = useCurrentUser();
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const templates = useTemplates();
@@ -374,6 +383,13 @@ export function JobWizardPage() {
     }
   };
 
+  if (!canCreate(user)) {
+    return (
+      <div className="vf-callout vf-callout-warn" role="alert">
+        {t("common.forbidden")}
+      </div>
+    );
+  }
   if (templates.isError) {
     return <ErrorResult error={templates.error} onRetry={() => void templates.refetch()} />;
   }
@@ -761,6 +777,7 @@ export function JobWizardPage() {
             request={estimateRequest}
             draftMode={values.draft_mode}
             onDraftMode={(on) => patch({ draft_mode: on })}
+            disabled={locked}
           />
           <p className="vf-note">{t("slate.writeNote")}</p>
         </aside>

@@ -189,7 +189,7 @@
       "none": "無聲"
     },
     "ttsUnavailable": "目前區域不提供 TTS 配音，已改用模型原生聲音。",
-    "longShotTag": "Seedance 2.5 長鏡頭"
+    "longShotTag": "長鏡頭模型"
   },
   "jobDetail": {
     "cost": "實際／預估成本",
@@ -367,7 +367,7 @@
     "source": "來源",
     "createdAt": "上傳時間",
     "dropHint": "把商品圖、Logo、背景音樂或字體拖到這裡",
-    "dropTypes": "PNG · JPG · WEBP · SVG · MP3 · WAV · TTF",
+    "dropTypes": "PNG · JPG · WEBP · MP3 · WAV · M4A · TTF · OTF",
     "tagsComma": "標籤，用逗號分隔",
     "rejectedType": "「{{name}}」的檔案類型不支援",
     "kindsUploaded": "上傳的素材類型",
@@ -624,9 +624,39 @@
     "clipLabel": "鏡頭 {{no}}，{{seconds}} 秒",
     "summary": "{{count}} 個鏡頭 · 總長 {{runtime}}",
     "shots": "{{count}} SHOTS",
-    "facts": "片子資料"
+    "facts": "片子資料",
+    "blocked": "第 {{no}} 鏡的畫面描述空白，補上後才能儲存與繼續。",
+    "goToShot": "前往這一鏡"
   },
   "notFound": {
     "title": "這裡沒有畫面"
+  },
+  "mono": {
+    "tc": "TC {{time}}",
+    "shot": "SHOT {{no}}",
+    "shotOf": "SHOT {{no}} / {{total}}",
+    "shotList": "SHOT LIST",
+    "production": "PRODUCTION",
+    "writing": "WRITING · SHOT LIST",
+    "timeline": "TIMELINE",
+    "rec": "REC",
+    "allProductions": "ALL PRODUCTIONS",
+    "contactSheet": "CONTACT SHEET",
+    "batch": "BATCH",
+    "batchReels": "BATCH REELS",
+    "review": "REVIEW",
+    "reviewQueue": "REVIEW QUEUE",
+    "reviewSheet": "REVIEW SHEET",
+    "screeningRoom": "SCREENING ROOM",
+    "nowScreening": "NOW SCREENING",
+    "controlRoom": "CONTROL ROOM",
+    "usage": "USAGE",
+    "signIn": "SIGN IN",
+    "noSignal": "NO SIGNAL · 404",
+    "rollTake": "ROLL 01 · SCENE 01 · TAKE 1",
+    "file": "FILE",
+    "waitedM": "{{m}}M",
+    "waitedH": "{{h}}H {{m}}M",
+    "waitedD": "{{d}}D {{h}}H"
   }
 }

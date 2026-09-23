@@ -143,7 +143,7 @@ function ScreeningLightbox({
           </div>
           <div className="vf-lightbox-meta">
             <div>
-              <span className="vf-label">NOW SCREENING</span>
+              <span className="vf-label">{t("mono.nowScreening")}</span>
               <h2 className="vf-serif">{job.title}</h2>
               <span className="vf-mono vf-muted">{spec(job)}</span>
             </div>
@@ -194,7 +194,10 @@ export function LibraryPage() {
   return (
     <div className="vf-library">
       <header className="vf-library-head vf-rise">
-        <span className="vf-label">SCREENING ROOM{jobs.data ? ` · ${jobs.data.total}` : ""}</span>
+        <span className="vf-label">
+          {t("mono.screeningRoom")}
+          {jobs.data ? ` · ${jobs.data.total}` : ""}
+        </span>
         <h1 className="vf-serif">{t("nav.library")}</h1>
       </header>
       <div className="vf-library-filters vf-rise-2">

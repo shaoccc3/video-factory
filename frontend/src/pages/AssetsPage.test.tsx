@@ -123,6 +123,8 @@ describe("上傳檔案的判斷", () => {
     expect(accepts("image/png,image/jpeg", png)).toBe(true);
     expect(accepts(".ttf,.otf", ttf)).toBe(true);
     expect(accepts("image/png", mp3)).toBe(false);
-    expect([png, svg, mp3, ttf].map(guessKind)).toEqual(["product", "logo", "bgm", "font"]);
+    expect([png, mp3, ttf].map(guessKind)).toEqual(["product", "bgm", "font"]);
+    // SVG 後端不收，前端也不收
+    expect(accepts("image/png,image/jpeg,image/webp", svg)).toBe(false);
   });
 });

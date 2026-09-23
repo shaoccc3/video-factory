@@ -11,7 +11,7 @@
     "usage": "用量",
     "admin": "管理",
     "logout": "退出",
-    "studio": "片場",
+    "studio": "片场",
     "newFilm": "开新片"
   },
   "common": {
@@ -189,7 +189,7 @@
       "none": "无声"
     },
     "ttsUnavailable": "当前区域不提供 TTS 配音，已改用模型原生声音。",
-    "longShotTag": "Seedance 2.5 长镜头"
+    "longShotTag": "长镜头模型"
   },
   "jobDetail": {
     "cost": "实际／预估成本",
@@ -367,7 +367,7 @@
     "source": "来源",
     "createdAt": "上传时间",
     "dropHint": "把商品图、Logo、背景音乐或字体拖到这里",
-    "dropTypes": "PNG · JPG · WEBP · SVG · MP3 · WAV · TTF",
+    "dropTypes": "PNG · JPG · WEBP · MP3 · WAV · M4A · TTF · OTF",
     "tagsComma": "标签，用逗号分隔",
     "rejectedType": "「{{name}}」的文件类型不支持",
     "kindsUploaded": "上传的素材类型",
@@ -624,9 +624,39 @@
     "clipLabel": "镜头 {{no}}，{{seconds}} 秒",
     "summary": "{{count}} 个镜头 · 总长 {{runtime}}",
     "shots": "{{count}} SHOTS",
-    "facts": "片子资料"
+    "facts": "片子资料",
+    "blocked": "第 {{no}} 镜的画面描述为空，补上后才能保存和继续。",
+    "goToShot": "前往这一镜"
   },
   "notFound": {
     "title": "这里没有画面"
+  },
+  "mono": {
+    "tc": "TC {{time}}",
+    "shot": "SHOT {{no}}",
+    "shotOf": "SHOT {{no}} / {{total}}",
+    "shotList": "SHOT LIST",
+    "production": "PRODUCTION",
+    "writing": "WRITING · SHOT LIST",
+    "timeline": "TIMELINE",
+    "rec": "REC",
+    "allProductions": "ALL PRODUCTIONS",
+    "contactSheet": "CONTACT SHEET",
+    "batch": "BATCH",
+    "batchReels": "BATCH REELS",
+    "review": "REVIEW",
+    "reviewQueue": "REVIEW QUEUE",
+    "reviewSheet": "REVIEW SHEET",
+    "screeningRoom": "SCREENING ROOM",
+    "nowScreening": "NOW SCREENING",
+    "controlRoom": "CONTROL ROOM",
+    "usage": "USAGE",
+    "signIn": "SIGN IN",
+    "noSignal": "NO SIGNAL · 404",
+    "rollTake": "ROLL 01 · SCENE 01 · TAKE 1",
+    "file": "FILE",
+    "waitedM": "{{m}}M",
+    "waitedH": "{{h}}H {{m}}M",
+    "waitedD": "{{d}}D {{h}}H"
   }
 }

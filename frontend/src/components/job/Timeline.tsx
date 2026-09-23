@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { useTranslation } from "react-i18next";
 import { assetThumbnailUrl } from "../../api/client";
 import type { Scene } from "../../api/types";
@@ -8,7 +9,13 @@ function rulerStep(total: number): number {
   if (total <= 20) return 2;
   if (total <= 60) return 5;
   if (total <= 180) return 15;
-  return 30;
+  if (total <= 600) return 30;
+  return 60;
+}
+
+/** 小刻度：短片每秒一格，長片每個大刻度分五格，刻度數量有上限 */
+function minorStep(total: number, step: number): number {
+  return total <= 60 ? 1 : step / 5;
 }
 
 function tickLabel(seconds: number): string {
@@ -28,7 +35,7 @@ function ClipStatus({ scene }: { scene: Scene }) {
       return (
         <span className="vf-clip-status vf-clip-rec">
           <span className="vf-rec-dot" aria-hidden="true" />
-          REC
+          {t("mono.rec")}
         </span>
       );
     case "succeeded":
@@ -47,36 +54,32 @@ function ClipStatus({ scene }: { scene: Scene }) {
   }
 }
 
-/**
- * 剪輯時間軸：V1 畫面（按時長等比）、A1 說話者與音效（分鏡階段沒有實際音訊，不畫波形）、T1 字幕、紅色播放頭。
- * edit：點選即編輯該鏡；status：顯示各鏡狀態與失敗原因。
- */
-export function Timeline({
+/** 時間軸的尺規與三條軌道（不含播放頭） */
+const TimelineTracks = memo(function TimelineTracks({
   scenes,
   mode,
   selected,
   onSelect,
-  playhead,
 }: {
   scenes: Scene[];
   mode: "edit" | "status";
-  selected?: number;
-  onSelect?: (index: number) => void;
-  playhead?: number;
+  selected?: number | undefined;
+  onSelect?: ((index: number) => void) | undefined;
 }) {
   const { t } = useTranslation();
   const total = scenes.reduce((sum, s) => sum + s.duration_s, 0);
   const starts = shotStarts(scenes);
   const step = rulerStep(total);
+  const minor = minorStep(total, step);
   const ticks: number[] = [];
-  for (let s = 0; s <= total; s += 1) ticks.push(s);
+  for (let s = 0; s <= total + 1e-9; s += minor) ticks.push(Math.round(s * 1000) / 1000);
   const pct = (seconds: number) => (total > 0 ? (seconds / total) * 100 : 0);
   const failures = scenes.filter((s) => s.status === "failed" && s.error_message);
 
   return (
-    <section className="vf-timeline" aria-label={t("shotList.timeline")}>
+    <>
       <div className="vf-track vf-track-ruler" aria-hidden="true">
-        <span className="vf-track-head vf-mono">TIMELINE</span>
+        <span className="vf-track-head vf-mono">{t("mono.timeline")}</span>
         <div className="vf-track-body">
           {ticks.map((s) => (
             <span
@@ -145,17 +148,12 @@ export function Timeline({
             ))}
           </div>
         </div>
-        {playhead !== undefined && total > 0 && (
-          <div className="vf-playhead-lane" aria-hidden="true">
-            <span className="vf-playhead" style={{ left: `${pct(Math.min(playhead, total))}%` }} />
-          </div>
-        )}
       </div>
       {mode === "status" && failures.length > 0 && (
         <ul className="vf-timeline-failures">
           {failures.map((scene) => (
             <li key={scene.id}>
-              <span className="vf-mono">SHOT {shotNo(scene.index)}</span>
+              <span className="vf-mono">{t("mono.shot", { no: shotNo(scene.index) })}</span>
               {scene.error_kind ? `${t(`errorKind.${scene.error_kind}`)}：` : ""}
               {scene.error_message}
             </li>
@@ -163,6 +161,43 @@ export function Timeline({
         </ul>
       )}
       {starts.length === 0 && <p className="vf-note">{t("scene.empty")}</p>}
+    </>
+  );
+});
+
+/**
+ * 剪輯時間軸：V1 畫面（按時長等比）、A1 說話者與音效（分鏡階段沒有實際音訊，不畫波形）、T1 字幕、紅色播放頭。
+ * edit：點選即編輯該鏡；status：顯示各鏡狀態與失敗原因。
+ * 播放頭每格都會更新，所以只有播放頭跟著重畫（位移用 transform），軌道本身不動。
+ */
+export function Timeline({
+  scenes,
+  mode,
+  selected,
+  onSelect,
+  playhead,
+}: {
+  scenes: Scene[];
+  mode: "edit" | "status";
+  selected?: number;
+  onSelect?: (index: number) => void;
+  playhead?: number;
+}) {
+  const { t } = useTranslation();
+  const total = scenes.reduce((sum, s) => sum + s.duration_s, 0);
+  return (
+    <section className="vf-timeline" aria-label={t("shotList.timeline")}>
+      <TimelineTracks scenes={scenes} mode={mode} selected={selected} onSelect={onSelect} />
+      {playhead !== undefined && total > 0 && (
+        <div className="vf-playhead-lane" aria-hidden="true">
+          <span
+            className="vf-playhead-track"
+            style={{ transform: `translateX(${(Math.min(playhead, total) / total) * 100}%)` }}
+          >
+            <span className="vf-playhead" />
+          </span>
+        </div>
+      )}
     </section>
   );
 }

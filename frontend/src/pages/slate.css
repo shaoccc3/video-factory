@@ -391,7 +391,6 @@
   position: absolute;
   inset: 0 auto 0 0;
   background: repeating-linear-gradient(90deg, var(--vf-accent) 0 6px, transparent 6px 8px);
-  transition: width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .vf-budget-bar[data-over="true"] span {

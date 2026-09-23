@@ -5,7 +5,7 @@ import { Link, useNavigate } from "react-router";
 import { api, assetContentUrl, assetThumbnailUrl } from "../api/client";
 import { queryKeys, useTemplates } from "../api/hooks";
 import type { JobStatus, JobSummary, Template } from "../api/types";
-import { hasRole, useCurrentUser } from "../auth/auth";
+import { canCreate, hasRole, useCurrentUser } from "../auth/auth";
 import { ErrorAlert } from "../components/ErrorResult";
 import { JobStatusTag } from "../components/StatusTag";
 import { PosterFallback } from "../components/studio/PosterFallback";
@@ -416,7 +416,7 @@ function ProductionStrip() {
             <span className="vf-muted">
               {jobs.isPending ? t("studio.loading") : t("studio.stripEmpty")}
             </span>
-            {!jobs.isPending && (
+            {!jobs.isPending && canCreate(user) && (
               <Link to="/jobs/new" className="vf-btn vf-btn-outline">
                 {t("nav.newFilm")}
               </Link>
@@ -492,6 +492,7 @@ function RecentCuts({ films }: { films: JobSummary[] }) {
 /** 片場（首頁）：放映區、快速開片、片場底片、放映室精選（規格 14 第 4 節） */
 export function StudioPage() {
   const { t } = useTranslation();
+  const user = useCurrentUser();
   const reelParams = {
     status: ["approved", "in_review"] as JobStatus[],
     sort: "updated" as const,
@@ -515,7 +516,8 @@ export function StudioPage() {
     <div className="vf-studio">
       <div className="vf-reel-wrap">
         <Showreel films={films} />
-        <QuickSlate />
+        {/* 只有審核權限的人不能建立任務，不顯示快速開片 */}
+        {canCreate(user) && <QuickSlate />}
       </div>
       <ProductionStrip />
       <RecentCuts films={cuts.data?.items ?? []} />

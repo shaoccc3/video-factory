@@ -41,10 +41,11 @@ function OpeningStill() {
       <span className="vf-login-bar vf-login-bar-bottom" aria-hidden="true" />
       <div className="vf-login-overlay">
         <span className="vf-mono vf-login-meta">
-          VF STUDIO · <span role="timer">TC {formatTimecode(now)}</span>
+          {t("shell.studio")} ·{" "}
+          <span role="timer">{t("mono.tc", { time: formatTimecode(now) })}</span>
         </span>
         <div className="vf-login-card">
-          <span className="vf-label">ROLL 01 · SCENE 01 · TAKE 1</span>
+          <span className="vf-label">{t("mono.rollTake")}</span>
           <h1 className="vf-serif">{t("app.name")}</h1>
           <p>{t("login.tagline")}</p>
         </div>
@@ -80,7 +81,7 @@ export function LoginPage() {
       <section className="vf-login-panel" aria-labelledby="vf-login-title">
         <div className="vf-login-form vf-rise">
           <div className="vf-login-head">
-            <span className="vf-label">SIGN IN</span>
+            <span className="vf-label">{t("mono.signIn")}</span>
             <Select
               aria-label={t("language.label")}
               size="small"

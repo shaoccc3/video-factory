@@ -112,7 +112,7 @@ function ShotMonitor({
               ) : (
                 <div className="vf-shot-card">
                   <span className="vf-label">
-                    SHOT {shotNo(index)} · {t("shotList.noFrame")}
+                    {t("mono.shot", { no: shotNo(index) })} · {t("shotList.noFrame")}
                   </span>
                   <p className="vf-serif">{scene.visual_prompt}</p>
                 </div>
@@ -136,7 +136,8 @@ function ShotMonitor({
           {scene && (
             <>
               <span className="vf-shot-tag vf-mono">
-                SHOT {shotNo(index)} · {scene.shot_type || "—"} · {scene.camera_move || "—"}
+                {t("mono.shot", { no: shotNo(index) })} · {scene.shot_type || "—"} ·{" "}
+                {scene.camera_move || "—"}
               </span>
               <span className="vf-shot-local vf-mono">{timecode(local)}</span>
               {scene.narration && (
@@ -267,7 +268,7 @@ const ShotEditor = memo(function ShotEditor({
       <div className="vf-shot-editor-head">
         <div>
           <span className="vf-mono vf-shot-count">
-            SHOT {shotNo(index)} / {shotNo(count - 1)}
+            {t("mono.shotOf", { no: shotNo(index), total: shotNo(count - 1) })}
           </span>
           <h2 id="vf-shot-title" className="vf-serif">
             {scene.shot_type || t("storyboard.sceneTitle", { index: index + 1 })}
@@ -277,7 +278,8 @@ const ShotEditor = memo(function ShotEditor({
         {editable && <SaveStatus state={saveState} onRetry={onRetrySave} />}
       </div>
       <ErrorAlert error={saveError} />
-      <fieldset className="vf-shot-grid" disabled={!editable}>
+      {/* 首幀預覽生成中時這一鏡暫停編輯（後端會拒絕修改），完成後自動恢復 */}
+      <fieldset className="vf-shot-grid" disabled={!editable || developing}>
         <label className="vf-cell vf-cell-wide">
           <span className="vf-label">{t("shotList.visual")}</span>
           <textarea
@@ -540,9 +542,10 @@ export function ShotList({ job }: { job: JobDetail }) {
   const scene = scenes[index];
   const lastRejection = job.status === "rejected" ? job.reviews[0] : undefined;
 
-  // 單價只在有待生成的關鍵幀時才出現在明細裡；記住最後一次看到的值給「重新生成」用
+  // 單價以 /meta 為準（來自 models.yaml）；舊後端沒有這個欄位時，從預估明細換算
   const unitPriceRef = useRef<number | null>(null);
-  const unitPrice = keyframeUnitPrice(current) ?? unitPriceRef.current;
+  const unitPrice =
+    meta.data?.keyframe_unit_cny ?? keyframeUnitPrice(current) ?? unitPriceRef.current;
   unitPriceRef.current = unitPrice;
 
   const { seek, setPlaying, getTime } = player;
@@ -610,7 +613,7 @@ export function ShotList({ job }: { job: JobDetail }) {
 
   return (
     <div className="vf-shotlist">
-      <JobHeader job={job} kicker="SHOT LIST">
+      <JobHeader job={job} kicker={t("mono.shotList")}>
         <EstimateSummary estimate={current} />
         <div className="vf-head-actions">
           <TechDetails job={job} />
@@ -662,12 +665,26 @@ export function ShotList({ job }: { job: JobDetail }) {
         </div>
       </JobHeader>
 
+      {drafts.blocked !== null && (
+        <div className="vf-callout vf-callout-error" role="alert">
+          <span>{t("shotList.blocked", { no: drafts.blocked + 1 })}</span>
+          <button
+            type="button"
+            className="vf-slate-reset"
+            onClick={() => select(drafts.blocked ?? 0)}
+          >
+            {t("shotList.goToShot")}
+          </button>
+        </div>
+      )}
       {(actionError || developing) && (
         <div className="vf-shotlist-notes">
           <ErrorAlert error={actionError} />
-          {confirm.error instanceof ApiError && confirm.error.status === 409 && (
-            <p className="vf-field-error">{t("storyboard.overBudgetHint")}</p>
-          )}
+          {confirm.error instanceof ApiError &&
+            confirm.error.status === 409 &&
+            /預算|预算/.test(confirm.error.message) && (
+              <p className="vf-field-error">{t("storyboard.overBudgetHint")}</p>
+            )}
           {developing && <p className="vf-note">{t("shotList.developingHint")}</p>}
         </div>
       )}

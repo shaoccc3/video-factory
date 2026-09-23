@@ -18,7 +18,7 @@ export function AdminPage() {
   return (
     <div className="vf-admin">
       <header className="vf-admin-head vf-rise">
-        <span className="vf-label">CONTROL ROOM</span>
+        <span className="vf-label">{t("mono.controlRoom")}</span>
         <h1 className="vf-serif">{t("admin.title")}</h1>
       </header>
       <Tabs

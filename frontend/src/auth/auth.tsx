@@ -18,6 +18,11 @@ export function hasRole(user: User | null | undefined, role: Role): boolean {
   return Boolean(user?.roles.includes(role));
 }
 
+/** 能開新片（建立任務、批量、預估）的角色：創作者或管理員，與後端 CreatorUser 一致 */
+export function canCreate(user: User | null | undefined): boolean {
+  return hasRole(user, "creator") || hasRole(user, "admin");
+}
+
 /** 取得 /auth/me；401 時帶上原路徑導向登入頁 */
 export function AuthGuard({ children }: { children: ReactNode }) {
   const me = useMe();

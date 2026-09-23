@@ -29,11 +29,10 @@ export function accepts(accept: string, file: File): boolean {
     .some((a) => (a.startsWith(".") ? name.endsWith(a) : file.type === a));
 }
 
-/** 依檔案猜素材類型：音訊→背景音樂、字體→字體、SVG→Logo，其餘圖片→商品圖 */
+/** 依檔案猜素材類型：音訊→背景音樂、字體→字體，其餘圖片→商品圖（Logo 由使用者選） */
 export function guessKind(file: File): UploadKind {
   if (file.type.startsWith("audio/")) return "bgm";
-  if (/\.(ttf|otf)$/i.test(file.name) || file.type.startsWith("font/")) return "font";
-  if (file.type === "image/svg+xml") return "logo";
+  if (/\.(ttf|otf|ttc)$/i.test(file.name) || file.type.startsWith("font/")) return "font";
   return "product";
 }
 
@@ -111,7 +110,7 @@ function UploadStrip() {
       {file ? (
         <div className="vf-drop-pending">
           <span className="vf-drop-file">
-            <span className="vf-mono vf-muted">FILE</span>
+            <span className="vf-mono vf-muted">{t("mono.file")}</span>
             {file.name}
             <span className="vf-mono vf-muted">{formatBytes(file.size)}</span>
           </span>
@@ -297,7 +296,8 @@ export function AssetsPage() {
     <div className="vf-assets">
       <header className="vf-assets-head vf-rise">
         <span className="vf-label">
-          CONTACT SHEET{assets.data ? ` · ${assets.data.total}` : ""}
+          {t("mono.contactSheet")}
+          {assets.data ? ` · ${assets.data.total}` : ""}
         </span>
         <h1 className="vf-serif">{t("nav.assets")}</h1>
       </header>

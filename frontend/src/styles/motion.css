@@ -129,12 +129,13 @@
   }
 }
 
+/* 斜紋往下捲：由偽元素位移，不動 background-position */
 @keyframes vf-stripes {
   from {
-    background-position: 0 0;
+    transform: translateY(0);
   }
   to {
-    background-position: 0 45px;
+    transform: translateY(45px);
   }
 }
 

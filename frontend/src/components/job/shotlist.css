@@ -639,9 +639,7 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
-  transition:
-    flex-grow 0.5s cubic-bezier(0.2, 0.8, 0.2, 1),
-    border-color 0.2s;
+  transition: border-color 0.2s;
 }
 
 .vf-clip:hover {
@@ -738,7 +736,6 @@
   color: #c9d1df;
   font-size: 12px;
   white-space: nowrap;
-  transition: flex-grow 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .vf-block-speaker {
@@ -753,14 +750,22 @@
 
 .vf-playhead-lane {
   position: absolute;
-  inset: -28px 0 0 84px;
+  inset: 0 0 0 84px;
+  overflow: hidden;
   pointer-events: none;
+}
+
+.vf-playhead-track {
+  position: absolute;
+  inset: 0;
+  will-change: transform;
 }
 
 .vf-playhead {
   position: absolute;
   top: 0;
   bottom: 0;
+  left: 0;
   width: 1px;
   background: var(--vf-rec);
 }

@@ -1,4 +1,5 @@
 import { App as AntdApp } from "antd";
+import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router";
 import { assetContentUrl, assetThumbnailUrl } from "../api/client";
@@ -14,13 +15,13 @@ import { useNow } from "../hooks/motion";
 import { formatCny, formatDateTime } from "../utils/format";
 import "./reviews.css";
 
-/** 等了多久：2H 15M、3D 4H */
-function waited(since: string, now: Date): string {
+/** 等了多久：2H 15M、3D 4H（單位字樣放在 i18n） */
+function waited(since: string, now: Date, t: TFunction): string {
   const minutes = Math.max(0, Math.floor((now.getTime() - new Date(since).getTime()) / 60000));
-  if (minutes < 60) return `${minutes}M`;
+  if (minutes < 60) return t("mono.waitedM", { m: minutes });
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}H ${minutes % 60}M`;
-  return `${Math.floor(hours / 24)}D ${hours % 24}H`;
+  if (hours < 24) return t("mono.waitedH", { h: hours, m: minutes % 60 });
+  return t("mono.waitedD", { d: Math.floor(hours / 24), h: hours % 24 });
 }
 
 function QueueCard({ job, now }: { job: JobSummary; now: Date }) {
@@ -35,7 +36,7 @@ function QueueCard({ job, now }: { job: JobSummary; now: Date }) {
           <PosterFallback title={job.title} kicker={job.ratio} size="sm" />
         )}
         <span className="vf-queue-wait vf-mono">
-          {t("review.waited", { time: waited(job.updated_at, now) })}
+          {t("review.waited", { time: waited(job.updated_at, now, t) })}
         </span>
       </div>
       <div className="vf-queue-body">
@@ -72,7 +73,10 @@ export function ReviewsPage() {
   return (
     <div className="vf-reviews">
       <header className="vf-reviews-head vf-rise">
-        <span className="vf-label">REVIEW QUEUE{queue.data ? ` · ${items.length}` : ""}</span>
+        <span className="vf-label">
+          {t("mono.reviewQueue")}
+          {queue.data ? ` · ${items.length}` : ""}
+        </span>
         <h1 className="vf-serif">{t("review.queueTitle")}</h1>
         <p className="vf-muted">{t("review.queueLead")}</p>
       </header>
@@ -160,7 +164,7 @@ export function ReviewDetailPage() {
             ← {t("review.queueTitle")}
           </Link>
           <span aria-hidden="true"> / </span>
-          REVIEW · {jobCode(data)}
+          {t("mono.review")} · {jobCode(data)}
         </span>
         <div className="vf-review-title">
           <h1 className="vf-serif">{data.title}</h1>
@@ -174,7 +178,7 @@ export function ReviewDetailPage() {
         <ReviewMonitor job={data} />
         <aside className="vf-review-sheet" aria-labelledby="vf-review-sheet-title">
           <div className="vf-review-sheet-head">
-            <span className="vf-label">REVIEW SHEET</span>
+            <span className="vf-label">{t("mono.reviewSheet")}</span>
             <h2 id="vf-review-sheet-title" className="vf-serif">
               {t("review.sheet")}
             </h2>

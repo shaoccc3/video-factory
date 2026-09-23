@@ -92,7 +92,6 @@ export function DailyBarChart({ data }: { data: Day[] }) {
         {data.map((d, i) => {
           const x = PAD.left + i * slot + (slot - barW) / 2;
           const h = Math.max(0, y(0) - y(d.amount_cny));
-          const focusShow = () => setActive(i);
           return (
             <g key={d.date}>
               {h > 0 && (
@@ -103,20 +102,6 @@ export function DailyBarChart({ data }: { data: Day[] }) {
                   d={barPath(x, y(d.amount_cny), barW, h)}
                 />
               )}
-              {/* 命中區比柱大：整條欄位 */}
-              <rect
-                className="vf-chart-hit"
-                x={PAD.left + i * slot}
-                y={PAD.top}
-                width={slot}
-                height={plotH}
-                tabIndex={0}
-                aria-label={`${d.date} ${formatCny(d.amount_cny)}`}
-                onPointerEnter={focusShow}
-                onPointerLeave={() => setActive(null)}
-                onFocus={focusShow}
-                onBlur={() => setActive(null)}
-              />
               {i % labelEvery === 0 && (
                 <text
                   className="vf-chart-tick"
@@ -142,6 +127,27 @@ export function DailyBarChart({ data }: { data: Day[] }) {
         })}
         <line className="vf-chart-axis" x1={PAD.left} x2={W - PAD.right} y1={y(0)} y2={y(0)} />
       </svg>
+      {/* 命中區比柱大：整條欄位；用真正的按鈕，滑鼠與鍵盤都能看到提示 */}
+      <div className="vf-chart-hits">
+        {data.map((d, i) => (
+          <button
+            key={d.date}
+            type="button"
+            className="vf-chart-hit"
+            style={{
+              left: `${((PAD.left + i * slot) / W) * 100}%`,
+              width: `${(slot / W) * 100}%`,
+              top: `${(PAD.top / H) * 100}%`,
+              height: `${(plotH / H) * 100}%`,
+            }}
+            aria-label={`${d.date} ${formatCny(d.amount_cny)}`}
+            onPointerEnter={() => setActive(i)}
+            onPointerLeave={() => setActive(null)}
+            onFocus={() => setActive(i)}
+            onBlur={() => setActive(null)}
+          />
+        ))}
+      </div>
       {hovered && active !== null && (
         <div
           className="vf-chart-tip"
@@ -225,7 +231,9 @@ export function UsagePage() {
   return (
     <div className="vf-usage" data-refetching={usage.isFetching && !usage.isPending}>
       <header className="vf-usage-head vf-rise">
-        <span className="vf-label">USAGE · {t("usage.days", { count: days })}</span>
+        <span className="vf-label">
+          {t("mono.usage")} · {t("usage.days", { count: days })}
+        </span>
         <h1 className="vf-serif">{t("usage.title")}</h1>
       </header>
 
@@ -261,7 +269,10 @@ export function UsagePage() {
           <span className="vf-tile-value vf-mono">{formatCny(Math.max(0, budget - today))}</span>
           <div className="vf-meter" data-level={level}>
             <span className="vf-meter-track" aria-hidden="true">
-              <span className="vf-meter-fill" style={{ width: `${Math.min(todayPct, 100)}%` }} />
+              <span
+                className="vf-meter-fill"
+                style={{ transform: `scaleX(${Math.min(todayPct, 100) / 100})` }}
+              />
             </span>
             <span className="vf-mono vf-muted">
               {formatCny(today)} / {formatCny(budget)} · {todayPct}%

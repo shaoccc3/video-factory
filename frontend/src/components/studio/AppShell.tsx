@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { useLogout, useReviewQueue } from "../../api/hooks";
 import type { Role } from "../../api/types";
-import { hasRole, useCurrentUser } from "../../auth/auth";
+import { canCreate, hasRole, useCurrentUser } from "../../auth/auth";
 import { formatTimecode, useNow } from "../../hooks/motion";
 import { isLanguage, LANGUAGES } from "../../i18n";
 import { Grain } from "./Grain";
@@ -37,7 +37,7 @@ function Timecode() {
   const now = useNow();
   return (
     <span className="vf-shell-tc vf-mono" role="timer" aria-label={t("shell.timecode")}>
-      TC {formatTimecode(now)}
+      {t("mono.tc", { time: formatTimecode(now) })}
     </span>
   );
 }
@@ -129,22 +129,24 @@ export function AppShell() {
             </span>
           </button>
         </Dropdown>
-        <Link
-          to="/jobs/new"
-          className={pathname === "/jobs/new" ? "vf-btn vf-btn-outline" : "vf-btn vf-btn-primary"}
-          aria-current={pathname === "/jobs/new" ? "page" : undefined}
-        >
-          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-            <path
-              d="M12 5v14M5 12h14"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-            />
-          </svg>
-          {t("nav.newFilm")}
-        </Link>
+        {canCreate(user) && (
+          <Link
+            to="/jobs/new"
+            className={pathname === "/jobs/new" ? "vf-btn vf-btn-outline" : "vf-btn vf-btn-primary"}
+            aria-current={pathname === "/jobs/new" ? "page" : undefined}
+          >
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <path
+                d="M12 5v14M5 12h14"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+              />
+            </svg>
+            {t("nav.newFilm")}
+          </Link>
+        )}
       </header>
       <main className="vf-main">
         <Outlet />

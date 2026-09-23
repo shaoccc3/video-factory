@@ -54,10 +54,10 @@ describe("用量", () => {
     const chart = await screen.findByRole("img", { name: "每日花費" });
     // 沒有花費的日子補 0（不畫柱），只有兩天有柱
     expect(chart.querySelectorAll("[data-bar]")).toHaveLength(2);
-    expect(chart.querySelectorAll(".vf-chart-hit")).toHaveLength(30);
+    expect(document.querySelectorAll(".vf-chart-hit")).toHaveLength(30);
     expect(within(chart).getByText("¥30.00")).toBeInTheDocument();
 
-    const hit = chart.querySelector('[aria-label="2026-09-22 ¥20.00"]') as SVGElement;
+    const hit = screen.getByRole("button", { name: "2026-09-22 ¥20.00" });
     fireEvent.focus(hit);
     expect(screen.getByTestId("chart-tip")).toHaveTextContent("¥20.002026-09-22");
     fireEvent.blur(hit);

@@ -243,11 +243,19 @@
 }
 
 .vf-quick-stick {
+  position: relative;
   width: 16px;
   flex-shrink: 0;
+  overflow: hidden;
+  opacity: 0.85;
+}
+
+.vf-quick-stick::before {
+  content: "";
+  position: absolute;
+  inset: -45px 0 0;
   background: repeating-linear-gradient(135deg, var(--vf-text) 0 8px, var(--vf-panel) 8px 16px);
   background-size: 16px 45px;
-  opacity: 0.85;
   animation: vf-stripes 2.4s linear infinite;
 }
 
@@ -262,7 +270,6 @@
 .vf-quick-field textarea {
   resize: none;
   border: none;
-  outline: none;
   padding: 0;
   background: transparent;
   color: var(--vf-text);
@@ -545,4 +552,14 @@
 .vf-frame .vf-poster-title,
 .vf-frame .vf-poster .vf-label {
   visibility: hidden;
+}
+
+/* 快速開片的輸入框沒有邊框，聚焦時補上琥珀色焦點框 */
+.vf-quick-field textarea:focus {
+  outline: none;
+}
+
+.vf-quick-field textarea:focus-visible {
+  outline: 2px solid var(--vf-accent);
+  outline-offset: 6px;
 }

@@ -119,7 +119,8 @@ export function JobsPage() {
       <header className="vf-jobs-head vf-rise">
         <div>
           <span className="vf-label">
-            ALL PRODUCTIONS{jobs.data ? ` · ${jobs.data.total}` : ""}
+            {t("mono.allProductions")}
+            {jobs.data ? ` · ${jobs.data.total}` : ""}
           </span>
           <h1 className="vf-serif">{t("jobs.title")}</h1>
         </div>

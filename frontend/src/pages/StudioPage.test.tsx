@@ -109,6 +109,19 @@ describe("片場首頁", () => {
     });
   });
 
+  it("只有審核權限時不顯示快速開片與開新片", async () => {
+    mockApi({
+      "GET /auth/me": makeUser({ roles: ["reviewer"] }),
+      "GET /templates": templates,
+      "GET /jobs": { items: [], total: 0 },
+      "GET /reviews/queue": [],
+    });
+    renderApp("/");
+    expect(await screen.findByText("片場目前沒有進行中的片。")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /寫分鏡/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /開新片/ })).not.toBeInTheDocument();
+  });
+
   it("沒有成片也沒有進行中的片時顯示空狀態", async () => {
     mockApi({
       "GET /auth/me": makeUser(),

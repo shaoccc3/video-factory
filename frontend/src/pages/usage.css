@@ -90,10 +90,11 @@
 
 .vf-meter-fill {
   position: absolute;
-  inset: 0 auto 0 0;
+  inset: 0;
   border-radius: 3px;
   background: var(--vf-ok);
-  transition: width 0.6s var(--vf-ease);
+  transform-origin: left center;
+  transition: transform 0.6s var(--vf-ease);
 }
 
 .vf-meter[data-level="near"] .vf-meter-track {
@@ -201,15 +202,24 @@
   fill: var(--vf-accent);
 }
 
+.vf-chart-hits {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
 .vf-chart-hit {
-  fill: transparent;
+  position: absolute;
+  padding: 0;
+  border: none;
+  background: transparent;
   cursor: crosshair;
-  outline: none;
+  pointer-events: auto;
 }
 
 .vf-chart-hit:focus-visible {
-  stroke: var(--vf-accent);
-  stroke-width: 1;
+  outline: 1px solid var(--vf-accent);
+  outline-offset: -1px;
 }
 
 .vf-chart-tip {

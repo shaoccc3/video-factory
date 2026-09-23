@@ -203,6 +203,75 @@ describe("分鏡表", () => {
     expect(screen.getByText(/首幀預覽生成中，完成前不能確認開拍/)).toBeInTheDocument();
   });
 
+  it("首幀預覽生成中的鏡頭暫停編輯；單價來自 /meta", async () => {
+    const job = storyboardJob({
+      scenes: [
+        makeScene({ id: "s-0", index: 0, needs_first_frame: true, status: "keyframe" }),
+        makeScene({ id: "s-1", index: 1, needs_first_frame: true }),
+      ],
+      allowed_actions: ["edit_storyboard", "confirm_storyboard", "preview_keyframe"],
+    });
+    mockApi({ ...baseRoutes(job), "GET /meta": makeMeta({ keyframe_unit_cny: 0.3 }) });
+    renderApp("/jobs/job-1");
+    const first = await screen.findByTestId("scene-editor-0");
+    expect(within(first).getByLabelText("旁白")).toBeDisabled();
+    expect(within(first).getByText("首幀生成中")).toBeInTheDocument();
+    await userEvent.click(screen.getByTestId("clip-1"));
+    const second = await screen.findByTestId("scene-editor-1");
+    expect(within(second).getByLabelText("旁白")).toBeEnabled();
+    expect(
+      await within(second).findByRole("button", { name: "生成首幀預覽 · ¥0.30" }),
+    ).toBeInTheDocument();
+  });
+
+  it("確認開拍會先等修改存好；有鏡頭畫面描述空白時指出是哪一鏡，不送出", async () => {
+    const job = storyboardJob();
+    const api = mockApi({
+      ...baseRoutes(job),
+      "PATCH /jobs/job-1/scenes/s-0": job,
+      "PATCH /jobs/job-1/scenes/s-1": job,
+      "POST /jobs/job-1/confirm-storyboard": { ...job, status: "generating", allowed_actions: [] },
+    });
+    renderApp("/jobs/job-1");
+    const card = await screen.findByTestId("scene-editor-0");
+
+    // 空白的畫面描述：確認時提示第 1 鏡並提供前往
+    await userEvent.clear(within(card).getByLabelText("畫面描述"));
+    await userEvent.click(screen.getByRole("button", { name: /確認開拍/ }));
+    await userEvent.click(await screen.findByRole("button", { name: "確定" }));
+    expect(
+      await screen.findByText("第 1 鏡的畫面描述空白，補上後才能儲存與繼續。"),
+    ).toBeInTheDocument();
+    expect(api.find("POST", "/jobs/job-1/confirm-storyboard")).toHaveLength(0);
+
+    // 補上後馬上確認：先 PATCH 再 confirm
+    await userEvent.type(within(card).getByLabelText("畫面描述"), "晨霧中的茶園");
+    await userEvent.click(screen.getByRole("button", { name: /確認開拍/ }));
+    await userEvent.click(await screen.findByRole("button", { name: "確定" }));
+    await waitFor(() => expect(api.find("POST", "/jobs/job-1/confirm-storyboard")).toHaveLength(1));
+    const order = api.calls.map((c) => `${c.method} ${c.path}`);
+    expect(order.indexOf("PATCH /jobs/job-1/scenes/s-0")).toBeLessThan(
+      order.indexOf("POST /jobs/job-1/confirm-storyboard"),
+    );
+    expect(api.find("PATCH", "/jobs/job-1/scenes/s-0")[0]?.body).toEqual({
+      visual_prompt: "晨霧中的茶園",
+    });
+  });
+
+  it("確認回 409 但不是預算問題時，不顯示預算提示", async () => {
+    const job = storyboardJob();
+    mockApi({
+      ...baseRoutes(job),
+      "POST /jobs/job-1/confirm-storyboard": json(409, { detail: "任務狀態已變化，請重新整理" }),
+    });
+    renderApp("/jobs/job-1");
+    await screen.findByTestId("scene-editor-0");
+    await userEvent.click(screen.getByRole("button", { name: /確認開拍/ }));
+    await userEvent.click(await screen.findByRole("button", { name: "確定" }));
+    expect(await screen.findByText("任務狀態已變化，請重新整理")).toBeInTheDocument();
+    expect(screen.queryByText(/預估成本超出預算/)).not.toBeInTheDocument();
+  });
+
   it("allowed_actions 不含編輯與確認時，欄位唯讀且不顯示按鈕", async () => {
     mockApi(baseRoutes(storyboardJob({ allowed_actions: [] })));
     renderApp("/jobs/job-1");

@@ -27,7 +27,7 @@ export function NotFoundPage() {
         <span className="vf-nosignal-roll" />
       </div>
       <div className="vf-nosignal-card">
-        <span className="vf-mono vf-nosignal-tag">NO SIGNAL · 404</span>
+        <span className="vf-mono vf-nosignal-tag">{t("mono.noSignal")}</span>
         <h1 id="vf-nosignal-title" className="vf-serif">
           {t("notFound.title")}
         </h1>

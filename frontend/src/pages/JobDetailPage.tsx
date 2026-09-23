@@ -178,7 +178,7 @@ function WritingView({ job }: { job: JobDetail }) {
   const { t } = useTranslation();
   return (
     <div className="vf-shotlist">
-      <JobHeader job={job} kicker="SHOT LIST">
+      <JobHeader job={job} kicker={t("mono.shotList")}>
         <JobActions job={job} />
       </JobHeader>
       <div className="vf-shot-layout vf-rise-2" aria-busy="true">
@@ -186,7 +186,7 @@ function WritingView({ job }: { job: JobDetail }) {
           <div className="vf-monitor vf-monitor-tall vf-writing">
             <span className="vf-writing-scan" aria-hidden="true" />
             <div className="vf-writing-card" role="status">
-              <span className="vf-label">WRITING · SHOT LIST</span>
+              <span className="vf-label">{t("mono.writing")}</span>
               <p className="vf-serif">{t("jobDetail.scripting")}</p>
             </div>
           </div>
@@ -218,7 +218,7 @@ function ProductionView({ job }: { job: JobDetail }) {
       ?.scrollIntoView({ behavior: "smooth", block: "center" });
   return (
     <div className="vf-shotlist">
-      <JobHeader job={job} kicker="PRODUCTION">
+      <JobHeader job={job} kicker={t("mono.production")}>
         <JobActions job={job} />
       </JobHeader>
       <JobNotices job={job} />
@@ -259,7 +259,7 @@ export function JobDetailPage() {
   if (STORYBOARD_STATUSES.has(data.status) && data.scenes.length > 0) {
     return (
       <>
-        <ShotList job={data} />
+        <ShotList key={data.id} job={data} />
         <div className="vf-shotlist vf-shotlist-tail">
           <JobNotices job={data} />
           <ReviewHistory reviews={data.reviews} />
