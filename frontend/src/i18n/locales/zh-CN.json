@@ -1,6 +1,110 @@
 {
-  "app": { "name": "影音工厂" },
-  "nav": { "jobs": "任务", "logout": "退出" },
+  "app": {
+    "name": "影音工厂"
+  },
+  "nav": {
+    "jobs": "任务",
+    "batches": "批量",
+    "library": "成片库",
+    "assets": "素材库",
+    "reviews": "审核台",
+    "usage": "用量",
+    "admin": "管理",
+    "logout": "退出"
+  },
+  "common": {
+    "confirm": "确定",
+    "cancel": "取消",
+    "save": "保存",
+    "saved": "已保存",
+    "edit": "编辑",
+    "delete": "删除",
+    "remove": "移除",
+    "search": "搜索",
+    "retry": "重试",
+    "yes": "是",
+    "no": "否",
+    "loadFailed": "载入失败",
+    "notFound": "找不到这个页面或资源",
+    "forbidden": "你没有权限查看这个页面",
+    "backHome": "回到任务列表"
+  },
+  "role": {
+    "admin": "管理员",
+    "creator": "创作者",
+    "reviewer": "审核者"
+  },
+  "videoType": {
+    "marketing": "营销短视频",
+    "quick": "图文转短片",
+    "training": "培训讲解片"
+  },
+  "audioMode": {
+    "tts": "TTS 旁白",
+    "native": "模型原生音频",
+    "none": "无声"
+  },
+  "jobStatus": {
+    "draft": "草稿",
+    "scripting": "撰写脚本中",
+    "storyboard_ready": "待确认分镜",
+    "generating": "生成中",
+    "composing": "合成中",
+    "in_review": "待审核",
+    "approved": "已通过",
+    "rejected": "已退回",
+    "failed": "失败",
+    "cancelled": "已取消",
+    "budget_exceeded": "超出预算"
+  },
+  "sceneStatus": {
+    "pending": "等待中",
+    "keyframe": "生成关键帧",
+    "queued": "排队中",
+    "running": "生成中",
+    "succeeded": "完成",
+    "failed": "失败",
+    "cancelled": "已取消"
+  },
+  "assetKind": {
+    "logo": "Logo",
+    "product": "商品图",
+    "image": "图片",
+    "font": "字体",
+    "bgm": "背景音乐",
+    "keyframe": "关键帧",
+    "clip": "片段",
+    "last_frame": "尾帧",
+    "voice": "配音",
+    "subtitle": "字幕",
+    "final": "成片",
+    "cover": "封面",
+    "csv": "CSV"
+  },
+  "errorKind": {
+    "moderation": "内容审核",
+    "rate_limit": "限流",
+    "timeout": "超时",
+    "server": "服务端错误",
+    "client": "请求错误",
+    "budget": "预算",
+    "internal": "内部错误"
+  },
+  "jobError": {
+    "kind": "错误类型",
+    "moderation": {
+      "title": "内容审核未通过",
+      "hint": "请修改主题、旁白或画面描述，避免真人、品牌或敏感内容后再重试。"
+    },
+    "budget": {
+      "title": "已超出预算，后续步骤已停止",
+      "hint": "请联系管理员调整单任务或每日预算后再续跑。"
+    },
+    "system": {
+      "title": "系统错误",
+      "hint": "这不是内容问题，可以稍后续跑；若持续失败请联系管理员。"
+    }
+  },
   "login": {
     "title": "登录",
     "email": "电子邮件",
@@ -8,13 +112,326 @@
     "password": "密码",
     "passwordRequired": "请输入密码",
     "submit": "登录",
-    "notReady": "登录功能将在后续阶段开放"
+    "invalid": "电子邮件或密码错误"
   },
   "jobs": {
     "title": "任务列表",
     "new": "新建任务",
     "empty": "目前还没有任务",
-    "columns": { "title": "标题", "type": "类型", "status": "状态", "createdAt": "创建时间" }
+    "filterStatus": "全部状态",
+    "filterType": "全部类型",
+    "search": "搜索标题或主题",
+    "mine": "只看我的",
+    "columns": {
+      "title": "标题",
+      "type": "类型",
+      "template": "模板",
+      "status": "状态",
+      "progress": "分镜进度",
+      "owner": "创建者",
+      "cost": "实际／预估",
+      "createdAt": "创建时间"
+    }
   },
-  "language": { "label": "语言", "zh-TW": "繁體中文", "zh-CN": "简体中文" }
+  "wizard": {
+    "title": "新建任务",
+    "steps": {
+      "template": "选模板",
+      "inputs": "主题与素材",
+      "settings": "设定",
+      "confirm": "确认提交"
+    },
+    "noTemplates": "目前没有可用的模板，请联系管理员",
+    "fields": {
+      "title": "任务标题",
+      "titleRequired": "请输入任务标题",
+      "topic": "主题",
+      "topicRequired": "请输入主题",
+      "topicHelp": "描述视频要表达的内容；请勿使用真实人名、明星、第三方品牌或影视 IP。",
+      "extra": "补充说明",
+      "assets": "素材",
+      "products": "商品图",
+      "pickProducts": "选择商品图",
+      "firstFrame": "首帧图片",
+      "pickFirstFrame": "选择首帧",
+      "logo": "Logo",
+      "pickLogo": "选择 Logo",
+      "bgm": "背景音乐",
+      "pickBgm": "选择背景音乐",
+      "ratio": "画幅",
+      "duration": "目标时长",
+      "durationHelp": "留空由模板决定（{{min}}～{{max}} 秒）",
+      "audioMode": "音频方式",
+      "draftMode": "样片模式",
+      "draftModeHelp": "先用低成本样片确认效果，满意后再出正片",
+      "continuousShots": "连续镜头",
+      "continuousShotsHelp": "以上一镜头的尾帧作为下一镜头的首帧，画面更连贯但只能依序生成"
+    },
+    "assetCount": "已选 {{count}} 个",
+    "durationAuto": "由模板决定",
+    "submitHint": "提交后会先由大模型撰写脚本与分镜，确认分镜前不会生成视频。",
+    "prev": "上一步",
+    "next": "下一步",
+    "submit": "创建并提交"
+  },
+  "jobDetail": {
+    "cost": "实际／预估成本",
+    "draftMode": "样片模式",
+    "warnings": "内容检查警告",
+    "draftHint": "任务尚未提交",
+    "scripting": "正在撰写脚本与分镜，完成后会自动更新"
+  },
+  "actions": {
+    "submit": "提交",
+    "renderFinal": "出正片",
+    "renderFinalConfirm": "确认样片效果，开始生成正片？",
+    "resume": "续跑",
+    "review": "审核",
+    "cancel": "取消任务",
+    "cancelConfirm": "确定取消这个任务？未完成的生成会一并取消。"
+  },
+  "storyboard": {
+    "title": "分镜确认",
+    "summary": "共 {{count}} 个镜头，约 {{seconds}} 秒",
+    "sceneTitle": "镜头 {{index}}",
+    "narration": "旁白",
+    "visualPrompt": "画面描述",
+    "visualRequired": "请输入画面描述",
+    "shotType": "景别",
+    "cameraMove": "运镜",
+    "duration": "时长",
+    "screenText": "画面文字",
+    "needsFirstFrame": "需要首帧",
+    "firstFrame": "首帧",
+    "replaceFirstFrame": "从素材库替换首帧",
+    "save": "保存此镜头",
+    "saved": "分镜已保存",
+    "readOnly": "目前不可编辑分镜",
+    "rejected": "{{name}} 退回了这个任务",
+    "confirm": "确认生成",
+    "confirmTitle": "确认分镜并开始生成？",
+    "confirmDescription": "预估花费 ¥{{amount}}，确认后会开始调用视频模型。",
+    "overBudgetHint": "预估成本超出预算，请减少镜头或时长，或联系管理员调整预算。",
+    "regenerateScript": "重新生成脚本",
+    "regenerateScriptConfirm": "重新生成会覆盖目前的分镜，确定？"
+  },
+  "estimate": {
+    "title": "成本预估",
+    "total": "本任务预估",
+    "perJobBudget": "单任务预算",
+    "todaySpent": "今日已用／每日预算",
+    "dailyProgress": "今日预算使用",
+    "overBudget": "预估超出预算，无法确认生成",
+    "nearLimit": "已接近预算上限（80%）",
+    "item": "项目",
+    "model": "模型",
+    "quantity": "数量",
+    "amount": "金额"
+  },
+  "scene": {
+    "title": "分镜预览",
+    "empty": "还没有分镜",
+    "draft": "样片",
+    "attempt": "第 {{count}} 次",
+    "regenerateVideo": "重做",
+    "regenerateKeyframe": "重做关键帧",
+    "regenerateConfirm": "重做这个镜头会产生额外费用，确定？"
+  },
+  "final": {
+    "title": "成片",
+    "cover": "封面",
+    "download": "下载",
+    "downloadLocked": "审核通过后才可下载"
+  },
+  "calls": {
+    "title": "调用记录",
+    "total": "合计",
+    "startedAt": "开始时间",
+    "provider": "服务",
+    "model": "模型",
+    "scene": "镜头",
+    "status": "状态",
+    "attempt": "尝试",
+    "duration": "耗时",
+    "cost": "费用"
+  },
+  "review": {
+    "queueTitle": "审核台",
+    "queueEmpty": "目前没有待审核的任务",
+    "submittedAt": "送审时间",
+    "title": "审核",
+    "openJob": "查看任务详情",
+    "notReviewable": "这个任务目前不需要审核",
+    "history": "审核记录",
+    "time": "时间",
+    "reviewer": "审核者",
+    "decision": "结果",
+    "approved": "通过",
+    "rejected": "退回",
+    "checklistTitle": "审核清单",
+    "checklist": {
+      "ai_label": "AI 生成标识存在（片头与角落）",
+      "no_real_person": "无未授权真人肖像",
+      "no_third_party_ip": "无第三方品牌或影视 IP",
+      "brand_guideline": "符合品牌规范",
+      "subtitle_ok": "字幕无错字"
+    },
+    "checklistHint": "五项全部勾选后才能通过",
+    "reason": "意见／退回原因",
+    "reasonPlaceholder": "退回时必填，说明需要修改的地方",
+    "reasonRequired": "退回时必须填写原因",
+    "approve": "通过",
+    "reject": "退回",
+    "done": "审核已送出"
+  },
+  "batches": {
+    "title": "批量任务",
+    "create": "创建批量",
+    "created": "批量已创建",
+    "empty": "目前还没有批量任务",
+    "fromCsv": "上传 CSV",
+    "fromImages": "多张图片",
+    "template": "模板",
+    "templateRequired": "请选择模板",
+    "quickOnly": "每张图片会创建一个图文转短片任务",
+    "csvFile": "CSV 文件",
+    "csvHelp": "栏位：title,topic,extra（第一行为标题行）",
+    "dropCsv": "点击或拖入 CSV 文件",
+    "images": "图片",
+    "dropImages": "点击或拖入多张图片",
+    "topic": "共用提示词",
+    "topicRequired": "请输入共用提示词",
+    "maxParallel": "同时运行数",
+    "submit": "创建批量",
+    "submitImages": "创建 {{count}} 个任务",
+    "createdAt": "创建时间",
+    "total": "任务数",
+    "status": "状态",
+    "running": "进行中",
+    "done": "已完成",
+    "counts": "状态统计",
+    "detailTitle": "批量：{{name}}"
+  },
+  "library": {
+    "title": "成片库",
+    "empty": "目前没有成片",
+    "preview": "播放预览",
+    "detail": "详情"
+  },
+  "assets": {
+    "title": "素材库",
+    "upload": "上传素材",
+    "uploaded": "素材已上传",
+    "kind": "类型",
+    "filterKind": "全部类型",
+    "filterTag": "按标签筛选",
+    "tags": "标签",
+    "tagsPlaceholder": "输入后按 Enter 新增",
+    "file": "文件",
+    "chooseFile": "选择文件",
+    "empty": "目前没有素材",
+    "preview": "预览",
+    "deleteConfirm": "确定删除这个素材？",
+    "deleted": "素材已删除",
+    "size": "大小",
+    "dimensions": "尺寸",
+    "duration": "时长",
+    "source": "来源",
+    "createdAt": "上传时间"
+  },
+  "assetSource": {
+    "upload": "上传",
+    "generated": "生成"
+  },
+  "assetPicker": {
+    "library": "从素材库选择",
+    "upload": "上传新素材"
+  },
+  "usage": {
+    "title": "用量看板",
+    "days": "近 {{count}} 天",
+    "total": "近 {{count}} 天总花费",
+    "today": "今日花费／每日预算",
+    "nearLimit": "今日花费已接近每日预算上限",
+    "byDay": "每日花费",
+    "byUser": "按用户",
+    "byModel": "按模型",
+    "user": "用户",
+    "model": "模型",
+    "calls": "调用次数",
+    "amount": "金额",
+    "noData": "这段期间没有花费"
+  },
+  "admin": {
+    "title": "管理",
+    "tabs": {
+      "templates": "模板管理",
+      "users": "用户管理",
+      "budget": "预算与模型",
+      "audit": "审计日志"
+    },
+    "templates": {
+      "create": "新增模板",
+      "edit": "编辑模板",
+      "key": "键",
+      "name": "名称",
+      "description": "说明",
+      "resolution": "分辨率",
+      "minDuration": "最短秒数",
+      "maxDuration": "最长秒数",
+      "minShots": "最少镜头",
+      "maxShots": "最多镜头",
+      "durationRange": "时长",
+      "shotRange": "镜头数",
+      "subtitleRequired": "字幕必选",
+      "active": "启用",
+      "stylePrefix": "风格前缀",
+      "promptTemplate": "提示词模板",
+      "promptHelp": "不得包含真实人名、明星、第三方品牌与影视 IP",
+      "version": "版本"
+    },
+    "users": {
+      "create": "新增用户",
+      "edit": "编辑用户",
+      "displayName": "显示名称",
+      "roles": "角色",
+      "rolesRequired": "至少选择一个角色",
+      "resetPassword": "重设密码",
+      "resetPasswordHelp": "留空表示不修改",
+      "passwordMin": "密码至少 8 个字符",
+      "dailyBudget": "每日预算",
+      "dailyBudgetHelp": "留空表示使用系统默认",
+      "defaultBudget": "系统默认",
+      "active": "状态",
+      "enabled": "启用",
+      "disabled": "停用"
+    },
+    "budget": {
+      "budgetTitle": "预算",
+      "perJob": "单任务预算",
+      "perUserDaily": "每人每日预算",
+      "modelsTitle": "模型配置",
+      "region": "区域",
+      "providerMode": "服务模式",
+      "currency": "币种",
+      "modelKey": "用途",
+      "modelId": "模型 ID",
+      "pricePerMtok": "每百万 token 单价",
+      "pricePerImage": "每张图单价",
+      "concurrency": "并发"
+    },
+    "audit": {
+      "filterAction": "按动作筛选",
+      "time": "时间",
+      "actor": "操作者",
+      "action": "动作",
+      "target": "对象",
+      "detail": "详情"
+    }
+  },
+  "language": {
+    "label": "語言",
+    "zh-TW": "繁體中文",
+    "zh-CN": "简体中文"
+  }
 }
