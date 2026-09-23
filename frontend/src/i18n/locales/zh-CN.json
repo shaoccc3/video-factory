@@ -1,0 +1,20 @@
+{
+  "app": { "name": "影音工厂" },
+  "nav": { "jobs": "任务", "logout": "退出" },
+  "login": {
+    "title": "登录",
+    "email": "电子邮件",
+    "emailRequired": "请输入电子邮件",
+    "password": "密码",
+    "passwordRequired": "请输入密码",
+    "submit": "登录",
+    "notReady": "登录功能将在后续阶段开放"
+  },
+  "jobs": {
+    "title": "任务列表",
+    "new": "新建任务",
+    "empty": "目前还没有任务",
+    "columns": { "title": "标题", "type": "类型", "status": "状态", "createdAt": "创建时间" }
+  },
+  "language": { "label": "语言", "zh-TW": "繁體中文", "zh-CN": "简体中文" }
+}

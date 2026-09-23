@@ -1,0 +1,19 @@
+# 模型 ID、單價、限速（不含密鑰）。尖括號處填控制台查到的值。
+region: byteplus              # volcengine（國內）或 byteplus（國際）；實際以環境變量 ARK_REGION 為準
+base_url:
+  volcengine: https://ark.cn-beijing.volces.com/api/v3
+  byteplus: https://ark.ap-southeast.bytepluses.com/api/v3
+currency:
+  byteplus: USD
+  volcengine: CNY
+fx_to_cny:                    # 賬本換算 CNY 的匯率，按需更新
+  USD: 7.1
+  CNY: 1
+models:
+  script_llm:   { id: "<豆包大模型 ID>", price_per_mtok: 0 }
+  keyframe:     { id: "<Seedream 模型 ID>", price_per_image: 0 }
+  video_draft:  { id: "<較便宜的 Seedance 模型 ID>", price_per_mtok: 0, rpm: 10, concurrency: 2 }
+  video_final:  { id: "<Seedance 正片模型 ID>", price_per_mtok: 0, rpm: 10, concurrency: 2 }
+budget:                       # 示例值（CNY），試片後按實際成本調整
+  per_job_cny: 50
+  per_user_daily_cny: 300

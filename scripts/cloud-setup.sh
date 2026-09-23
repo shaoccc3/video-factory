@@ -21,7 +21,9 @@ fi
 python3 -m pip install -q --break-system-packages --target /tmp/uv-new uv \
   && install -m 755 /tmp/uv-new/bin/uv /tmp/uv-new/bin/uvx /root/.local/bin/ || true
 
-# 3. 預拉 compose 用到的映像，快取後每個會話不用重拉
+# 3. ffmpeg（2026-09-23 實測映像未預裝）
+command -v ffmpeg >/dev/null || { apt-get update -q && apt-get install -y -q --no-install-recommends ffmpeg; } || true
+# 4. 預拉 compose 用到的映像，快取後每個會話不用重拉
 (dockerd >/tmp/dockerd-setup.log 2>&1 &)
 for i in $(seq 1 30); do docker info >/dev/null 2>&1 && break; sleep 1; done
 for img in postgres:18 valkey/valkey:9 chrislusf/seaweedfs:latest; do docker pull -q "$img" & done

@@ -1,0 +1,20 @@
+{
+  "app": { "name": "影音工廠" },
+  "nav": { "jobs": "任務", "logout": "登出" },
+  "login": {
+    "title": "登入",
+    "email": "電子郵件",
+    "emailRequired": "請輸入電子郵件",
+    "password": "密碼",
+    "passwordRequired": "請輸入密碼",
+    "submit": "登入",
+    "notReady": "登入功能將在後續階段開放"
+  },
+  "jobs": {
+    "title": "任務列表",
+    "new": "新建任務",
+    "empty": "目前還沒有任務",
+    "columns": { "title": "標題", "type": "類型", "status": "狀態", "createdAt": "建立時間" }
+  },
+  "language": { "label": "語言", "zh-TW": "繁體中文", "zh-CN": "简体中文" }
+}

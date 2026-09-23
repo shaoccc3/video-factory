@@ -1,0 +1,134 @@
+# 開發與內部部署用。啟動：docker compose up -d --wait
+# 預設值只用於本機開發的 SeaweedFS 與 PostgreSQL，生產請在 .env 覆蓋。
+
+x-backend: &backend
+  build:
+    context: .
+    dockerfile: backend/Dockerfile
+  image: video-factory-backend:dev
+  environment:
+    ARK_REGION: ${ARK_REGION:-byteplus}
+    ARK_API_KEY: ${ARK_API_KEY:-}
+    DATABASE_URL: postgresql+psycopg://video_factory:${POSTGRES_PASSWORD:-video_factory}@postgres:5432/video_factory
+    VALKEY_URL: redis://valkey:6379/0
+    S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-http://seaweedfs:8333}
+    S3_REGION: ${S3_REGION:-us-east-1}
+    S3_BUCKET: ${S3_BUCKET:-video-factory}
+    S3_ACCESS_KEY: ${S3_ACCESS_KEY:-dev-access-key}
+    S3_SECRET_KEY: ${S3_SECRET_KEY:-dev-secret-key}
+    LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: video_factory
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-video_factory}
+      POSTGRES_DB: video_factory
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U video_factory -d video_factory"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  valkey:
+    image: valkey/valkey:9
+    volumes:
+      - valkey-data:/data
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  seaweedfs:
+    image: chrislusf/seaweedfs:latest
+    entrypoint: ["/bin/sh", "-c"]
+    # 啟動時由環境變量生成 S3 身分配置，再以 all-in-one 模式啟動（master、volume、filer、S3）
+    command:
+      - |
+        cat > /tmp/s3.json <<JSON
+        {"identities":[{"name":"app","credentials":[{"accessKey":"$${S3_ACCESS_KEY}","secretKey":"$${S3_SECRET_KEY}"}],"actions":["Admin","Read","Write","List","Tagging"]}]}
+        JSON
+        exec weed server -dir=/data -ip.bind=0.0.0.0 -s3 -s3.port=8333 -s3.config=/tmp/s3.json -master.volumeSizeLimitMB=1024
+    environment:
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-dev-access-key}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-dev-secret-key}
+    volumes:
+      - seaweedfs-data:/data
+    ports:
+      - "127.0.0.1:8333:8333"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:9333/cluster/status && nc -z 127.0.0.1 8333"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  # 一次性：建立 bucket（已存在則略過）
+  storage-init:
+    <<: *backend
+    command: ["python", "-m", "app.cli", "ensure-bucket"]
+    restart: "no"
+    depends_on:
+      seaweedfs:
+        condition: service_healthy
+
+  # 一次性：執行數據庫遷移
+  migrate:
+    <<: *backend
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    <<: *backend
+    ports:
+      - "127.0.0.1:8000:8000"
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+      seaweedfs:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      storage-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3)"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  worker:
+    <<: *backend
+    command: ["celery", "-A", "app.workers", "worker", "-l", "info", "--concurrency", "2"]
+    restart: unless-stopped
+    depends_on:
+      valkey:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.workers inspect ping -d celery@$$HOSTNAME --timeout 5"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  postgres-data:
+  valkey-data:
+  seaweedfs-data:
