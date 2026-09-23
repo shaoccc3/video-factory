@@ -44,6 +44,10 @@ package = false
 line-length = 110
 target-version = "py313"
 
+[tool.ruff.format]
+# 已提交的遷移不得修改（包括格式）
+exclude = ["migrations/versions/*"]
+
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "ASYNC", "S"]
 # ASYNC240：worker 內對本地小文件的同步操作可接受；E501：行寬由 ruff format 控制（中文字串不拆行）

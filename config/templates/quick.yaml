@@ -1,0 +1,14 @@
+key: quick
+name: 圖片／文字轉短片
+description: 單鏡頭，直接圖生影片或文生影片，可批量
+video_type: quick
+ratio: "9:16"
+resolution: 720p
+min_duration_s: 5
+max_duration_s: 10
+min_shots: 1
+max_shots: 1
+audio_mode: none
+subtitle_required: false
+style_prefix: 畫面自然流暢，細節清晰，
+prompt_file: quick.j2

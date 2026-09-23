@@ -70,8 +70,8 @@ class MockLLM:
 
     @staticmethod
     def _storyboard(text: str) -> dict[str, Any]:
-        match = CONSTRAINTS_RE.search(text)
-        c: dict[str, Any] = json.loads(match.group(1)) if match else {}
+        blocks = CONSTRAINTS_RE.findall(text)
+        c: dict[str, Any] = json.loads(blocks[-1]) if blocks else {}
         topic = str(c.get("topic", "示範主題"))
         video_type = c.get("video_type", "marketing")
         min_shots, max_shots = int(c.get("min_shots", 3)), int(c.get("max_shots", 4))

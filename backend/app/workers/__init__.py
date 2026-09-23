@@ -11,8 +11,8 @@ _settings = get_settings()
 
 app = Celery(
     "video_factory",
-    broker=_settings.valkey_url,
-    backend=_settings.valkey_url,
+    broker=_settings.broker_url,
+    backend=_settings.result_backend,
     include=["app.workers.tasks"],
 )
 app.conf.update(
@@ -20,7 +20,13 @@ app.conf.update(
     result_serializer="json",
     accept_content=["json"],
     task_acks_late=True,
+    task_reject_on_worker_lost=True,
     worker_prefetch_multiplier=1,
     broker_connection_retry_on_startup=True,
+    task_ignore_result=True,
+    result_expires=3600,
     timezone="UTC",
+    # 分鏡生成可能要數分鐘；只對 compose 另設較長時限
+    task_soft_time_limit=45 * 60,
+    task_time_limit=50 * 60,
 )

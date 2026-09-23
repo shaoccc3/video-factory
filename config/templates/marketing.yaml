@@ -1,0 +1,14 @@
+key: marketing
+name: 行銷短影音
+description: 豎屏 15～30 秒、3～6 個鏡頭，商品圖可作首幀或參考圖，強調品牌一致
+video_type: marketing
+ratio: "9:16"
+resolution: 720p
+min_duration_s: 15
+max_duration_s: 30
+min_shots: 3
+max_shots: 6
+audio_mode: tts
+subtitle_required: true
+style_prefix: 商業廣告質感，畫面明亮乾淨，色彩統一，構圖簡潔，
+prompt_file: marketing.j2
