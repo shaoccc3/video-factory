@@ -1,6 +1,6 @@
 # 13 BytePlus 官方文件核對：模型 ID、參數與價格
 
-狀態：待確認　日期：2026-09-23
+狀態：已確認（2026-09-23，決定見文末）　日期：2026-09-23
 
 ## 背景
 
@@ -222,11 +222,11 @@ models:
 ## 任務清單
 
 - [ ] 配置結構：`ModelEntry`、`VideoCapabilities` 新欄位與校驗，含單元測試
-- [ ] `config/models.yaml`：官方 ID、價格、寬高表、關鍵幀尺寸、限速註解；刪除已核對項的「待核對」
+- [ ] `config/models.yaml`：官方 ID、價格、寬高表、關鍵幀尺寸、限速註解；刪除已核對項的「待核對」；預算示例值 150／600
 - [ ] 計價：`video_unit_price`、`video_tokens_for`、`llm_cost`；網關記賬、預算預檢、分鏡頁預估、Mock 用量改用新函數
 - [ ] Seedance 請求：`seed` 按能力表、2.5 首幀送 `adaptive`、首幀與參考音頻互斥、2.0 參考音頻需要參考圖、`expired` 狀態
 - [ ] Seedream 請求：不送 `seed`、送 `output_format: png`、尺寸用 `image_sizes`
-- [ ] 大模型：`user` 欄位按待確認 5 處理
+- [ ] 大模型：不送 `user`；`.claude/rules/project.md` 的 safety_identifier 規則改為「接口支援時」
 - [ ] 管理頁單價摘要、i18n、`types.ts`；API 契約 v1.2
 - [ ] 文件：規格 12 待確認 1 標為已完成、`docs/CHANGELOG.md`；CLAUDE.md 命令不變
 
@@ -271,3 +271,11 @@ models:
 - Seedance 2.x 不接受含真人臉的參考圖／影片。關鍵幀由 Seedream 生成，平台說可信任部分模型的原始輸出，但未列明是否包含 Seedream；真實驗證時確認。
 - 大模型 `max_tokens` 預設 4096（不含思維鏈）；培訓片 12 個分鏡的 JSON 可能接近上限而被截斷，觸發修復重試。先觀察，必要時另開規格加配置。
 - 豆包語音 TTS 的價格仍待核對，需要讀火山引擎文件或控制台。
+
+## 決定（2026-09-23）
+
+1. 腳本大模型用 `seed-2-0-lite-260428`。
+2. 預算示例值改為單任務 150 CNY、每人每日 600 CNY（管理頁仍可覆蓋）。
+3. 預估按牌價，不套限時折扣。
+4. 聲音一致與首幀衝突：要送參考音頻時，首幀改以 `reference_image` 送出，提示詞指定它是第一幀。
+5. 大模型不再送 `user`；項目規則改為「接口支援時把平台內部用戶 ID 傳給 safety_identifier」。
