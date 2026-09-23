@@ -44,6 +44,7 @@ function SceneCard({
   return (
     <Card
       size="small"
+      id={`scene-${scene.index}`}
       data-testid={`scene-preview-${scene.index}`}
       title={
         <Flex gap={8} align="center">

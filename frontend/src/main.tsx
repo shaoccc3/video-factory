@@ -5,6 +5,7 @@ import "./styles/fonts";
 import "./styles/tokens.css";
 import "./styles/motion.css";
 import "./styles/controls.css";
+import "./styles/monitor.css";
 import { App } from "./App";
 
 const root = document.getElementById("root");

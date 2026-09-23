@@ -29,8 +29,10 @@ function baseRoutes(job: JobDetail) {
   };
 }
 
-describe("分鏡確認", () => {
-  it("編輯旁白只 PATCH 改動的欄位，確認生成呼叫 confirm-storyboard", async () => {
+const SAVE_WAIT = { timeout: 3000 };
+
+describe("分鏡表", () => {
+  it("改旁白：監看字幕即時更新，停止輸入後自動儲存且只 PATCH 改動的欄位；確認開拍呼叫 confirm-storyboard", async () => {
     const job = storyboardJob();
     const api = mockApi({
       ...baseRoutes(job),
@@ -43,27 +45,34 @@ describe("分鏡確認", () => {
     renderApp("/jobs/job-1");
 
     const card = await screen.findByTestId("scene-editor-0");
+    expect(screen.getByTestId("monitor-subtitle")).toHaveTextContent("清晨的茶園");
     const narration = within(card).getByLabelText("旁白");
     await userEvent.clear(narration);
     await userEvent.type(narration, "晨霧裡的茶園");
-    await userEvent.click(within(card).getByRole("button", { name: /儲存此鏡頭/ }));
+    expect(screen.getByTestId("monitor-subtitle")).toHaveTextContent("晨霧裡的茶園");
+    expect(within(card).getByTestId("save-status")).toHaveTextContent("編輯中");
 
-    await waitFor(() => expect(api.find("PATCH", "/jobs/job-1/scenes/s-0")).toHaveLength(1));
+    await waitFor(
+      () => expect(api.find("PATCH", "/jobs/job-1/scenes/s-0")).toHaveLength(1),
+      SAVE_WAIT,
+    );
     expect(api.find("PATCH", "/jobs/job-1/scenes/s-0")[0]?.body).toEqual({
       narration: "晨霧裡的茶園",
     });
+    expect(await within(card).findByText("已自動儲存")).toBeInTheDocument();
 
-    // 成本預估面板
-    expect(await screen.findByText("¥12.50")).toBeInTheDocument();
+    // 頁頭的預估
+    expect(screen.getByText("≈ ¥12.50")).toBeInTheDocument();
+    expect(screen.getByText("單任務預算 ¥50.00 · 今日 ¥10.00 / ¥300.00")).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: /確認生成/ }));
+    await userEvent.click(screen.getByRole("button", { name: /確認開拍/ }));
     await userEvent.click(await screen.findByRole("button", { name: "確定" }));
     await waitFor(() => expect(api.find("POST", "/jobs/job-1/confirm-storyboard")).toHaveLength(1));
     expect(await screen.findByTestId("job-status")).toHaveAttribute("data-status", "generating");
   });
 
-  it("旁白顯示字數與建議上限（時長 × chars_per_second），超過時警告但仍可儲存", async () => {
-    const job = storyboardJob();
+  it("旁白顯示字數與建議上限（時長 × chars_per_second），時長用 ± 調整且受模型範圍限制", async () => {
+    const job = storyboardJob({ shot_duration_s: { min_s: 4, max_s: 8 } });
     const api = mockApi({
       ...baseRoutes(job),
       "GET /meta": makeMeta({ chars_per_second: 3.5 }),
@@ -84,45 +93,114 @@ describe("分鏡確認", () => {
     expect(counter).toHaveAttribute("data-over", "true");
     expect(counter).toHaveTextContent("超過建議上限");
 
-    // 時長拉長後上限跟著變
-    const duration = within(card).getByLabelText("時長");
-    await userEvent.clear(duration);
-    await userEvent.type(duration, "8");
+    // 時長拉長後上限跟著變；到模型上限 8 秒就不能再加
+    const longer = within(card).getByRole("button", { name: "加長 1 秒" });
+    for (let i = 0; i < 3; i += 1) await userEvent.click(longer);
+    expect(within(card).getByLabelText("時長")).toHaveTextContent("8S");
+    expect(longer).toBeDisabled();
     expect(counter).toHaveTextContent("23／建議上限 28 字");
     expect(counter).toHaveAttribute("data-over", "false");
-    await userEvent.clear(duration);
-    await userEvent.type(duration, "5");
+    expect(within(card).getByText("4～8 秒（依影片模型）")).toBeInTheDocument();
+    const shorter = within(card).getByRole("button", { name: "縮短 1 秒" });
+    for (let i = 0; i < 3; i += 1) await userEvent.click(shorter);
     expect(counter).toHaveAttribute("data-over", "true");
 
-    // 不阻擋儲存
-    await userEvent.click(within(card).getByRole("button", { name: /儲存此鏡頭/ }));
-    await waitFor(() => expect(api.find("PATCH", "/jobs/job-1/scenes/s-0")).toHaveLength(1));
+    // 超過建議上限不阻擋儲存；時長改回原值就不送
+    await waitFor(
+      () => expect(api.find("PATCH", "/jobs/job-1/scenes/s-0")).toHaveLength(1),
+      SAVE_WAIT,
+    );
     expect(api.find("PATCH", "/jobs/job-1/scenes/s-0")[0]?.body).toEqual({
       narration: "晨霧裡的茶園，陽光慢慢灑落在每一片嫩綠的葉子上",
     });
   });
 
-  it("修改說話者與音效時 PATCH 只帶這兩個欄位", async () => {
+  it("點時間軸切換鏡頭；切換前的修改不會丟失，兩鏡各自只 PATCH 改動的欄位", async () => {
     const job = storyboardJob();
     const api = mockApi({
       ...baseRoutes(job),
+      "PATCH /jobs/job-1/scenes/s-0": job,
       "PATCH /jobs/job-1/scenes/s-1": job,
     });
     renderApp("/jobs/job-1");
 
-    const card = await screen.findByTestId("scene-editor-1");
-    const speaker = within(card).getByLabelText("說話者");
+    const first = await screen.findByTestId("scene-editor-0");
+    await userEvent.type(within(first).getByLabelText("音效"), "鳥鳴");
+    await userEvent.click(screen.getByTestId("clip-1"));
+    expect(screen.getByTestId("clip-1")).toHaveAttribute("aria-pressed", "true");
+
+    const second = await screen.findByTestId("scene-editor-1");
+    expect(screen.getByText(/SHOT 02 · 遠景/)).toBeInTheDocument();
+    const speaker = within(second).getByLabelText("說話者");
     expect(speaker).toHaveValue("旁白");
     await userEvent.clear(speaker);
     await userEvent.type(speaker, "一位年輕女店員");
-    await userEvent.type(within(card).getByLabelText("音效"), "倒茶水聲");
-    await userEvent.click(within(card).getByRole("button", { name: /儲存此鏡頭/ }));
+    await userEvent.type(within(second).getByLabelText("音效"), "倒茶水聲");
 
-    await waitFor(() => expect(api.find("PATCH", "/jobs/job-1/scenes/s-1")).toHaveLength(1));
+    await waitFor(
+      () => expect(api.find("PATCH", "/jobs/job-1/scenes/s-1")).toHaveLength(1),
+      SAVE_WAIT,
+    );
+    expect(api.find("PATCH", "/jobs/job-1/scenes/s-0")[0]?.body).toEqual({ sound: "鳥鳴" });
     expect(api.find("PATCH", "/jobs/job-1/scenes/s-1")[0]?.body).toEqual({
       speaker: "一位年輕女店員",
       sound: "倒茶水聲",
     });
+  });
+
+  it("畫面描述空白時就地提示且不儲存", async () => {
+    const job = storyboardJob();
+    const api = mockApi({ ...baseRoutes(job), "PATCH /jobs/job-1/scenes/s-0": job });
+    renderApp("/jobs/job-1");
+    const card = await screen.findByTestId("scene-editor-0");
+    await userEvent.clear(within(card).getByLabelText("畫面描述"));
+    expect(within(card).getByText("請輸入畫面描述")).toBeInTheDocument();
+    expect(within(card).getByTestId("save-status")).toHaveTextContent("畫面描述空白，尚未儲存");
+    await new Promise((r) => setTimeout(r, 1000));
+    expect(api.find("PATCH", "/jobs/job-1/scenes/s-0")).toHaveLength(0);
+  });
+
+  it("首幀預覽：按鈕帶單價，送出後鏡頭顯示首幀生成中，完成前不能確認開拍", async () => {
+    const withFrames = [
+      makeScene({ id: "s-0", index: 0, needs_first_frame: true }),
+      makeScene({ id: "s-1", index: 1, needs_first_frame: true }),
+    ];
+    const job = storyboardJob({
+      scenes: withFrames,
+      allowed_actions: ["edit_storyboard", "confirm_storyboard", "preview_keyframe"],
+    });
+    const api = mockApi({
+      ...baseRoutes(job),
+      "GET /jobs/job-1/estimate": makeEstimate({
+        items: [
+          {
+            label: "關鍵幀（Seedream）",
+            model_key: "keyframe",
+            quantity: 2,
+            unit: "張",
+            amount_cny: 0.5,
+          },
+          { label: "影片", model_key: "video_final", quantity: 10, unit: "秒", amount_cny: 12 },
+        ],
+      }),
+      "POST /jobs/job-1/scenes/s-0/keyframe-preview": {
+        ...job,
+        scenes: [{ ...withFrames[0], status: "keyframe" }, withFrames[1]],
+      },
+    });
+    renderApp("/jobs/job-1");
+
+    const card = await screen.findByTestId("scene-editor-0");
+    expect(
+      await screen.findByRole("button", { name: "全部生成首幀（2 鏡） · ¥0.50" }),
+    ).toBeInTheDocument();
+    await userEvent.click(within(card).getByRole("button", { name: "生成首幀預覽 · ¥0.25" }));
+    await waitFor(() =>
+      expect(api.find("POST", "/jobs/job-1/scenes/s-0/keyframe-preview")[0]?.body).toEqual({}),
+    );
+    expect(await within(card).findByText("首幀生成中")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /確認開拍/ })).toBeDisabled();
+    expect(screen.getByText(/首幀預覽生成中，完成前不能確認開拍/)).toBeInTheDocument();
   });
 
   it("allowed_actions 不含編輯與確認時，欄位唯讀且不顯示按鈕", async () => {
@@ -131,21 +209,21 @@ describe("分鏡確認", () => {
     const card = await screen.findByTestId("scene-editor-0");
     expect(within(card).getByLabelText("旁白")).toBeDisabled();
     expect(screen.getByText("目前不可編輯分鏡")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /儲存此鏡頭/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /確認生成/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /重新生成腳本/ })).not.toBeInTheDocument();
+    expect(within(card).queryByTestId("save-status")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /確認開拍/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /重寫分鏡/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /取消任務/ })).not.toBeInTheDocument();
   });
 
   it("只有確認權限時可確認但不可編輯", async () => {
     mockApi(baseRoutes(storyboardJob({ allowed_actions: ["confirm_storyboard"] })));
     renderApp("/jobs/job-1");
-    await screen.findByTestId("scene-editor-0");
-    expect(screen.getByRole("button", { name: /確認生成/ })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /儲存此鏡頭/ })).not.toBeInTheDocument();
+    const card = await screen.findByTestId("scene-editor-0");
+    expect(screen.getByRole("button", { name: /確認開拍/ })).toBeInTheDocument();
+    expect(within(card).getByLabelText("旁白")).toBeDisabled();
   });
 
-  it("超預算時顯示警告，確認回 409 時提示調整", async () => {
+  it("超預算時顯示警告，確認回 409 時就地提示調整", async () => {
     const job = storyboardJob();
     mockApi({
       ...baseRoutes(job),
@@ -154,10 +232,17 @@ describe("分鏡確認", () => {
     });
     renderApp("/jobs/job-1");
     expect(await screen.findByText("預估超出預算，無法確認生成")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: /確認生成/ }));
+    await userEvent.click(screen.getByRole("button", { name: /確認開拍/ }));
     await userEvent.click(await screen.findByRole("button", { name: "確定" }));
     expect(await screen.findByText("超出單任務預算")).toBeInTheDocument();
     expect(screen.getByText(/預估成本超出預算/)).toBeInTheDocument();
+  });
+
+  it("技術細節（調用記錄）只有管理員看得到", async () => {
+    mockApi({ ...baseRoutes(storyboardJob()), "GET /auth/me": makeUser({ roles: ["creator"] }) });
+    renderApp("/jobs/job-1");
+    await screen.findByTestId("scene-editor-0");
+    expect(screen.queryByRole("button", { name: "技術細節" })).not.toBeInTheDocument();
   });
 });
 
@@ -295,7 +380,8 @@ describe("任務詳情", () => {
         );
       }
     });
-    expect(await screen.findByTestId("scene-editor-1")).toBeInTheDocument();
+    expect(await screen.findByTestId("scene-editor-0")).toBeInTheDocument();
+    expect(screen.getByTestId("clip-1")).toBeInTheDocument();
     expect(screen.getByTestId("job-status")).toHaveAttribute("data-status", "storyboard_ready");
   });
 });
