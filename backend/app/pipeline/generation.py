@@ -59,6 +59,15 @@ def video_prompt(job: Job, scene: Scene) -> str:
     return "。".join(parts) + "。"
 
 
+def keyframe_size(runtime: Runtime, resolution: str, ratio: str) -> str:
+    """關鍵幀尺寸：優先用 models.yaml 的 image_sizes（Seedream 5.0 lite 有最小總像素），沒配置時用影片寬高。"""
+    size = (runtime.config.models.keyframe.image_sizes or {}).get(ratio)
+    if size:
+        return size
+    width, height = video_dimensions(resolution, ratio)
+    return f"{width}x{height}"
+
+
 async def ensure_keyframe(runtime: Runtime, gateway: Gateway, job: Job, scene: Scene) -> uuid.UUID | None:
     """需要首幀且還沒有時，用 Seedream 生成（商品圖作參考圖）。返回首幀素材 id。"""
     if scene.first_frame_asset_id is not None or not scene.needs_first_frame:
@@ -69,12 +78,11 @@ async def ensure_keyframe(runtime: Runtime, gateway: Gateway, job: Job, scene: S
             asset = await session.get(Asset, uuid.UUID(ref_id))
             if asset is not None and not asset.is_deleted:
                 refs.append(model_input_url(runtime, asset))
-    width, height = video_dimensions(job.resolution, job.ratio)
     dest = work_dir(runtime, job.id, f"scene-{scene.index}") / f"keyframe-{uuid.uuid4().hex[:8]}.png"
     await gateway.generate_image(
         CallContext(job.id, job.owner_id, scene.id),
         prompt=video_prompt(job, scene),
-        size=f"{width}x{height}",
+        size=keyframe_size(runtime, job.resolution, job.ratio),
         seed=job.seed + scene.index,
         ref_image_urls=tuple(refs),
         dest=dest,

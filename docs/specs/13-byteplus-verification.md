@@ -225,7 +225,7 @@ models:
 - [x] `config/models.yaml`：官方 ID、價格、寬高表、關鍵幀尺寸、限速註解；刪除已核對項的「待核對」；預算示例值 150／600
 - [x] 計價：`video_unit_price`、`video_tokens_for`、`llm_cost`；網關記賬、預算預檢、分鏡頁預估、Mock 用量改用新函數
 - [x] Seedance 請求：`seed` 按能力表、2.5 首幀送 `adaptive`、首幀與參考音頻互斥、2.0 參考音頻需要參考圖、`expired` 狀態
-- [ ] Seedream 請求：不送 `seed`、送 `output_format: png`、尺寸用 `image_sizes`
+- [x] Seedream 請求：不送 `seed`、送 `output_format: png`、尺寸用 `image_sizes`
 - [ ] 大模型：不送 `user`；`.claude/rules/project.md` 的 safety_identifier 規則改為「接口支援時」
 - [ ] 管理頁單價摘要、i18n、`types.ts`；API 契約 v1.2
 - [ ] 文件：規格 12 待確認 1 標為已完成、`docs/CHANGELOG.md`；CLAUDE.md 命令不變

@@ -124,12 +124,13 @@ class ArkSeedream:
         dest: Path,
         safety_identifier: str | None = None,
     ) -> ImageResult:
-        # 圖片接口（SDK 原碼）沒有 safety_identifier／user 欄位，不發送；由 generation_calls.user_id 追溯
+        # 圖片接口沒有 safety_identifier／user 欄位，不發送；由 generation_calls.user_id 追溯。
+        # Seedream 5.0 的官方文件沒有 seed 參數，也不發送（seed 只用於記錄與 Mock）。
         body: dict[str, Any] = {
             "model": model_id,
             "prompt": prompt,
             "size": size,
-            "seed": seed,
+            "output_format": "png",  # 預設 jpeg；關鍵幀按 PNG 存儲
             "watermark": self._watermark,
             "response_format": "url",
         }

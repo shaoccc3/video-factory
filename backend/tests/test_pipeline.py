@@ -11,7 +11,7 @@ from app.models.enums import AssetKind, AudioMode, JobStatus, SceneStatus
 from app.pipeline import orchestrator
 from app.pipeline.common import StoryboardRules, check_storyboard, normalize_storyboard
 from app.pipeline.content_check import check_texts, load_blocklist
-from app.pipeline.generation import FIRST_FRAME_REFERENCE_HINT
+from app.pipeline.generation import FIRST_FRAME_REFERENCE_HINT, keyframe_size
 from app.pipeline.orchestrator import ActionError
 from app.pipeline.schemas import SceneDraft
 from app.providers.gateway import Gateway
@@ -112,6 +112,10 @@ async def test_marketing_end_to_end(
     assert job.actual_cost_cny == pytest.approx(float(ledger_total or 0), rel=1e-6)
     counts = await calls_by_provider(runtime)
     assert counts["llm"] >= 1 and counts["seedream"] == 1
+    async with runtime.sessionmaker() as s:
+        keyframe_call = await s.scalar(select(GenerationCall).where(GenerationCall.provider == "seedream"))
+    # 規格 13：Seedream 5.0 lite 最小總像素 2560x1440，關鍵幀用官方 2K 尺寸
+    assert keyframe_call is not None and keyframe_call.request_summary["size"] == "1600x2848"
     assert counts["seedance"] == len(scenes) and "tts" not in counts  # 原生聲音：沒有 TTS
 
 
@@ -411,6 +415,11 @@ async def test_storyboard_fix_round(
     assert len(llm.calls) == 2
     assert "鏡頭數必須在" in llm.calls[1][-1].content
     assert len(await scenes_of(runtime, job.id)) == 4
+
+
+async def test_seedream_keyframe_size_uses_config_table(runtime: Runtime) -> None:
+    assert keyframe_size(runtime, "720p", "9:16") == "1600x2848"
+    assert keyframe_size(runtime, "480p", "21:9") == "3136x1344"
 
 
 async def test_normalize_storyboard_clamps(runtime: Runtime) -> None:
