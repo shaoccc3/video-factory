@@ -3,6 +3,7 @@
 import uuid
 from collections import deque
 from pathlib import Path
+from typing import Any
 
 from sqlalchemy import select, update
 
@@ -83,13 +84,10 @@ async def make_asset(runtime: Runtime, owner: User, kind: AssetKind, tmp: Path) 
     return asset
 
 
-async def new_job(runtime: Runtime, owner: User, template: Template, **kw: object) -> Job:
-    data = JobInput(
-        template_id=template.id,
-        title=str(kw.pop("title", "測試任務")),
-        topic=str(kw.pop("topic", "清晨的茶園，推廣自家綠茶")),
-        **kw,
-    )  # type: ignore[arg-type]
+async def new_job(runtime: Runtime, owner: User, template: Template, **kw: Any) -> Job:
+    kw.setdefault("title", "測試任務")
+    kw.setdefault("topic", "清晨的茶園，推廣自家綠茶")
+    data = JobInput(template_id=template.id, **kw)
     async with runtime.sessionmaker() as session:
         user = await session.get(User, owner.id)
         assert user is not None
