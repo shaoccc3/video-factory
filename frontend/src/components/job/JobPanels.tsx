@@ -65,9 +65,7 @@ function SceneCard({
             src={assetContentUrl(scene.video_asset_id)}
             controls
             preload="metadata"
-            poster={
-              scene.first_frame_asset_id ? assetThumbnailUrl(scene.first_frame_asset_id) : undefined
-            }
+            poster={assetThumbnailUrl(scene.video_asset_id)}
             style={{ width: "100%", maxHeight: 320, background: "#000" }}
           />
         ) : undefined

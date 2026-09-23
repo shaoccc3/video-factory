@@ -7,9 +7,13 @@ ENV UV_COMPILE_BYTECODE=1 \
     UV_PYTHON_DOWNLOADS=never \
     PYTHONUNBUFFERED=1
 
+# ffmpeg；字幕字體從 fonts-noto-cjk 抽出繁中字面（SIL OFL）後移除整包，減小映像
+COPY scripts/fetch_fonts.py /tmp/fetch_fonts.py
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ffmpeg fonts-noto-cjk \
-    && rm -rf /var/lib/apt/lists/* \
+    && uv run --no-project --with fonttools python /tmp/fetch_fonts.py --dest /srv/assets/fonts \
+    && apt-get purge -y fonts-noto-cjk && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/* /root/.cache /tmp/fetch_fonts.py \
     && groupadd --system app && useradd --system --gid app --home-dir /srv app
 
 WORKDIR /srv/backend
@@ -18,11 +22,13 @@ COPY backend/pyproject.toml backend/uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv uv sync --locked --no-dev --no-install-project
 
 COPY config /srv/config
+COPY assets/fonts/README.md /srv/assets/fonts/README.md
 COPY backend/alembic.ini ./
 COPY backend/migrations ./migrations
 COPY backend/app ./app
 
-ENV PATH="/srv/backend/.venv/bin:$PATH"
+ENV PATH="/srv/backend/.venv/bin:$PATH" \
+    WORK_DIR=/tmp/video-factory-work
 USER app
 EXPOSE 8000
-CMD ["uvicorn", "--factory", "app.main:app_factory", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "--factory", "app.main:app_factory", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]

@@ -35,25 +35,25 @@ async def test_invalid_request_id_replaced(client: httpx.AsyncClient) -> None:
 
 
 async def test_readyz_all_ok(app: FastAPI, client: httpx.AsyncClient) -> None:
-    app.state.readiness_checks = {"postgres": _ok, "valkey": _ok, "storage": _ok}
+    app.state.readiness_checks = {"database": _ok, "valkey": _ok, "storage": _ok}
     resp = await client.get("/readyz")
     assert resp.status_code == 200
     assert resp.json()["status"] == "ok"
 
 
 async def test_readyz_reports_failure_without_details(app: FastAPI, client: httpx.AsyncClient) -> None:
-    app.state.readiness_checks = {"postgres": _ok, "valkey": _fail, "storage": _ok}
+    app.state.readiness_checks = {"database": _ok, "valkey": _fail, "storage": _ok}
     resp = await client.get("/readyz")
     assert resp.status_code == 503
     body = resp.json()
     assert body["checks"]["valkey"] == {"ok": False, "error": "ConnectionError"}
-    assert body["checks"]["postgres"]["ok"] is True
+    assert body["checks"]["database"]["ok"] is True
     assert "secret-host" not in resp.text
 
 
 async def test_readyz_real_postgres_check_on_sqlite(app: FastAPI, client: httpx.AsyncClient) -> None:
     checks = app.state.readiness_checks
-    app.state.readiness_checks = {"postgres": checks["postgres"]}
+    app.state.readiness_checks = {"database": checks["database"]}
     resp = await client.get("/readyz")
     assert resp.status_code == 200
 
@@ -63,7 +63,7 @@ async def test_readyz_unreachable_valkey(client: httpx.AsyncClient) -> None:
     assert resp.status_code == 503
     checks = resp.json()["checks"]
     assert checks["valkey"]["ok"] is False
-    assert checks["postgres"]["ok"] is True
+    assert checks["database"]["ok"] is True
     assert checks["storage"]["ok"] is True
 
 

@@ -1,0 +1,103 @@
+# 生產疊加配置（公司服務器）：
+#   docker compose -f compose.yaml -f compose.prod.yaml up -d --wait
+# 必填變量寫在 .env（不進 Git），缺少時 compose 會直接報錯。
+# 生產預設使用公網可訪問的 S3 相容存儲（Seedance 要能拉取素材）；如仍用內建 SeaweedFS，須另外開放公網地址。
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "5"
+
+x-prod-env: &prod-env
+  ARK_REGION: ${ARK_REGION:-byteplus}
+  ARK_API_KEY: ${ARK_API_KEY:?請在 .env 設定 ARK_API_KEY}
+  PROVIDER_MODE: ${PROVIDER_MODE:-live}
+  TTS_APP_ID: ${TTS_APP_ID:-}
+  TTS_TOKEN: ${TTS_TOKEN:-}
+  DATABASE_URL: postgresql+psycopg://video_factory:${POSTGRES_PASSWORD:?請設定 POSTGRES_PASSWORD}@postgres:5432/video_factory
+  VALKEY_URL: redis://valkey:6379/0
+  S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:?請設定 S3_ENDPOINT_URL}
+  S3_PUBLIC_ENDPOINT_URL: ${S3_PUBLIC_ENDPOINT_URL:-}
+  S3_REGION: ${S3_REGION:-us-east-1}
+  S3_BUCKET: ${S3_BUCKET:?請設定 S3_BUCKET}
+  S3_ACCESS_KEY: ${S3_ACCESS_KEY:?請設定 S3_ACCESS_KEY}
+  S3_SECRET_KEY: ${S3_SECRET_KEY:?請設定 S3_SECRET_KEY}
+  SECRET_KEY: ${SECRET_KEY:?請設定 SECRET_KEY（至少 32 位隨機字串）}
+  COOKIE_SECURE: ${COOKIE_SECURE:-true}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
+services:
+  postgres:
+    restart: always
+    logging: *logging
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?請設定 POSTGRES_PASSWORD}
+    ports: !reset []
+    deploy:
+      resources:
+        limits: { cpus: "2", memory: 2g }
+
+  valkey:
+    restart: always
+    logging: *logging
+    command: ["valkey-server", "--appendonly", "yes"]
+    ports: !reset []
+    deploy:
+      resources:
+        limits: { cpus: "1", memory: 512m }
+
+  seaweedfs:
+    restart: always
+    logging: *logging
+    ports: !reset []
+    profiles: ["local-storage"]  # 生產預設用外部 S3；需要內建存儲時加 --profile local-storage
+
+  storage-init:
+    environment: *prod-env
+    logging: *logging
+    depends_on: !reset {}
+
+  migrate:
+    environment: *prod-env
+    logging: *logging
+
+  api:
+    environment: *prod-env
+    restart: always
+    logging: *logging
+    ports: !reset []
+    depends_on: !override
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      storage-init:
+        condition: service_completed_successfully
+    deploy:
+      resources:
+        limits: { cpus: "2", memory: 2g }
+
+  worker:
+    environment: *prod-env
+    restart: always
+    logging: *logging
+    volumes:
+      - worker-tmp:/tmp/video-factory-work
+    deploy:
+      resources:
+        limits: { cpus: "4", memory: 6g }  # FFmpeg 合成最吃資源
+
+  web:
+    restart: always
+    logging: *logging
+    ports: !override
+      - "${WEB_PORT:-80}:8080"
+    deploy:
+      resources:
+        limits: { cpus: "0.5", memory: 256m }
+
+volumes:
+  worker-tmp:

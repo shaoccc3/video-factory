@@ -22,7 +22,7 @@ class CheckResult:
     error: str | None = None
 
 
-def postgres_check(engine: AsyncEngine) -> Check:
+def database_check(engine: AsyncEngine) -> Check:
     async def check() -> None:
         async with engine.connect() as conn:
             await conn.execute(text("SELECT 1"))

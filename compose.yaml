@@ -1,5 +1,6 @@
 # 開發與內部部署用。啟動：docker compose up -d --wait
-# 預設值只用於本機開發的 SeaweedFS 與 PostgreSQL，生產請在 .env 覆蓋。
+# 預設值只用於本機開發（Mock 模型、SeaweedFS、PostgreSQL）；生產用 compose.prod.yaml 疊加，並在 .env 填真實值。
+# 前端：http://localhost:8080（Nginx，反向代理 /api）；API：http://localhost:8000
 
 x-backend: &backend
   build:
@@ -9,13 +10,19 @@ x-backend: &backend
   environment:
     ARK_REGION: ${ARK_REGION:-byteplus}
     ARK_API_KEY: ${ARK_API_KEY:-}
+    PROVIDER_MODE: ${PROVIDER_MODE:-mock}
+    TTS_APP_ID: ${TTS_APP_ID:-}
+    TTS_TOKEN: ${TTS_TOKEN:-}
     DATABASE_URL: postgresql+psycopg://video_factory:${POSTGRES_PASSWORD:-video_factory}@postgres:5432/video_factory
     VALKEY_URL: redis://valkey:6379/0
     S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-http://seaweedfs:8333}
+    S3_PUBLIC_ENDPOINT_URL: ${S3_PUBLIC_ENDPOINT_URL:-}
     S3_REGION: ${S3_REGION:-us-east-1}
     S3_BUCKET: ${S3_BUCKET:-video-factory}
     S3_ACCESS_KEY: ${S3_ACCESS_KEY:-dev-access-key}
     S3_SECRET_KEY: ${S3_SECRET_KEY:-dev-secret-key}
+    SECRET_KEY: ${SECRET_KEY:-dev-only-change-me}
+    COOKIE_SECURE: ${COOKIE_SECURE:-false}
     LOG_LEVEL: ${LOG_LEVEL:-INFO}
 
 services:
@@ -79,10 +86,10 @@ services:
       seaweedfs:
         condition: service_healthy
 
-  # 一次性：執行數據庫遷移
+  # 一次性：數據庫遷移並同步影片模板
   migrate:
     <<: *backend
-    command: ["alembic", "upgrade", "head"]
+    command: ["sh", "-c", "alembic upgrade head && python -m app.cli sync-templates"]
     restart: "no"
     depends_on:
       postgres:
@@ -112,7 +119,7 @@ services:
 
   worker:
     <<: *backend
-    command: ["celery", "-A", "app.workers", "worker", "-l", "info", "--concurrency", "2"]
+    command: ["celery", "-A", "app.workers", "worker", "-l", "info", "--concurrency", "4"]
     restart: unless-stopped
     depends_on:
       valkey:
@@ -121,12 +128,25 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+      storage-init:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD-SHELL", "celery -A app.workers inspect ping -d celery@$$HOSTNAME --timeout 5"]
       interval: 15s
       timeout: 10s
       retries: 10
       start_period: 10s
+
+  web:
+    build:
+      context: frontend
+    image: video-factory-web:dev
+    ports:
+      - "127.0.0.1:8080:8080"
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
 
 volumes:
   postgres-data:
