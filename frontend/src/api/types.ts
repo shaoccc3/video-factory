@@ -83,6 +83,7 @@ export const JOB_ACTIONS = [
   "edit_storyboard",
   "regenerate_script",
   "confirm_storyboard",
+  "preview_keyframe",
   "regenerate_scene",
   "render_final",
   "cancel",
@@ -247,8 +248,8 @@ export interface JobSummary {
   actual_cost_cny: number;
   final_asset_id: string | null;
   cover_asset_id: string | null;
-  /** v1.3：預覽畫面（封面 → 最後一鏡尾幀 → 第一個首幀） */
-  preview_asset_id?: string | null;
+  /** v1.3：封面，否則最後一個成功鏡頭的尾幀，否則第一個有首幀的鏡頭的首幀 */
+  preview_asset_id: string | null;
   progress: JobProgress;
   created_at: string;
   updated_at: string;

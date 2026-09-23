@@ -206,6 +206,9 @@ export const api = {
   getEstimate: (id: string) => request<CostEstimate>(`/jobs/${id}/estimate`),
   estimatePreview: (body: EstimatePreviewRequest) => post<EstimatePreview>("/jobs/estimate", body),
   confirmStoryboard: (id: string) => post<JobDetail>(`/jobs/${id}/confirm-storyboard`),
+  /** v1.3：分鏡待確認時先生成某一鏡的首幀（202，交給 worker） */
+  previewKeyframe: (jobId: string, sceneId: string, force = false) =>
+    post<JobDetail>(`/jobs/${jobId}/scenes/${sceneId}/keyframe-preview`, force ? { force } : {}),
   regenerateScene: (jobId: string, sceneId: string, target: SceneRegenerateTarget) =>
     post<JobDetail>(`/jobs/${jobId}/scenes/${sceneId}/regenerate`, { target }),
   renderFinal: (id: string) => post<JobDetail>(`/jobs/${id}/render-final`),

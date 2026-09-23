@@ -203,6 +203,7 @@ export type JobCommand =
   | { type: "cancel" }
   | { type: "resume" }
   | { type: "regenerate_scene"; sceneId: string; target: SceneRegenerateTarget }
+  | { type: "preview_keyframe"; sceneId: string; force?: boolean }
   | { type: "update_scene"; sceneId: string; body: SceneUpdate }
   | { type: "review"; body: ReviewRequest };
 
@@ -222,6 +223,8 @@ export function runJobCommand(id: string, command: JobCommand): Promise<JobDetai
       return api.resumeJob(id);
     case "regenerate_scene":
       return api.regenerateScene(id, command.sceneId, command.target);
+    case "preview_keyframe":
+      return api.previewKeyframe(id, command.sceneId, command.force ?? false);
     case "update_scene":
       return api.updateScene(id, command.sceneId, command.body);
     case "review":
