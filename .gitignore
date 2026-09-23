@@ -29,3 +29,6 @@ dist/
 *.m4a
 *.aac
 media-out/
+
+# Claude Code 子代理工作目錄
+.claude/worktrees/

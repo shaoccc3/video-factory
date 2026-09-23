@@ -1,4 +1,5 @@
-# 模型 ID、單價、限速（不含密鑰）。尖括號處填控制台查到的值。
+# 模型 ID、單價、限速、能力表（不含密鑰）。尖括號處填控制台查到的值。
+# 單價的幣種見 currency（BytePlus 以 USD 計價，火山方舟以 CNY 計價）；賬本按 fx_to_cny 換算成 CNY。
 region: byteplus              # volcengine（國內）或 byteplus（國際）；實際以環境變量 ARK_REGION 為準
 base_url:
   volcengine: https://ark.cn-beijing.volces.com/api/v3
@@ -6,14 +7,55 @@ base_url:
 currency:
   byteplus: USD
   volcengine: CNY
-fx_to_cny:                    # 賬本換算 CNY 的匯率，按需更新
+fx_to_cny:                    # 匯率，按需更新
   USD: 7.1
   CNY: 1
+
 models:
-  script_llm:   { id: "<豆包大模型 ID>", price_per_mtok: 0 }
-  keyframe:     { id: "<Seedream 模型 ID>", price_per_image: 0 }
-  video_draft:  { id: "<較便宜的 Seedance 模型 ID>", price_per_mtok: 0, rpm: 10, concurrency: 2 }
-  video_final:  { id: "<Seedance 正片模型 ID>", price_per_mtok: 0, rpm: 10, concurrency: 2 }
-budget:                       # 示例值（CNY），試片後按實際成本調整
+  script_llm:
+    id: "<豆包大模型 ID>"
+    price_per_mtok: 0.8       # 輸入與輸出合計，每百萬 token
+    rpm: 60
+    concurrency: 4
+  keyframe:
+    id: "<Seedream 模型 ID>"
+    price_per_image: 0.03
+    rpm: 30
+    concurrency: 2
+  video_draft:
+    id: "<較便宜的 Seedance 模型 ID>"
+    price_per_mtok: 1.0
+    rpm: 10
+    concurrency: 2
+    capabilities:
+      resolutions: ["480p"]
+      ratios: ["9:16", "16:9", "1:1", "4:3", "3:4", "21:9"]
+      min_duration_s: 2
+      max_duration_s: 12
+      fps: 24
+      supports_draft: true
+      supports_audio: false
+      image_roles: ["first_frame", "last_frame", "reference_image"]
+  video_final:
+    id: "<Seedance 正片模型 ID>"
+    price_per_mtok: 2.5
+    rpm: 10
+    concurrency: 2
+    capabilities:
+      resolutions: ["480p", "720p", "1080p"]
+      ratios: ["9:16", "16:9", "1:1", "4:3", "3:4", "21:9"]
+      min_duration_s: 2
+      max_duration_s: 12
+      fps: 24
+      supports_draft: false
+      supports_audio: true
+      image_roles: ["first_frame", "last_frame", "reference_image"]
+  tts:
+    id: "<音色 voice_type>"
+    price_per_kchar: 0.02     # 每千字
+    rpm: 60
+    concurrency: 4
+
+budget:                       # 示例值（CNY），試片後按實際成本調整；管理頁可覆蓋
   per_job_cny: 50
   per_user_daily_cny: 300

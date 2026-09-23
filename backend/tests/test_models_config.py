@@ -43,4 +43,8 @@ def test_app_refuses_to_start_with_bad_config(tmp_path: Path) -> None:
     path = tmp_path / "models.yaml"
     path.write_text("region: byteplus\n", encoding="utf-8")
     with pytest.raises(ModelsConfigError, match=r"models"):
-        create_app(Settings(models_config_path=path, log_json=False))
+        create_app(
+            Settings(
+                models_config_path=path, log_json=False, storage_backend="local", local_storage_dir=tmp_path
+            )
+        )

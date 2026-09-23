@@ -8,9 +8,7 @@ import structlog
 
 def configure_logging(level: str = "INFO", *, json: bool = True) -> None:
     renderer: structlog.types.Processor = (
-        structlog.processors.JSONRenderer(ensure_ascii=False)
-        if json
-        else structlog.dev.ConsoleRenderer()
+        structlog.processors.JSONRenderer(ensure_ascii=False) if json else structlog.dev.ConsoleRenderer()
     )
     structlog.configure(
         processors=[

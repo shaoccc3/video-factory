@@ -9,8 +9,7 @@ import structlog
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from app.core.settings import Settings
-from app.core.storage import create_s3_client
+from app.core.storage import Storage
 
 Check = Callable[[], Awaitable[None]]
 log = structlog.get_logger(__name__)
@@ -42,10 +41,9 @@ def valkey_check(url: str) -> Check:
     return check
 
 
-def storage_check(settings: Settings) -> Check:
+def storage_check(storage: Storage) -> Check:
     async def check() -> None:
-        client = create_s3_client(settings, timeout_s=settings.readiness_timeout_s)
-        await asyncio.to_thread(client.head_bucket, Bucket=settings.s3_bucket)
+        await asyncio.to_thread(storage.check)
 
     return check
 
