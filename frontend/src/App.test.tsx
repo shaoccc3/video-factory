@@ -9,12 +9,12 @@ import { json, mockApi, renderApp } from "./test/utils";
 const emptyJobs = { items: [], total: 0 };
 
 describe("App 與認證", () => {
-  it("已登入時預設繁體中文並顯示任務列表", async () => {
+  it("已登入時預設繁體中文並顯示片場", async () => {
     await i18n.changeLanguage("zh-TW");
-    mockApi({ "GET /auth/me": makeUser(), "GET /jobs": emptyJobs });
+    mockApi({ "GET /auth/me": makeUser(), "GET /jobs": emptyJobs, "GET /templates": [] });
     renderApp("/");
-    expect(await screen.findByRole("heading", { name: "任務列表" })).toBeInTheDocument();
-    expect((await screen.findAllByText("目前還沒有任務")).length).toBeGreaterThan(0);
+    expect(await screen.findByRole("heading", { name: "片場" })).toBeInTheDocument();
+    expect(await screen.findByText("片場目前沒有進行中的片。")).toBeInTheDocument();
   });
 
   it("未登入（401）時導向登入頁並記住原路徑", async () => {
@@ -150,7 +150,7 @@ describe("App 與認證", () => {
     await i18n.changeLanguage("zh-CN");
     mockApi({ "GET /auth/me": makeUser(), "GET /jobs": emptyJobs });
     renderApp("/jobs");
-    expect(await screen.findByRole("heading", { name: "任务列表" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "全部任务" })).toBeInTheDocument();
     await i18n.changeLanguage("zh-TW");
   });
 });

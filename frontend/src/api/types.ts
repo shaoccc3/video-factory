@@ -230,6 +230,8 @@ export interface JobSummary {
   actual_cost_cny: number;
   final_asset_id: string | null;
   cover_asset_id: string | null;
+  /** v1.3：預覽畫面（封面 → 最後一鏡尾幀 → 第一個首幀） */
+  preview_asset_id?: string | null;
   progress: JobProgress;
   created_at: string;
   updated_at: string;
@@ -343,7 +345,10 @@ export interface Page<T> {
 }
 
 export interface JobListParams {
-  status?: JobStatus | undefined;
+  /** v1.3：可帶多個狀態 */
+  status?: JobStatus | JobStatus[] | undefined;
+  /** v1.3：created（預設）或 updated */
+  sort?: "created" | "updated" | undefined;
   video_type?: VideoType | undefined;
   mine?: boolean | undefined;
   q?: string | undefined;

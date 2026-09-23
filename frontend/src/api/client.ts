@@ -84,9 +84,15 @@ function parseDetail(body: unknown): string | ValidationErrorItem[] | null {
 
 type QueryValue = string | number | boolean | undefined | null;
 
-export function buildQuery(params: Record<string, QueryValue>): string {
+export function buildQuery(params: Record<string, QueryValue | QueryValue[]>): string {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        if (item !== undefined && item !== null && item !== "") search.append(key, String(item));
+      }
+      continue;
+    }
     if (value === undefined || value === null || value === "") continue;
     search.set(key, String(value));
   }

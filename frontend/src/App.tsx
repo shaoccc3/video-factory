@@ -5,7 +5,6 @@ import { useTranslation } from "react-i18next";
 import {
   createBrowserRouter,
   createMemoryRouter,
-  Navigate,
   type RouteObject,
   RouterProvider,
 } from "react-router";
@@ -25,6 +24,7 @@ import { LibraryPage } from "./pages/LibraryPage";
 import { LoginPage } from "./pages/LoginPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { ReviewDetailPage, ReviewsPage } from "./pages/ReviewsPage";
+import { StudioPage } from "./pages/StudioPage";
 import { UsagePage } from "./pages/UsagePage";
 import { studioTheme } from "./theme";
 
@@ -38,7 +38,7 @@ export const routes: RouteObject[] = [
       </AuthGuard>
     ),
     children: [
-      { index: true, element: <Navigate to="/jobs" replace /> },
+      { index: true, element: <StudioPage /> },
       { path: "jobs", element: <JobsPage /> },
       { path: "jobs/new", element: <JobWizardPage /> },
       { path: "jobs/:id", element: <JobDetailPage /> },

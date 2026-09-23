@@ -1,0 +1,89 @@
+.vf-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 2px;
+  border: 1px solid transparent;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.vf-status-accent {
+  background: var(--vf-accent);
+  color: var(--vf-accent-ink);
+}
+
+.vf-status-rec,
+.vf-status-mix,
+.vf-status-live {
+  background: rgba(4, 7, 15, 0.72);
+  color: var(--vf-text);
+  border-color: var(--vf-line-2);
+  font-weight: 500;
+}
+
+.vf-status-info {
+  border-color: var(--vf-info);
+  color: #b8cdf2;
+  background: rgba(4, 7, 15, 0.55);
+}
+
+.vf-status-ok {
+  border-color: var(--vf-ok);
+  color: #9fdcbc;
+  background: rgba(4, 7, 15, 0.55);
+}
+
+.vf-status-warn {
+  border-color: var(--vf-rec);
+  color: #ffb3b5;
+  background: rgba(4, 7, 15, 0.55);
+}
+
+.vf-status-muted {
+  border-color: var(--vf-line-2);
+  color: var(--vf-text-2);
+  background: rgba(4, 7, 15, 0.4);
+  font-weight: 500;
+}
+
+.vf-status-spinner {
+  display: inline-block;
+  box-sizing: border-box;
+  width: 10px;
+  height: 10px;
+  border-radius: 5px;
+  border: 1.5px solid var(--vf-accent);
+  border-top-color: transparent;
+  animation: vf-spin 0.9s linear infinite;
+}
+
+.vf-status-bars {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 12px;
+}
+
+.vf-status-bars span {
+  width: 2px;
+  height: 12px;
+  background: var(--vf-accent);
+  animation: vf-bars 0.9s ease-in-out infinite;
+}
+
+.vf-status-bars span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.vf-status-bars span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+.vf-status-bars span:nth-child(4) {
+  animation-delay: 0.45s;
+}

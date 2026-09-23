@@ -29,7 +29,7 @@
     "loadFailed": "载入失败",
     "notFound": "找不到这个页面或资源",
     "forbidden": "你没有权限查看这个页面",
-    "backHome": "回到任务列表"
+    "backHome": "回到片场"
   },
   "role": {
     "admin": "管理员",
@@ -52,7 +52,7 @@
   },
   "jobStatus": {
     "draft": "草稿",
-    "scripting": "撰写脚本中",
+    "scripting": "写分镜中",
     "storyboard_ready": "待确认分镜",
     "generating": "生成中",
     "composing": "合成中",
@@ -65,7 +65,7 @@
   },
   "sceneStatus": {
     "pending": "等待中",
-    "keyframe": "生成关键帧",
+    "keyframe": "首帧生成中",
     "queued": "排队中",
     "running": "生成中",
     "succeeded": "完成",
@@ -121,8 +121,8 @@
     "invalid": "电子邮件或密码错误"
   },
   "jobs": {
-    "title": "任务列表",
-    "new": "新建任务",
+    "title": "全部任务",
+    "new": "开新片",
     "empty": "目前还没有任务",
     "filterStatus": "全部状态",
     "filterType": "全部类型",
@@ -473,5 +473,37 @@
     "timecode": "时间码",
     "account": "账号菜单",
     "waiting": "{{count}} 支待审核"
+  },
+  "studio": {
+    "nowShowing": "NOW SHOWING",
+    "reelEmptyTitle": "第一支片还没上映",
+    "reelEmptyBody": "写下想法，开拍吧",
+    "playFilm": "播放成片",
+    "slide": "第 {{n}} 支",
+    "quickLabel": "快速开片",
+    "sceneZero": "SCENE 00 · 下一支片",
+    "topicPlaceholder": "写下画面：清晨的茶园，薄雾里的第一道光，落在叶尖的露珠上……",
+    "topicRequired": "先写下想法",
+    "typeLabel": "类型",
+    "fullSettings": "完整设置",
+    "write": "写分镜",
+    "inProduction": "IN PRODUCTION",
+    "allJobs": "全部任务 →",
+    "stripEmpty": "片场目前没有进行中的片。",
+    "loading": "读取中…",
+    "shots": "{{count}} SHOTS",
+    "elapsed": "距离上次更新",
+    "progress": "生成进度",
+    "recentCuts": "RECENT CUTS",
+    "openLibrary": "打开放映室 →",
+    "recentEmpty": "还没有通过的成片。",
+    "footLeft": "影音工厂 · 内部工具",
+    "footRight": "所有成片含 AI 生成标识",
+    "action": {
+      "confirm": "去确认分镜",
+      "review": "去审核",
+      "fix": "去处理",
+      "view": "查看"
+    }
   }
 }

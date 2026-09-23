@@ -31,7 +31,7 @@ import {
 } from "../api/hooks";
 import type { Batch, JobStatus, JobSummary, Template } from "../api/types";
 import { ErrorAlert, ErrorResult } from "../components/ErrorResult";
-import { JOB_STATUS_COLORS, JobStatusTag } from "../components/StatusTag";
+import { JobStatusTag, StatusSlate } from "../components/StatusTag";
 import { formatCny, formatDateTime } from "../utils/format";
 import { JobProgressBar } from "./JobsPage";
 
@@ -42,9 +42,7 @@ function BatchCounts({ counts }: { counts: Batch["counts"] }) {
   return (
     <Flex gap={4} wrap>
       {entries.map(([status, n]) => (
-        <Tag key={status} color={JOB_STATUS_COLORS[status]}>
-          {t(`jobStatus.${status}`)} {n}
-        </Tag>
+        <StatusSlate key={status} tone="muted" label={`${t(`jobStatus.${status}`)} ${n}`} />
       ))}
     </Flex>
   );

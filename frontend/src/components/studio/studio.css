@@ -10,3 +10,68 @@
   will-change: transform;
   animation: vf-grain 1.1s steps(6) infinite;
 }
+
+/* 文字海報：沒有畫面時用 */
+.vf-poster {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 18px 20px;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 90% at 85% 10%, rgba(240, 166, 58, 0.16), transparent 55%),
+    linear-gradient(160deg, #13203a 0%, #0a1224 55%, #060b17 100%);
+}
+
+.vf-poster::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: var(--vf-grain-image);
+  background-size: 240px 240px;
+  opacity: 0.18;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+}
+
+.vf-poster-rule {
+  position: absolute;
+  top: 18px;
+  left: 20px;
+  width: 36px;
+  height: 2px;
+  background: var(--vf-accent);
+}
+
+.vf-poster-title {
+  color: var(--vf-text);
+  line-height: 1.2;
+  font-size: 20px;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.vf-poster-sm .vf-poster-title {
+  font-size: 15px;
+}
+
+.vf-poster-lg {
+  padding: 48px 82px 140px;
+}
+
+.vf-poster-lg .vf-poster-title {
+  font-size: 72px;
+}
+
+.vf-poster-lg .vf-poster-rule {
+  top: 64px;
+  left: 82px;
+  width: 64px;
+}
