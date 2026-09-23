@@ -16,3 +16,8 @@
 - 新增 scripts/dev-local.sh（無 Docker 的本地全套）、scripts/fetch_fonts.py（字幕字體）
 - 規格 12：模型原生聲音（旁白、音效、配樂由 Seedance 直接生成）、Seedance 2.0／2.5 與 Seedream 5.0 能力表（ID 與價格待核對）、
   行銷片改 2.5 長鏡頭、聲音一致選項、TTS 只在國內版提供、GET /meta、API 契約 v1.1、遷移 0003
+- 規格 13：按 BytePlus 官方文件核對 models.yaml——補齊 seed-2-0-lite-260428、seedream-5-0-lite-260128、
+  dreamina-seedance-2-5-260628；影片改用官方牌價（2.0 fast 5.6、2.0 7.0／1080p 7.7、2.5 10.70／1080p 11.7 USD／百萬 token），
+  大模型輸入／輸出分價，影片 token 用官方寬高表；Seedance 2.x 不送 seed、2.5 帶首幀送 ratio=adaptive、
+  首幀與參考音頻不混用、2.0 不只送參考音頻、處理 expired 狀態；Seedream 關鍵幀改用 2K 尺寸、不送 seed、輸出 PNG；
+  大模型不送 user；預算示例值改為 150／600 CNY；管理頁顯示分價摘要，API 契約 v1.2

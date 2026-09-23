@@ -9,6 +9,7 @@ Seedance 2.0 起，`generate_audio: true` 會在同一次生成裡產出對白�
 
 資料來源：搜尋結果與第三方整理（本環境連不到 docs.byteplus.com 與 volcengine.com）。
 標「待核對」的值要在 ModelArk 控制台或官方文件確認後才能用於真實調用。
+（BytePlus 部分已按官方文件核對，見 docs/specs/13-byteplus-verification.md。）
 
 ## 目標
 
@@ -129,6 +130,7 @@ Seedance 2.0 起，`generate_audio: true` 會在同一次生成裡產出對白�
 ## 決定（2026-09-23）
 
 1. 官方文件：在 `video-factory-dev` 環境允許 `docs.byteplus.com` 後直接讀取核對；在那之前模型 ID 與參數名維持「待核對」。
+   （2026-09-23 已完成，結果與改動見規格 13；有聲與無聲同價，`price_per_mtok_audio` 不需填。）
 2. 培訓片預設 TTS（國內版）；行銷片與圖文轉短片預設原生聲音。
 3. 行銷短影音改用 Seedance 2.5（`video_long`）：1～2 個鏡頭、總長 15～30 秒；樣片仍用 2.0 fast。
 4. TTS 只接國內版豆包語音：`ARK_REGION=byteplus` 時不提供 TTS，培訓片改用原生聲音；手動選 TTS 回 422。
