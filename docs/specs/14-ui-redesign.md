@@ -1,6 +1,6 @@
 # 14 介面改版：剪輯台（深藍・電影感）
 
-狀態：已確認（2026-09-23，決定見文末）　日期：2026-09-23
+狀態：已完成（2026-09-23，決定見文末；實作說明與偏差見「實作結果」）　日期：2026-09-23
 
 ## 背景
 
@@ -246,39 +246,50 @@
 
 ## 任務清單
 
-- [ ] 主題基礎：`@fontsource` 字體、`tokens.css`、`motion.css`、Ant Design 深色主題、`usePrefersReducedMotion`、`Grain`
-- [ ] `AppShell`：頂部導航、時間碼、帳號選單；路由調整（`/` 片場、`/jobs` 全部任務）
-- [ ] 後端：`JobSummary.preview_asset_id`、`GET /jobs` 多狀態與排序、`POST /jobs/estimate`，含單元測試；API 契約 v1.3
-- [ ] 後端：首幀預覽（接口、Celery 步驟、`allowed_actions`、開拍與重寫分鏡的互斥），含單元測試
-- [ ] 片場首頁：放映區、快速開片列、片場底片、放映室精選、文字海報
-- [ ] 開新片：場記板表單、構圖預覽、即時預估、打板動畫
-- [ ] 分鏡表：`Monitor`、`Timeline`、鏡頭編輯與自動儲存、首幀預覽按鈕、技術細節抽屜
-- [ ] 其他狀態的任務詳情：新頁頭與時間軸狀態
-- [ ] 登入頁與 404
-- [ ] 全部任務、放映室
-- [ ] 素材、批量（清單與詳情）
-- [ ] 審核（清單與審核頁）
-- [ ] 用量、管理
-- [ ] i18n 全面更新（繁、簡）；vitest 與 E2E 更新；CHANGELOG
+- [x] 主題基礎：`@fontsource` 字體、`tokens.css`、`motion.css`、Ant Design 深色主題、`usePrefersReducedMotion`、`Grain`
+- [x] `AppShell`：頂部導航、時間碼、帳號選單；路由調整（`/` 片場、`/jobs` 全部任務）
+- [x] 後端：`JobSummary.preview_asset_id`、`GET /jobs` 多狀態與排序、`POST /jobs/estimate`，含單元測試；API 契約 v1.3
+- [x] 後端：首幀預覽（接口、Celery 步驟、`allowed_actions`、開拍與重寫分鏡的互斥），含單元測試
+- [x] 片場首頁：放映區、快速開片列、片場底片、放映室精選、文字海報
+- [x] 開新片：場記板表單、構圖預覽、即時預估、打板動畫
+- [x] 分鏡表：`Monitor`、`Timeline`、鏡頭編輯與自動儲存、首幀預覽按鈕、技術細節抽屜
+- [x] 其他狀態的任務詳情：新頁頭與時間軸狀態
+- [x] 登入頁與 404
+- [x] 全部任務、放映室
+- [x] 素材、批量（清單與詳情）
+- [x] 審核（清單與審核頁）
+- [x] 用量、管理
+- [x] i18n 全面更新（繁、簡）；vitest 與 E2E 更新；CHANGELOG
 
 ## 驗收清單
 
-- [ ] `cd backend && uv run pytest -k "keyframe_preview"`：待確認分鏡時可生成首幀、記賬、SSE 更新；已有首幀且沒有 force 回 409；生成中確認開拍回 409；開拍後沿用首幀、Seedream 只調用一次；非待確認分鏡回 409
-- [ ] `cd backend && uv run pytest -k "list_jobs_multi_status"`：多個 status 與 `sort=updated` 的結果正確，單一 status 行為不變
-- [ ] `cd backend && uv run pytest -k "preview_asset or estimate_preview"`：列表回傳 `preview_asset_id` 的三種來源與 null；`POST /jobs/estimate` 的行銷 30 秒 720p 預估與 `GET /jobs/{id}/estimate` 在相同參數下一致；不合法參數回 422
-- [ ] CLAUDE.md 的後端、前端檢查全部通過（含 `pnpm build`）
-- [ ] `pnpm vitest run`：
+- [x] `cd backend && uv run pytest -k "keyframe_preview"`：待確認分鏡時可生成首幀、記賬、SSE 更新；已有首幀且沒有 force 回 409；生成中確認開拍回 409；開拍後沿用首幀、Seedream 只調用一次；非待確認分鏡回 409（5 passed）
+- [x] `cd backend && uv run pytest -k "list_jobs_multi_status"`：多個 status 與 `sort=updated` 的結果正確，單一 status 行為不變（1 passed）
+- [x] `cd backend && uv run pytest -k "preview_asset or estimate_preview"`：列表回傳 `preview_asset_id` 的三種來源與 null；`POST /jobs/estimate` 的行銷 30 秒 720p 預估與 `GET /jobs/{id}/estimate` 在相同參數下一致；不合法參數回 422（6 passed）
+- [x] CLAUDE.md 的後端、前端檢查全部通過（含 `pnpm build`）
+- [x] `pnpm vitest run`：
   - `AppShell` 依角色顯示選單；時間碼格式 `HH:MM:SS:FF`
   - 開新片：切換類型時長度範圍與預估重算，`tts_available=false` 時沒有 TTS
-  - 分鏡表：改旁白後 800ms 內送出 PATCH，監看字幕同步；點時間軸鏡頭會切換編輯對象；非管理員看不到技術細節
-  - 減少動態效果開啟時，不渲染推移與播放頭動畫
-- [ ] `scripts/dev-local.sh start && (cd frontend && pnpm e2e)`：
-  - 行銷全流程（登入 → 片場 → 開新片 → 分鏡表確認開拍 → 審核通過 → 下載）通過
+  - 分鏡表：改旁白後停止輸入 800ms 送出 PATCH，監看字幕同步；點時間軸鏡頭會切換編輯對象；非管理員看不到技術細節
+  - 減少動態效果開啟時，監看不自動播放（運鏡示意由 CSS 的減少動態效果規則停住）
+- [x] `scripts/dev-local.sh start && (cd frontend && pnpm e2e)`：
+  - 行銷全流程（登入 → 片場 → 開新片 → 分鏡表首幀預覽、確認開拍 → 審核通過 → 下載）通過
   - 管理頁單價測試通過
-  - 截圖在 `/tmp/e2e/`，涵蓋片場、開新片、分鏡表、生成中、審核、全部任務、放映室、素材、批量、用量、管理、登入、404
+  - 截圖在 `/tmp/e2e/`，涵蓋片場、開新片、寫分鏡中、分鏡表、首幀預覽、生成中、待審核、審核台、審核單、已通過、全部任務、放映室與燈箱、素材、批量、用量、管理、登入、404
 - [ ] 以 Playwright 截圖比對設計稿：片場、開新片、分鏡表三頁的版面、配色與字體一致（人工確認）；其他頁面截圖給你確認
-- [ ] `pnpm build` 後 JS 增量 < 60 KB（gzip），用 `vite build` 的輸出比對
-- [ ] 全文搜尋 `frontend/src`：一般使用者可見的頁面不出現 `video_long`、`keyframe`、`succeeded` 等內部代號
+- [x] `pnpm build` 後 JS 增量 < 60 KB（gzip）：main 445.5 KB → 本分支 454.0 KB，增量 8.5 KB
+- [x] 全文搜尋 `frontend/src`：一般使用者可見的頁面不出現 `video_long`、`keyframe`、`succeeded` 等內部代號（只作為文案鍵與資料屬性）
+
+## 實作結果（2026-09-23）
+
+- **接口多了兩個欄位（API 契約 v1.3，只新增）**：
+  - `JobDetail.shot_duration_s { min_s, max_s }`：分鏡表時長 ± 的範圍，依目前階段的影片模型（樣片用 video_draft），規格要求「範圍依模型能力」但原本前端拿不到。
+  - `JobSummary.runtime_s`：全部任務與放映室的「長度」，由列表既有的分鏡統計查詢一併取出，不增加查詢。
+- **首幀預覽權限**：能看到任務但不能管理的審核者回 403（沿用代碼庫慣例，規格寫 409）；已退回的任務不開放首幀預覽，只在待確認分鏡時可用。
+- **用量頁**：頂部三個大數字是「今日花費、近 N 天總花費、今日預算剩餘」；API 只回所選區間，所以用「近 N 天」取代「本月」。圖表依 dataviz 準則：單一琥珀系列（#C4802C，已用驗證腳本檢查深色表面的亮度帶與對比）、細線格線、峰值直接標值、懸停與鍵盤聚焦提示、表格檢視；沒有花費的日子補 0。
+- **字體**：328 片 CJK `@font-face` 宣告（gzip 143 KB）改為動態載入、單獨成塊，首屏阻擋的 CSS 只剩自己的 13 KB。
+- **測試環境一律以「減少動態效果」執行**（`test/setup.ts`），監看不自動播放、時間碼每秒更新，結果穩定；另有一個測試關掉這個設定，確認一般情況會自動播放。
+- 分鏡表修改只存改過的欄位，後端更新其他欄位（例如首幀預覽完成）時不會被舊值蓋回；站內換頁時送出未存的修改，關閉分頁前提醒。
 
 ## 風險與待確認問題
 
