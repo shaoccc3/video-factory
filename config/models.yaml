@@ -1,5 +1,9 @@
-# 模型 ID、單價、限速、能力表（不含密鑰）。尖括號處填控制台查到的值。
+# 模型 ID、單價、限速、能力表（不含密鑰）。
+# 標「待核對」的值來自公開資料整理，真實調用前請在 ModelArk／火山方舟控制台或官方文件確認：
+#   BytePlus：https://docs.byteplus.com/en/docs/ModelArk/1330310（模型列表）
+#   火山方舟：https://www.volcengine.com/docs/82379
 # 單價的幣種見 currency（BytePlus 以 USD 計價，火山方舟以 CNY 計價）；賬本按 fx_to_cny 換算成 CNY。
+# 切換 ARK_REGION 時，兩個區域的模型 ID 與單價不同，需一併修改本文件。
 region: byteplus              # volcengine（國內）或 byteplus（國際）；實際以環境變量 ARK_REGION 為準
 base_url:
   volcengine: https://ark.cn-beijing.volces.com/api/v3
@@ -13,46 +17,69 @@ fx_to_cny:                    # 匯率，按需更新
 
 models:
   script_llm:
-    id: "<豆包大模型 ID>"
-    price_per_mtok: 0.8       # 輸入與輸出合計，每百萬 token
+    id: "<Seed／豆包大模型 ID，待核對>"
+    price_per_mtok: 0.8       # 輸入與輸出合計，每百萬 token（待核對）
     rpm: 60
     concurrency: 4
   keyframe:
-    id: "<Seedream 模型 ID>"
-    price_per_image: 0.03
+    id: "<Seedream 5.0 Lite 模型 ID，待核對，控制台 ID 通常帶日期後綴>"
+    price_per_image: 0.035    # 待核對（公開資料：Lite 約 0.035 USD／張，Pro 約 0.075）
     rpm: 30
     concurrency: 2
-  video_draft:
-    id: "<較便宜的 Seedance 模型 ID>"
-    price_per_mtok: 1.0
+  video_draft:                # 樣片：Seedance 2.0 fast
+    id: "dreamina-seedance-2-0-fast-260128"   # 待核對
+    price_per_mtok: 1.5       # 待核對
     rpm: 10
     concurrency: 2
     capabilities:
-      resolutions: ["480p"]
+      resolutions: ["480p", "720p"]
       ratios: ["9:16", "16:9", "1:1", "4:3", "3:4", "21:9"]
-      min_duration_s: 2
-      max_duration_s: 12
+      min_duration_s: 4
+      max_duration_s: 15
       fps: 24
-      supports_draft: true
-      supports_audio: false
-      image_roles: ["first_frame", "last_frame", "reference_image"]
-  video_final:
-    id: "<Seedance 正片模型 ID>"
-    price_per_mtok: 2.5
+      supports_draft: false   # 待核對：2.0 是否支援 draft 參數
+      supports_audio: true
+      image_roles: ["first_frame", "last_frame", "reference_image", "reference_video", "reference_audio"]
+      max_reference_images: 9
+      max_reference_videos: 3
+      max_reference_audios: 3
+  video_final:                # 正片：Seedance 2.0
+    id: "dreamina-seedance-2-0-260128"         # 待核對
+    price_per_mtok: 3.5       # 待核對（公開資料：ModelArk 約 3.5 USD／百萬 token）
     rpm: 10
     concurrency: 2
     capabilities:
       resolutions: ["480p", "720p", "1080p"]
       ratios: ["9:16", "16:9", "1:1", "4:3", "3:4", "21:9"]
-      min_duration_s: 2
-      max_duration_s: 12
+      min_duration_s: 4
+      max_duration_s: 15
       fps: 24
       supports_draft: false
       supports_audio: true
-      image_roles: ["first_frame", "last_frame", "reference_image"]
-  tts:
+      image_roles: ["first_frame", "last_frame", "reference_image", "reference_video", "reference_audio"]
+      max_reference_images: 9
+      max_reference_videos: 3
+      max_reference_audios: 3
+  video_long:                 # 長鏡頭：Seedance 2.5（行銷模板使用）
+    id: "<Seedance 2.5 模型 ID，待核對>"
+    price_per_mtok: 3.5       # 待核對
+    rpm: 10
+    concurrency: 2
+    capabilities:
+      resolutions: ["480p", "720p", "1080p"]
+      ratios: ["9:16", "16:9", "1:1", "4:3", "3:4", "21:9"]
+      min_duration_s: 4
+      max_duration_s: 30
+      fps: 24
+      supports_draft: false
+      supports_audio: true
+      image_roles: ["first_frame", "last_frame", "reference_image", "reference_video", "reference_audio"]
+      max_reference_images: 30
+      max_reference_videos: 10
+      max_reference_audios: 10
+  tts:                        # 豆包語音，只用於國內版（ARK_REGION=volcengine）
     id: "<音色 voice_type>"
-    price_per_kchar: 0.02     # 每千字
+    price_per_kchar: 0.02     # 每千字（待核對）
     rpm: 60
     concurrency: 4
 

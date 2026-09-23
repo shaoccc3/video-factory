@@ -66,6 +66,16 @@ async def setup_templates(runtime: Runtime, resolution: str = "480p") -> dict[st
     async with runtime.sessionmaker() as session:
         await sync_templates(session, REPO_ROOT / "config" / "templates")
         await session.execute(update(Template).values(resolution=resolution))
+        base = await session.scalar(select(Template).where(Template.key == "marketing"))
+        assert base is not None
+        session.add(
+            Template(
+                key="marketing_multi", name="多鏡頭行銷（測試）", description="", video_type="marketing",
+                ratio="9:16", resolution=resolution, min_duration_s=15, max_duration_s=30,
+                min_shots=3, max_shots=4, audio_mode="native", video_model="video_final",
+                subtitle_required=True, style_prefix=base.style_prefix, prompt_template=base.prompt_template,
+            )
+        )  # fmt: skip
         await session.commit()
         return {t.key: t for t in (await session.scalars(select(Template))).all()}
 

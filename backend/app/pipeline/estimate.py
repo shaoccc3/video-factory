@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.models_config import ModelKey, ModelsConfig, Region, video_dimensions
+from app.core.models_config import ModelKey, ModelsConfig, Region, VideoModelKey, video_dimensions
 from app.models import Job, Scene, User
 from app.models.enums import AudioMode, JobPhase
 from app.pipeline.common import clip_duration, job_options, job_resolution, video_model_key
@@ -40,12 +40,14 @@ def _video_item(
     resolution: str,
     ratio: str,
     label: str,
+    audio: bool = False,
 ) -> CostItem:
     caps = config.video_caps(key)
     width, height = video_dimensions(resolution, ratio)
     seconds = sum(clip_duration(s.duration_s, caps) for s in scenes)
     tokens = video_tokens(width, height, caps.fps, seconds)
-    return CostItem(label, key, seconds, "秒", round(cost_per_mtok(config, key, tokens, region)[1], 4))
+    amount = cost_per_mtok(config, key, tokens, region, audio=audio and caps.supports_audio)[1]
+    return CostItem(label, key, seconds, "秒", round(amount, 4))
 
 
 def estimate_items(config: ModelsConfig, job: Job, scenes: list[Scene]) -> list[CostItem]:
@@ -64,15 +66,24 @@ def estimate_items(config: ModelsConfig, job: Job, scenes: list[Scene]) -> list[
                 round(cost_per_image(config, keyframes, region)[1], 4),
             )
         )
-    key = video_model_key(job)
+    key = video_model_key(job, config)
+    audio = job_options(job).audio_mode == AudioMode.NATIVE
     label = "分鏡樣片（Seedance）" if job.phase == JobPhase.DRAFT else "分鏡影片（Seedance）"
-    items.append(_video_item(config, key, region, pending, job_resolution(job, config), job.ratio, label))
+    if audio:
+        label = label.replace("）", "，含聲音）")
+    items.append(
+        _video_item(config, key, region, pending, job_resolution(job, config), job.ratio, label, audio)
+    )
     if job.phase == JobPhase.DRAFT:
-        final_res = (
-            job.resolution if job.resolution in config.video_caps("video_final").resolutions else "720p"
+        final_key: VideoModelKey = (
+            "video_long"
+            if job.template_snapshot.get("video_model") == "video_long" and config.models.has("video_long")
+            else "video_final"
         )
+        final_caps = config.video_caps(final_key)
+        final_res = job.resolution if job.resolution in final_caps.resolutions else final_caps.resolutions[-1]
         items.append(
-            _video_item(config, "video_final", region, scenes, final_res, job.ratio, "正片（樣片確認後）")
+            _video_item(config, final_key, region, scenes, final_res, job.ratio, "正片（樣片確認後）", audio)
         )
     if job_options(job).audio_mode == AudioMode.TTS:
         chars = sum(len(s.narration.replace(" ", "")) for s in scenes if not s.audio_asset_id)

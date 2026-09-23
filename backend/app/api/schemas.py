@@ -18,6 +18,7 @@ from app.models.enums import (
 )
 
 Ratio = Literal["9:16", "16:9", "1:1", "4:3", "3:4", "21:9"]
+VideoModel = Literal["video_final", "video_long"]
 
 
 class _Out(BaseModel):
@@ -76,6 +77,7 @@ class TemplateBase(BaseModel):
     style_prefix: str = Field(default="", max_length=500)
     prompt_template: str = Field(min_length=1, max_length=8000)
     is_active: bool = True
+    video_model: VideoModel = "video_final"
 
 
 class TemplateOut(TemplateBase, _Out):
@@ -99,6 +101,7 @@ class TemplateUpdate(BaseModel):
     min_shots: int | None = Field(default=None, gt=0, le=40)
     max_shots: int | None = Field(default=None, gt=0, le=40)
     audio_mode: AudioMode | None = None
+    video_model: VideoModel | None = None
     subtitle_required: bool | None = None
     style_prefix: str | None = Field(default=None, max_length=500)
     prompt_template: str | None = Field(default=None, min_length=1, max_length=8000)
@@ -169,6 +172,8 @@ class SceneOut(_Out):
     duration_s: float
     needs_first_frame: bool
     screen_text: str
+    speaker: str
+    sound: str
     first_frame_asset_id: uuid.UUID | None
     status: SceneStatus
     attempt: int
@@ -221,6 +226,9 @@ class JobOptionsOut(BaseModel):
     logo_asset_id: uuid.UUID | None
     bgm_asset_id: uuid.UUID | None
     image_asset_id: uuid.UUID | None
+    voice_style: str
+    music: str
+    consistent_voice: bool
 
 
 class JobDetail(JobSummary):
@@ -251,6 +259,9 @@ class JobCreate(BaseModel):
     logo_asset_id: uuid.UUID | None = None
     bgm_asset_id: uuid.UUID | None = None
     image_asset_id: uuid.UUID | None = None
+    voice_style: str = Field(default="", max_length=100)
+    music: str = Field(default="", max_length=100)
+    consistent_voice: bool = False
 
 
 class SceneUpdate(BaseModel):
@@ -261,6 +272,8 @@ class SceneUpdate(BaseModel):
     duration_s: float | None = Field(default=None, gt=0, le=60)
     needs_first_frame: bool | None = None
     screen_text: str | None = Field(default=None, max_length=60)
+    speaker: str | None = Field(default=None, max_length=50)
+    sound: str | None = Field(default=None, max_length=200)
     first_frame_asset_id: uuid.UUID | None = None
 
 
@@ -345,6 +358,13 @@ class BudgetOut(BaseModel):
 class BudgetUpdate(BaseModel):
     per_job_cny: float | None = Field(default=None, gt=0)
     per_user_daily_cny: float | None = Field(default=None, gt=0)
+
+
+class MetaOut(BaseModel):
+    region: str
+    tts_available: bool
+    chars_per_second: float
+    audio_modes: list[AudioMode]
 
 
 class ModelsConfigOut(BaseModel):

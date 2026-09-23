@@ -33,6 +33,7 @@ from app.api.serializers import estimate_out, job_detail, job_summaries
 from app.models import CostLedger, GenerationCall, Job, Review, Scene, User
 from app.models.enums import REVIEW_CHECKLIST_KEYS, JobPhase, JobStatus, ReviewDecision, Role, VideoType
 from app.pipeline import orchestrator
+from app.pipeline.common import video_model_key
 from app.pipeline.estimate import estimate_job
 from app.pipeline.orchestrator import ActionError
 from app.pipeline.state import transition
@@ -92,6 +93,9 @@ async def create(
                 logo_asset_id=body.logo_asset_id,
                 bgm_asset_id=body.bgm_asset_id,
                 image_asset_id=body.image_asset_id,
+                voice_style=body.voice_style,
+                music=body.music,
+                consistent_voice=body.consistent_voice,
             ),
         )
     except ActionError as exc:
@@ -197,6 +201,13 @@ async def patch_scene(
     for required in ("visual_prompt", "duration_s"):
         if required in changes and changes[required] is None:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, f"{required} 不能為空")
+    if changes.get("duration_s") is not None:
+        caps = runtime.config.video_caps(video_model_key(job, runtime.config))
+        if not caps.min_duration_s <= float(changes["duration_s"]) <= caps.max_duration_s:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
+                f"鏡頭時長必須在 {caps.min_duration_s}～{caps.max_duration_s} 秒之間（模型能力表）",
+            )
     try:
         await update_scene(session, job, scene, changes, user)
     except ActionError as exc:

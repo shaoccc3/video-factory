@@ -1,14 +1,15 @@
 key: training
 name: 知識／培訓講解片
-description: 橫屏 1～3 分鐘，以旁白為主軸，影片按旁白時長對齊，字幕必選
+description: 橫屏 1～3 分鐘，以旁白為主軸（國內版用 TTS，國際版用模型原生聲音），字幕必選
 video_type: training
 ratio: "16:9"
 resolution: 720p
 min_duration_s: 60
 max_duration_s: 180
-min_shots: 6
-max_shots: 18
+min_shots: 4
+max_shots: 12
 audio_mode: tts
+video_model: video_final
 subtitle_required: true
 style_prefix: 簡潔的資訊圖像與辦公場景，光線柔和，畫面穩定，
 prompt_file: training.j2

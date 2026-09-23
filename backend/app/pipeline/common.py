@@ -4,11 +4,11 @@ import math
 import uuid
 from dataclasses import dataclass
 
-from app.core.models_config import ModelKey, ModelsConfig, VideoCapabilities
+from app.core.models_config import ModelsConfig, VideoCapabilities, VideoModelKey
 from app.models import Job
 from app.models.enums import AudioMode, JobPhase
 from app.pipeline.schemas import SceneDraft
-from app.providers.pricing import narration_seconds
+from app.providers.pricing import CHARS_PER_SECOND, narration_seconds
 
 
 @dataclass(frozen=True)
@@ -20,6 +20,9 @@ class JobOptions:
     logo_asset_id: uuid.UUID | None
     bgm_asset_id: uuid.UUID | None
     image_asset_id: uuid.UUID | None
+    voice_style: str = ""
+    music: str = ""
+    consistent_voice: bool = False
 
 
 def _uuid(value: object) -> uuid.UUID | None:
@@ -37,15 +40,24 @@ def job_options(job: Job) -> JobOptions:
         logo_asset_id=_uuid(o.get("logo_asset_id")),
         bgm_asset_id=_uuid(o.get("bgm_asset_id")),
         image_asset_id=_uuid(o.get("image_asset_id")),
+        voice_style=str(o.get("voice_style", "") or ""),
+        music=str(o.get("music", "") or ""),
+        consistent_voice=bool(o.get("consistent_voice", False)),
     )
 
 
-def video_model_key(job: Job) -> ModelKey:
-    return "video_draft" if job.phase == JobPhase.DRAFT else "video_final"
+def video_model_key(job: Job, config: ModelsConfig | None = None) -> VideoModelKey:
+    """樣片用 video_draft；正片用模板指定的模型（video_long 未配置時退回 video_final）。"""
+    if job.phase == JobPhase.DRAFT:
+        return "video_draft"
+    wanted = str(job.template_snapshot.get("video_model", "video_final"))
+    if wanted == "video_long" and (config is None or config.models.has("video_long")):
+        return "video_long"
+    return "video_final"
 
 
 def job_resolution(job: Job, config: ModelsConfig) -> str:
-    caps = config.video_caps(video_model_key(job))
+    caps = config.video_caps(video_model_key(job, config))
     if job.phase == JobPhase.DRAFT or job.resolution not in caps.resolutions:
         return caps.resolutions[0] if job.phase == JobPhase.DRAFT else caps.resolutions[-1]
     return job.resolution
@@ -64,6 +76,7 @@ class StoryboardRules:
     target_total_s: float
     caps: VideoCapabilities
     narration_driven: bool  # 培訓片：時長按旁白估算
+    native_audio: bool = False  # 旁白由影片模型在鏡頭內念出：字數不能超過鏡頭時長
 
 
 def check_storyboard(scenes: list[SceneDraft], rules: StoryboardRules) -> list[str]:
@@ -88,7 +101,29 @@ def check_storyboard(scenes: list[SceneDraft], rules: StoryboardRules) -> list[s
             problems.append(
                 f"第 {i} 個鏡頭時長必須在 {rules.caps.min_duration_s}～{rules.caps.max_duration_s} 秒之間"
             )
+        if rules.native_audio and narration_seconds(s.narration) > s.duration_s + 0.5:
+            limit = int(s.duration_s * CHARS_PER_SECOND)
+            problems.append(f"第 {i} 個鏡頭旁白太長：{s.duration_s:.0f} 秒最多約 {limit} 字，請精簡")
     return problems
+
+
+_CUT_AT = "。！？；，、,.!?;"
+
+
+def trim_narration(text: str, seconds: float) -> str:
+    """旁白超過鏡頭能念完的長度時，在最後一個標點處截斷；沒有標點就硬截。"""
+    limit = int(seconds * CHARS_PER_SECOND)
+    if narration_seconds(text) <= seconds or limit <= 0:
+        return text
+    kept, count = "", 0
+    for ch in text:
+        if not ch.isspace():
+            count += 1
+        if count > limit:
+            break
+        kept += ch
+    cut = max(kept.rfind(p) for p in _CUT_AT)
+    return (kept[: cut + 1] if cut >= limit // 2 else kept).strip()
 
 
 def normalize_storyboard(scenes: list[SceneDraft], rules: StoryboardRules) -> list[SceneDraft]:
@@ -100,6 +135,9 @@ def normalize_storyboard(scenes: list[SceneDraft], rules: StoryboardRules) -> li
         duration = s.duration_s
         if rules.narration_driven and s.narration:
             duration = math.ceil(narration_seconds(s.narration) + 0.5)
+        elif rules.native_audio and s.narration:
+            # 原生聲音：鏡頭至少要長到能念完旁白
+            duration = max(duration, math.ceil(narration_seconds(s.narration) + 0.5))
         out.append(s.model_copy(update={"duration_s": float(clip_duration(duration, caps))}))
     if not rules.narration_driven and out:
         total = sum(s.duration_s for s in out)
@@ -110,4 +148,6 @@ def normalize_storyboard(scenes: list[SceneDraft], rules: StoryboardRules) -> li
                 s.model_copy(update={"duration_s": float(clip_duration(s.duration_s * factor, caps))})
                 for s in out
             ]
+    if rules.native_audio:
+        out = [s.model_copy(update={"narration": trim_narration(s.narration, s.duration_s)}) for s in out]
     return out

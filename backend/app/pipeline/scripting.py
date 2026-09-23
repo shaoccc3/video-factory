@@ -8,7 +8,7 @@ from sqlalchemy import delete, select
 
 from app.core.models_config import ModelsConfig
 from app.models import Job, Scene, User
-from app.models.enums import JobStatus, VideoType
+from app.models.enums import AudioMode, JobStatus, VideoType
 from app.pipeline.common import (
     StoryboardRules,
     check_storyboard,
@@ -24,6 +24,7 @@ from app.pipeline.state import transition
 from app.pipeline.templates import render_prompt
 from app.providers.base import ChatMessage
 from app.providers.gateway import CallContext, Gateway
+from app.providers.pricing import CHARS_PER_SECOND
 from app.services.runtime import Runtime
 
 log = structlog.get_logger(__name__)
@@ -38,12 +39,13 @@ SYSTEM_PROMPT = f"""你是資深的短影音編劇與分鏡師，為公司內部
 - 不得出現真實人物姓名、明星、政治人物、第三方品牌或商標、電影／動漫／遊戲 IP；人物用「一位年輕女性」這類泛稱。
 - 每個鏡頭 duration_s 為整數秒，且必須在約束範圍內；所有鏡頭時長加總接近目標總長。
 - 需要以商品圖或特定畫面作為開場時，把該鏡頭的 needs_first_frame 設為 true。
+- speaker 填說話者（「旁白」或角色泛稱），沒有人說話時留空；sound 填環境音與音效，沒有就留空。
 - 用戶訊息末尾 constraints 標籤內的 JSON 是硬性約束。"""
 
 
 def storyboard_rules(job: Job, config: ModelsConfig) -> StoryboardRules:
     snap = job.template_snapshot
-    caps = config.video_caps(video_model_key(job))
+    caps = config.video_caps(video_model_key(job, config))
     opts = job_options(job)
     min_total, max_total = float(snap["min_duration_s"]), float(snap["max_duration_s"])  # type: ignore[arg-type]
     target = opts.target_duration_s or (min_total + max_total) / 2
@@ -55,6 +57,7 @@ def storyboard_rules(job: Job, config: ModelsConfig) -> StoryboardRules:
         target_total_s=min(max(target, min_total), max_total),
         caps=caps,
         narration_driven=job.video_type == VideoType.TRAINING,
+        native_audio=opts.audio_mode == AudioMode.NATIVE,
     )
 
 
@@ -69,6 +72,9 @@ def build_messages(job: Job, rules: StoryboardRules) -> list[ChatMessage]:
         "max_shots": rules.max_shots,
         "product_count": len(opts.product_asset_ids),
         "has_logo": opts.logo_asset_id is not None,
+        "audio_mode": opts.audio_mode.value,
+        "chars_per_second": CHARS_PER_SECOND,
+        "clip_max_duration_s": rules.caps.max_duration_s,
     }
     body = render_prompt(str(job.template_snapshot["prompt_template"]), variables)
     constraints = {
@@ -81,6 +87,8 @@ def build_messages(job: Job, rules: StoryboardRules) -> list[ChatMessage]:
         "target_duration_s": rules.target_total_s,
         "clip_min_duration_s": rules.caps.min_duration_s,
         "clip_max_duration_s": rules.caps.max_duration_s,
+        "audio_mode": opts.audio_mode.value,
+        "max_narration_chars_per_second": CHARS_PER_SECOND,
     }
     user = f"{body}\n\n<constraints>{json.dumps(constraints, ensure_ascii=False)}</constraints>"
     return [ChatMessage("system", SYSTEM_PROMPT), ChatMessage("user", user)]
@@ -104,7 +112,7 @@ async def write_storyboard(gateway: Gateway, ctx: CallContext, job: Job, rules: 
 
 
 def quick_storyboard(job: Job, rules: StoryboardRules) -> SceneList:
-    style = str(job.template_snapshot.get("style_prefix", ""))
+    # 風格前綴由 video_prompt() 統一加，這裡不重複
     prompt = render_prompt(
         str(job.template_snapshot["prompt_template"]),
         {"topic": job.inputs.get("topic", ""), "extra": job.inputs.get("extra", "") or ""},
@@ -112,7 +120,7 @@ def quick_storyboard(job: Job, rules: StoryboardRules) -> SceneList:
     duration = clip_duration(rules.target_total_s, rules.caps)
     return SceneList(
         title=job.title,
-        scenes=[SceneDraft(narration="", visual_prompt=f"{style}{prompt}", duration_s=duration)],
+        scenes=[SceneDraft(narration="", visual_prompt=prompt, duration_s=duration)],
     )
 
 
@@ -152,6 +160,8 @@ async def run_scripting(runtime: Runtime, gateway: Gateway, job_id: uuid.UUID) -
                 duration_s=draft.duration_s,
                 needs_first_frame=draft.needs_first_frame and first_frame is None,
                 screen_text=draft.screen_text,
+                speaker=draft.speaker,
+                sound=draft.sound,
                 first_frame_asset_id=first_frame,
                 ref_asset_ids=product_ids if draft.needs_first_frame else [],
                 status="pending",

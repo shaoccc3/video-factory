@@ -13,6 +13,8 @@ class SceneDraft(BaseModel):
     duration_s: float = Field(gt=0, le=60)
     needs_first_frame: bool = False
     screen_text: str = Field(default="", max_length=60)
+    speaker: str = Field(default="", max_length=50)
+    sound: str = Field(default="", max_length=200)
 
 
 class SceneList(BaseModel):
@@ -32,7 +34,9 @@ SCENE_LIST_JSON_HINT = """{
       "camera_move": "推進／拉遠／橫移／環繞／固定機位",
       "duration_s": 5,
       "needs_first_frame": false,
-      "screen_text": "畫面標語，可留空"
+      "screen_text": "畫面標語，可留空",
+      "speaker": "旁白，或角色泛稱如「一位年輕女店員」",
+      "sound": "環境音與音效，例如「清晨鳥鳴、倒茶水聲」"
     }
   ]
 }"""

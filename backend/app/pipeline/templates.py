@@ -1,7 +1,7 @@
 """影片模板：從 config/templates/ 同步到數據庫；渲染提示詞。"""
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import yaml
 from jinja2 import StrictUndefined
@@ -30,6 +30,7 @@ class TemplateDef(BaseModel):
     min_shots: int = Field(gt=0)
     max_shots: int = Field(gt=0)
     audio_mode: AudioMode
+    video_model: Literal["video_final", "video_long"] = "video_final"
     subtitle_required: bool
     style_prefix: str = ""
     prompt_file: str
@@ -83,6 +84,7 @@ def template_snapshot(tpl: Template) -> dict[str, object]:
         "min_shots": tpl.min_shots,
         "max_shots": tpl.max_shots,
         "audio_mode": tpl.audio_mode,
+        "video_model": tpl.video_model,
         "subtitle_required": tpl.subtitle_required,
         "style_prefix": tpl.style_prefix,
         "prompt_template": tpl.prompt_template,

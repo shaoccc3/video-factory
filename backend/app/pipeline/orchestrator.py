@@ -223,10 +223,15 @@ async def advance(runtime: Runtime, dispatcher: Dispatcher, job_id: uuid.UUID) -
                 session, job.id, JobStatus.COMPOSING, from_statuses=[JobStatus.GENERATING]
             )
         elif pending and not failed:
-            if job_options(job).continuous_shots:
+            opts = job_options(job)
+            first = scenes[0]
+            if opts.continuous_shots:
                 nxt = pending[0]
                 earlier_ok = all(s.status == SceneStatus.SUCCEEDED for s in scenes if s.index < nxt.index)
                 candidates = [nxt] if earlier_ok and not in_flight else []
+            elif opts.consistent_voice and first.status != SceneStatus.SUCCEEDED:
+                # 聲音一致：第一鏡的聲音是後續鏡頭的參考音頻，先只做第一鏡
+                candidates = [first] if first.status == SceneStatus.PENDING else []
             else:
                 candidates = pending
             for scene in candidates:

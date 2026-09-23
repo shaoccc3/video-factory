@@ -9,6 +9,7 @@ import structlog
 from sqlalchemy import select, update
 
 from app.core.models_config import video_dimensions
+from app.media.ffmpeg import FFmpegError, run_ffmpeg
 from app.models import Asset, Job, Scene
 from app.models.enums import AssetKind, AudioMode, JobPhase, JobStatus, SceneStatus
 from app.pipeline.common import clip_duration, job_options, job_resolution, video_model_key
@@ -37,11 +38,25 @@ def cancelled_checker(runtime: Runtime, job_id: uuid.UUID) -> Callable[[], Await
 
 def video_prompt(job: Job, scene: Scene) -> str:
     style = str(job.template_snapshot.get("style_prefix", "") or "")
-    parts = [f"{style}{scene.visual_prompt}".strip()]
+    parts = [f"{style}{scene.visual_prompt}".strip().rstrip("。")]
     camera = "，".join(p for p in (scene.shot_type, scene.camera_move) if p)
     if camera:
         parts.append(f"鏡頭：{camera}")
-    return "。".join(parts)
+    opts = job_options(job)
+    if opts.audio_mode == AudioMode.NATIVE:
+        # 原生聲音：把要說的話、音效、配樂寫進提示詞，由影片模型直接生成並對口型
+        if scene.narration.strip():
+            speaker = scene.speaker.strip() or "旁白"
+            voice = f"（{opts.voice_style.strip()}）" if opts.voice_style.strip() else ""
+            parts.append(f"{speaker}{voice}說：「{scene.narration.strip()}」")
+        if scene.sound.strip():
+            parts.append(f"音效：{scene.sound.strip()}")
+        music = opts.music.strip()
+        if music.lower() == "none":
+            parts.append("不要背景音樂")
+        elif music:
+            parts.append(f"配樂：{music}")
+    return "。".join(parts) + "。"
 
 
 async def ensure_keyframe(runtime: Runtime, gateway: Gateway, job: Job, scene: Scene) -> uuid.UUID | None:
@@ -100,21 +115,37 @@ async def _first_frame_for(runtime: Runtime, job: Job, scene: Scene, own: uuid.U
     return None
 
 
+async def _reference_voice(runtime: Runtime, job: Job, scene: Scene) -> Asset | None:
+    """聲音一致：第 2 鏡起用第一鏡的聲音作參考音頻。"""
+    opts = job_options(job)
+    if not (opts.consistent_voice and opts.audio_mode == AudioMode.NATIVE and scene.index > 0):
+        return None
+    async with runtime.sessionmaker() as session:
+        first = await session.scalar(select(Scene).where(Scene.job_id == job.id, Scene.index == 0))
+        if first is None or first.audio_asset_id is None:
+            return None
+        return await session.get(Asset, first.audio_asset_id)
+
+
 async def build_video_request(
     runtime: Runtime, job: Job, scene: Scene, first_frame: Asset | None
 ) -> VideoRequest:
-    key = video_model_key(job)
+    key = video_model_key(job, runtime.config)
     caps = runtime.config.video_caps(key)
     images: list[VideoImageInput] = []
     if first_frame is not None and "first_frame" in caps.image_roles:
         images.append(VideoImageInput(model_input_url(runtime, first_frame), "first_frame"))
     elif scene.ref_asset_ids and "reference_image" in caps.image_roles:
         async with runtime.sessionmaker() as session:
-            for ref_id in scene.ref_asset_ids[:4]:
+            for ref_id in scene.ref_asset_ids[: max(1, caps.max_reference_images)]:
                 ref = await session.get(Asset, uuid.UUID(ref_id))
                 if ref is not None and not ref.is_deleted:
                     images.append(VideoImageInput(model_input_url(runtime, ref), "reference_image"))
     audio_mode = job_options(job).audio_mode
+    audios: list[VideoImageInput] = []
+    voice_ref = await _reference_voice(runtime, job, scene)
+    if voice_ref is not None and "reference_audio" in caps.image_roles and caps.max_reference_audios > 0:
+        audios.append(VideoImageInput(model_input_url(runtime, voice_ref), "reference_audio"))
     return VideoRequest(
         model_id=runtime.config.models.get(key).id,
         prompt=video_prompt(job, scene),
@@ -123,11 +154,46 @@ async def build_video_request(
         duration_s=clip_duration(scene.duration_s, caps),
         seed=job.seed,
         images=tuple(images),
+        audios=tuple(audios),
         generate_audio=audio_mode == AudioMode.NATIVE and caps.supports_audio,
         return_last_frame=True,
         watermark=runtime.settings.model_watermark,
         draft=job.phase == JobPhase.DRAFT and caps.supports_draft,
         safety_identifier=str(job.owner_id),
+    )
+
+
+REFERENCE_AUDIO_S = 10
+
+
+async def _extract_voice_reference(
+    runtime: Runtime, job: Job, scene: Scene, video: Path, work: Path
+) -> Asset | None:
+    """聲音一致：第一鏡成功後截取前 10 秒音頻，作為後續鏡頭的參考音頻。"""
+    opts = job_options(job)
+    if not (opts.consistent_voice and opts.audio_mode == AudioMode.NATIVE and scene.index == 0):
+        return None
+    dest = work / "voice-reference.mp3"
+    try:
+        await run_ffmpeg(
+            [
+                "-i",
+                str(video),
+                "-vn",
+                "-t",
+                str(REFERENCE_AUDIO_S),
+                "-ac",
+                "1",
+                "-c:a",
+                "libmp3lame",
+                str(dest),
+            ]
+        )
+    except FFmpegError:
+        log.warning("voice_reference_failed", job_id=str(job.id))  # 片段沒有音軌時略過
+        return None
+    return await store_asset(
+        runtime, NewAsset(dest, AssetKind.VOICE, "audio/mpeg", job.owner_id, job.id, display_name="聲音參考")
     )
 
 
@@ -163,7 +229,7 @@ async def generate_scene_video(
     dest_dir = work_dir(runtime, job.id, f"scene-{scene.index}-a{scene.attempt}")
     run = await gateway.run_video(
         CallContext(job.id, job.owner_id, scene.id, is_cancelled=cancelled_checker(runtime, job.id)),
-        video_model_key(job),
+        video_model_key(job, runtime.config),
         request,
         dest_dir=dest_dir,
         existing_task_id=scene.remote_task_id,
@@ -186,10 +252,13 @@ async def generate_scene_video(
             runtime,
             NewAsset(run.outputs.last_frame, AssetKind.LAST_FRAME, "image/png", job.owner_id, job.id),
         )
+    voice_ref = await _extract_voice_reference(runtime, job, scene, run.outputs.video, dest_dir)
     async with runtime.sessionmaker() as session:
         session.add(clip)
         if last is not None:
             session.add(last)
+        if voice_ref is not None:
+            session.add(voice_ref)
         await session.flush()
         await session.execute(
             update(Scene)
@@ -200,6 +269,7 @@ async def generate_scene_video(
                 last_frame_asset_id=last.id if last else None,
                 remote_task_id=None,
                 is_draft=job.phase == JobPhase.DRAFT,
+                **({"audio_asset_id": voice_ref.id} if voice_ref is not None else {}),
                 error_kind=None,
                 error_message=None,
             )

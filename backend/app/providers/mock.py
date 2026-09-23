@@ -107,6 +107,8 @@ class MockLLM:
                     "duration_s": per,
                     "needs_first_frame": i == 0 and video_type == "marketing",
                     "screen_text": topic[:12] if i == 0 else "",
+                    "speaker": "旁白",
+                    "sound": "輕柔的環境音" if video_type != "training" else "",
                 }
             )
         return {"title": topic[:30], "scenes": scenes}

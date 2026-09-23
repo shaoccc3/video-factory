@@ -192,8 +192,13 @@ def final_args(
         if k in native_audio:
             args += ["-i", str(native_audio[k])]
             native_ms = round(tl.clip_starts[k] * 1000)
+            # 模型原生聲音：保留原音量，頭尾各淡入淡出半個轉場，和畫面的交叉淡化同步
+            half = spec.transition_s / 2
+            fade_out = max(0.0, clip.duration_s - half)
             filters.append(
-                f"[{idx}:a]aresample=48000,aformat=channel_layouts=stereo,volume=0.8,adelay={native_ms}:all=1[na{k}]"
+                f"[{idx}:a]aresample=48000,aformat=channel_layouts=stereo,"
+                f"afade=t=in:st=0:d={half:.3f},afade=t=out:st={fade_out:.3f}:d={half:.3f},"
+                f"adelay={native_ms}:all=1[na{k}]"
             )
             voices.append(f"[na{k}]")
             idx += 1

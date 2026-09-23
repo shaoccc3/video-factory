@@ -54,6 +54,7 @@ class VideoRequest:
     duration_s: int
     seed: int
     images: tuple[VideoImageInput, ...] = ()
+    audios: tuple[VideoImageInput, ...] = ()  # 參考音頻（例如 role=reference_audio，用來保持聲音一致）
     generate_audio: bool = False
     return_last_frame: bool = True
     watermark: bool = True
@@ -65,6 +66,8 @@ class VideoRequest:
         content: list[dict[str, object]] = [{"type": "text", "text": self.prompt}]
         for img in self.images:
             content.append({"type": "image_url", "image_url": {"url": img.url}, "role": img.role})
+        for audio in self.audios:
+            content.append({"type": "audio_url", "audio_url": {"url": audio.url}, "role": audio.role})
         payload: dict[str, object] = {
             "model": self.model_id,
             "content": content,

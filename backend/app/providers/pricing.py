@@ -13,9 +13,18 @@ def video_tokens(width: int, height: int, fps: int, duration_s: float) -> int:
     return math.ceil(width * height * fps * duration_s / 1024)
 
 
-def cost_per_mtok(cfg: ModelsConfig, key: ModelKey, tokens: int, region: Region) -> tuple[float, float]:
-    """返回（原幣金額、CNY 金額）。"""
-    price = cfg.models.get(key).price_per_mtok or 0.0
+def unit_price_mtok(cfg: ModelsConfig, key: ModelKey, *, audio: bool = False) -> float:
+    entry = cfg.models.get(key)
+    if audio and entry.price_per_mtok_audio is not None:
+        return entry.price_per_mtok_audio
+    return entry.price_per_mtok or 0.0
+
+
+def cost_per_mtok(
+    cfg: ModelsConfig, key: ModelKey, tokens: int, region: Region, *, audio: bool = False
+) -> tuple[float, float]:
+    """返回（原幣金額、CNY 金額）。audio=True 時用有聲影片單價（若有配置）。"""
+    price = unit_price_mtok(cfg, key, audio=audio)
     amount = tokens / 1_000_000 * price
     return amount, cfg.to_cny(amount, region)
 

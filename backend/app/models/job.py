@@ -67,6 +67,8 @@ class Scene(TimestampedMixin, Base):
     duration_s: Mapped[float] = mapped_column(Float)
     needs_first_frame: Mapped[bool] = mapped_column(Boolean, default=False)
     screen_text: Mapped[str] = mapped_column(Text, default="")
+    speaker: Mapped[str] = mapped_column(Text, default="")  # 說話者（旁白或角色泛稱）
+    sound: Mapped[str] = mapped_column(Text, default="")  # 音效／環境音描述
     first_frame_asset_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("assets.id"))
     first_frame_generated: Mapped[bool] = mapped_column(Boolean, default=False)
     ref_asset_ids: Mapped[list[str]] = mapped_column(JSON, default=list)

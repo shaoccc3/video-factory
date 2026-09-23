@@ -7,7 +7,8 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 Region = Literal["volcengine", "byteplus"]
-ModelKey = Literal["script_llm", "keyframe", "video_draft", "video_final", "tts"]
+ModelKey = Literal["script_llm", "keyframe", "video_draft", "video_final", "video_long", "tts"]
+VideoModelKey = Literal["video_draft", "video_final", "video_long"]
 
 # Seedance 分辨率對應的像素（以 16:9 為基準，其他畫幅按比例換算）
 RESOLUTION_SHORT_SIDE = {"480p": 480, "720p": 720, "1080p": 1080}
@@ -27,7 +28,11 @@ class VideoCapabilities(_Strict):
     fps: int = Field(gt=0)
     supports_draft: bool = False
     supports_audio: bool = False
+    # content 項目可用的 role：first_frame、last_frame、reference_image、reference_video、reference_audio
     image_roles: tuple[str, ...] = ()
+    max_reference_images: int = Field(default=0, ge=0)
+    max_reference_videos: int = Field(default=0, ge=0)
+    max_reference_audios: int = Field(default=0, ge=0)
 
     @model_validator(mode="after")
     def _check(self) -> "VideoCapabilities":
@@ -42,6 +47,7 @@ class VideoCapabilities(_Strict):
 class ModelEntry(_Strict):
     id: str = Field(min_length=1)
     price_per_mtok: float | None = Field(default=None, ge=0)
+    price_per_mtok_audio: float | None = Field(default=None, ge=0)  # 有聲影片單價；未填則用 price_per_mtok
     price_per_image: float | None = Field(default=None, ge=0)
     price_per_kchar: float | None = Field(default=None, ge=0)
     rpm: int | None = Field(default=None, gt=0)
@@ -54,18 +60,25 @@ class Models(_Strict):
     keyframe: ModelEntry
     video_draft: ModelEntry
     video_final: ModelEntry
+    video_long: ModelEntry | None = None  # 選用：Seedance 2.5 長鏡頭
     tts: ModelEntry
 
     @model_validator(mode="after")
     def _check(self) -> "Models":
-        for key in ("video_draft", "video_final"):
-            if getattr(self, key).capabilities is None:
+        for key in ("video_draft", "video_final", "video_long"):
+            entry = getattr(self, key)
+            if entry is not None and entry.capabilities is None:
                 raise ValueError(f"{key} 缺少 capabilities")
         return self
 
     def get(self, key: ModelKey) -> ModelEntry:
-        entry: ModelEntry = getattr(self, key)
+        entry: ModelEntry | None = getattr(self, key)
+        if entry is None:
+            raise KeyError(f"models.yaml 沒有配置 {key}")
         return entry
+
+    def has(self, key: ModelKey) -> bool:
+        return getattr(self, key) is not None
 
 
 class Budget(_Strict):

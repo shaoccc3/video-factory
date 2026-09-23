@@ -31,6 +31,9 @@ class JobInput:
     bgm_asset_id: uuid.UUID | None = None
     image_asset_id: uuid.UUID | None = None
     batch_id: uuid.UUID | None = None
+    voice_style: str = ""
+    music: str = ""
+    consistent_voice: bool = False
 
 
 async def _check_asset(
@@ -66,10 +69,14 @@ async def create_job(
     if target is not None and not tpl.min_duration_s <= target <= tpl.max_duration_s:
         raise ActionError(f"時長必須在 {tpl.min_duration_s}～{tpl.max_duration_s} 秒之間", 422)
     audio_mode = data.audio_mode or AudioMode(tpl.audio_mode)
+    if audio_mode == AudioMode.TTS and not tts_available(region):
+        if data.audio_mode == AudioMode.TTS:
+            raise ActionError("國際版暫不提供 TTS 配音，請改用模型原生聲音", 422)
+        audio_mode = AudioMode.NATIVE  # 模板預設 TTS（培訓片）但國際版不提供：改用原生聲音
     if audio_mode == AudioMode.NATIVE and not caps.supports_audio:
-        raise ActionError("目前的模型不支援原生音頻", 422)
-    if tpl.video_type == VideoType.TRAINING and audio_mode != AudioMode.TTS:
-        raise ActionError("培訓講解片以旁白為主軸，音頻方式必須是 TTS", 422)
+        raise ActionError("目前的模型不支援原生聲音", 422)
+    if tpl.video_type == VideoType.TRAINING and audio_mode == AudioMode.NONE:
+        raise ActionError("培訓講解片以旁白為主軸，不能選擇無聲", 422)
     image_kinds = {AssetKind.PRODUCT, AssetKind.IMAGE, AssetKind.KEYFRAME}
     for pid in data.product_asset_ids:
         await _check_asset(session, pid, {AssetKind.PRODUCT, AssetKind.IMAGE}, "商品圖", owner)
@@ -93,6 +100,9 @@ async def create_job(
             "logo_asset_id": str(data.logo_asset_id) if data.logo_asset_id else None,
             "bgm_asset_id": str(data.bgm_asset_id) if data.bgm_asset_id else None,
             "image_asset_id": str(data.image_asset_id) if data.image_asset_id else None,
+            "voice_style": data.voice_style.strip()[:100],
+            "music": data.music.strip()[:100],
+            "consistent_voice": data.consistent_voice and audio_mode == AudioMode.NATIVE,
         },
         status=JobStatus.DRAFT.value,
         phase=JobPhase.DRAFT.value if data.draft_mode else JobPhase.FINAL.value,
@@ -120,7 +130,14 @@ VIDEO_FIELDS = {
     "duration_s",
     "needs_first_frame",
     "first_frame_asset_id",
+    "speaker",
+    "sound",
 }
+
+
+def tts_available(region: str) -> bool:
+    """TTS 只接國內版豆包語音（規格 12 決定 4）。"""
+    return region == "volcengine"
 
 
 async def update_scene(
@@ -144,7 +161,10 @@ async def update_scene(
         scene.first_frame_generated = False
         if changes["first_frame_asset_id"] is not None:
             scene.needs_first_frame = False
-    if VIDEO_FIELDS & changes.keys() and scene.status == SceneStatus.SUCCEEDED:
+    video_fields = set(VIDEO_FIELDS)
+    if AudioMode(str(job.options.get("audio_mode", AudioMode.NONE))) == AudioMode.NATIVE:
+        video_fields.add("narration")  # 原生聲音：旁白在影片裡念，改了就要重做影片
+    if video_fields & changes.keys() and scene.status == SceneStatus.SUCCEEDED:
         scene.status = SceneStatus.PENDING.value
         scene.video_asset_id = None
         scene.last_frame_asset_id = None

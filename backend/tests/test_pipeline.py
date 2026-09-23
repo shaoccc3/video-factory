@@ -55,26 +55,24 @@ def seedance(runtime: Runtime) -> MockSeedance:
 async def test_marketing_end_to_end(
     runtime: Runtime, dispatcher: InlineDispatcher, templates: dict[str, Template], user: User, tmp_path: Path
 ) -> None:
+    """行銷短影音：Seedance 2.5 長鏡頭 + 模型原生聲音（規格 12）。"""
     product = await make_asset(runtime, user, AssetKind.PRODUCT, tmp_path)
     logo = await make_asset(runtime, user, AssetKind.LOGO, tmp_path)
-    bgm = await make_asset(runtime, user, AssetKind.BGM, tmp_path)
     job = await new_job(
-        runtime,
-        user,
-        templates["marketing"],
-        product_asset_ids=[product.id],
-        logo_asset_id=logo.id,
-        bgm_asset_id=bgm.id,
-    )
+        runtime, user, templates["marketing"], product_asset_ids=[product.id], logo_asset_id=logo.id,
+        voice_style="溫暖的年輕女聲，國語", music="輕快的鋼琴",
+    )  # fmt: skip
+    assert job.options["audio_mode"] == "native"
     await orchestrator.submit(runtime, dispatcher, job.id)
     await dispatcher.drain()
 
     job = await reload(runtime, job.id)
     assert job.status == JobStatus.STORYBOARD_READY
     scenes = await scenes_of(runtime, job.id)
-    assert 3 <= len(scenes) <= 6
+    assert 1 <= len(scenes) <= 2
     assert 15 <= sum(s.duration_s for s in scenes) <= 30
     assert scenes[0].needs_first_frame and scenes[0].ref_asset_ids == [str(product.id)]
+    assert scenes[0].speaker == "旁白" and scenes[0].sound
     assert job.estimated_cost_cny and job.estimated_cost_cny > 0
     assert seedance(runtime).created == []  # 確認前不得調用 Seedance
 
@@ -84,11 +82,13 @@ async def test_marketing_end_to_end(
     assert job.status == JobStatus.IN_REVIEW, job.error_message
     assert job.final_asset_id and job.cover_asset_id and job.subtitle_asset_id
 
-    scenes = await scenes_of(runtime, job.id)
-    assert all(s.status == SceneStatus.SUCCEEDED and s.audio_asset_id for s in scenes)
-    assert scenes[0].first_frame_generated
     first_request = seedance(runtime).created[0]
+    assert first_request.model_id == runtime.config.models.get("video_long").id
+    assert first_request.generate_audio is True
     assert [img.role for img in first_request.images] == ["first_frame"]
+    assert "旁白（溫暖的年輕女聲，國語）說：「" in first_request.prompt
+    assert "配樂：輕快的鋼琴" in first_request.prompt and "音效：" in first_request.prompt
+    assert first_request.prompt.count(str(templates["marketing"].style_prefix)) == 1
     assert all(r.safety_identifier == str(user.id) for r in seedance(runtime).created)
 
     async with runtime.sessionmaker() as s:
@@ -101,13 +101,59 @@ async def test_marketing_end_to_end(
     runtime.storage.download_to(final.storage_key, dest)
     info = await probe(dest)
     assert (info.width, info.height) == (480, 854)
-    assert info.video_codec == "h264" and info.audio_codec == "aac"
+    assert info.video_codec == "h264" and info.audio_codec == "aac" and info.has_audio
     assert info.tags["aigc_label"] == "AI生成" and info.tags["aigc_content_id"] == str(job.id)
     assert info.duration_s and info.duration_s > 15
     assert job.actual_cost_cny == pytest.approx(float(ledger_total or 0), rel=1e-6)
     counts = await calls_by_provider(runtime)
     assert counts["llm"] >= 1 and counts["seedream"] == 1
-    assert counts["seedance"] == len(scenes) and counts["tts"] == len(scenes)
+    assert counts["seedance"] == len(scenes) and "tts" not in counts  # 原生聲音：沒有 TTS
+
+
+async def test_tts_mode_still_works_in_volcengine(
+    runtime: Runtime, dispatcher: InlineDispatcher, templates: dict[str, Template], user: User
+) -> None:
+    """國內版培訓片：影片無聲 + TTS 旁白（原有流程）；國際版同一模板會改用原生聲音。"""
+    intl = await new_job(runtime, user, templates["training"], topic="資訊安全基礎", target_duration_s=60)
+    assert intl.options["audio_mode"] == "native"
+    from app.services.jobs import JobInput, create_job
+
+    async with runtime.sessionmaker() as s:
+        owner = await s.get(User, user.id)
+        assert owner is not None
+        cn_job = await create_job(
+            s, runtime.config, "volcengine", owner,
+            JobInput(template_id=templates["training"].id, title="t", topic="資訊安全基礎", target_duration_s=60),
+        )  # fmt: skip
+        await s.commit()
+    assert cn_job.options["audio_mode"] == "tts"
+    await orchestrator.submit(runtime, dispatcher, cn_job.id)
+    await dispatcher.drain()
+    await orchestrator.confirm_storyboard(runtime, dispatcher, cn_job.id)
+    await dispatcher.drain()
+    assert (await reload(runtime, cn_job.id)).status == JobStatus.IN_REVIEW
+    assert all(r.generate_audio is False for r in seedance(runtime).created)
+    assert (await calls_by_provider(runtime))["tts"] >= 4
+
+
+async def test_consistent_voice_uses_first_shot_audio(
+    runtime: Runtime, dispatcher: InlineDispatcher, templates: dict[str, Template], user: User
+) -> None:
+    job = await new_job(
+        runtime, user, templates["marketing_multi"], consistent_voice=True, voice_style="沉穩男聲"
+    )
+    await orchestrator.submit(runtime, dispatcher, job.id)
+    await dispatcher.drain()
+    await orchestrator.confirm_storyboard(runtime, dispatcher, job.id)
+    assert [k for k, _ in dispatcher.queue] == ["scene"]  # 先只做第一鏡
+    await dispatcher.drain()
+    assert (await reload(runtime, job.id)).status == JobStatus.IN_REVIEW
+    created = seedance(runtime).created
+    assert created[0].audios == ()
+    assert len(created) >= 3
+    assert all([a.role for a in r.audios] == ["reference_audio"] for r in created[1:])
+    scenes = await scenes_of(runtime, job.id)
+    assert scenes[0].audio_asset_id is not None
 
 
 async def test_quick_image_to_video_auto_confirms(
@@ -135,7 +181,7 @@ async def test_training_narration_drives_duration(
     await orchestrator.submit(runtime, dispatcher, job.id)
     await dispatcher.drain()
     scenes = await scenes_of(runtime, job.id)
-    assert 6 <= len(scenes) <= 18
+    assert 4 <= len(scenes) <= 12
     await orchestrator.confirm_storyboard(runtime, dispatcher, job.id)
     await dispatcher.drain()
     job = await reload(runtime, job.id)
@@ -155,7 +201,7 @@ async def test_continuous_shots_chain_last_frame(
     runtime: Runtime, dispatcher: InlineDispatcher, templates: dict[str, Template], user: User
 ) -> None:
     job = await new_job(
-        runtime, user, templates["marketing"], continuous_shots=True, audio_mode=AudioMode.NONE
+        runtime, user, templates["marketing_multi"], continuous_shots=True, audio_mode=AudioMode.NONE
     )
     await orchestrator.submit(runtime, dispatcher, job.id)
     await dispatcher.drain()
@@ -177,7 +223,7 @@ async def test_moderation_failure_then_regenerate_scene(
     runtime: Runtime, dispatcher: InlineDispatcher, templates: dict[str, Template], user: User
 ) -> None:
     seedance(runtime).task_failures[2] = ("OutputVideoSensitiveContentDetected", "輸出內容未通過審核")
-    job = await new_job(runtime, user, templates["marketing"], audio_mode=AudioMode.NONE)
+    job = await new_job(runtime, user, templates["marketing_multi"], audio_mode=AudioMode.NONE)
     await orchestrator.submit(runtime, dispatcher, job.id)
     await dispatcher.drain()
     await orchestrator.confirm_storyboard(runtime, dispatcher, job.id)
@@ -265,7 +311,8 @@ async def test_draft_mode_then_render_final(
     job = await reload(runtime, job.id)
     assert job.status == JobStatus.IN_REVIEW and job.phase == "draft"
     draft_req = seedance(runtime).created[0]
-    assert draft_req.draft is True and draft_req.model_id == runtime.config.models.video_draft.id
+    # Seedance 2.0 能力表未標 supports_draft：用 fast 模型與低解析度出樣片
+    assert draft_req.draft is False and draft_req.model_id == runtime.config.models.video_draft.id
     assert draft_req.resolution == "480p"
     await orchestrator.render_final(runtime, dispatcher, job.id)
     await dispatcher.drain()
@@ -321,7 +368,7 @@ async def test_storyboard_fix_round(
         "scenes": [{"visual_prompt": f"畫面{i}", "duration_s": 5, "narration": "旁白"} for i in range(4)],
     }
     llm.scripted.extend([too_many, good])
-    job = await new_job(runtime, user, templates["marketing"])
+    job = await new_job(runtime, user, templates["marketing_multi"])
     await orchestrator.submit(runtime, dispatcher, job.id)
     await dispatcher.drain()
     assert len(llm.calls) == 2

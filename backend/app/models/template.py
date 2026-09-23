@@ -20,6 +20,8 @@ class Template(TimestampedMixin, Base):
     min_shots: Mapped[int] = mapped_column(Integer)
     max_shots: Mapped[int] = mapped_column(Integer)
     audio_mode: Mapped[str] = mapped_column(String(16))
+    # 正片用的影片模型鍵：video_final（Seedance 2.0）或 video_long（Seedance 2.5）
+    video_model: Mapped[str] = mapped_column(String(16), default="video_final")
     subtitle_required: Mapped[bool] = mapped_column(Boolean, default=False)
     style_prefix: Mapped[str] = mapped_column(Text, default="")
     prompt_template: Mapped[str] = mapped_column(Text, default="")

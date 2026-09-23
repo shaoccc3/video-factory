@@ -28,7 +28,13 @@ from app.providers.base import (
 )
 from app.providers.errors import ProviderError, with_retries
 from app.providers.live import task_error
-from app.providers.pricing import cost_per_image, cost_per_kchar, cost_per_mtok, video_tokens
+from app.providers.pricing import (
+    cost_per_image,
+    cost_per_kchar,
+    cost_per_mtok,
+    unit_price_mtok,
+    video_tokens,
+)
 from app.providers.ratelimit import Limit, RateLimiter
 from app.services.budget import BudgetGuard
 from app.services.recorder import CallRecorder, Charge
@@ -215,11 +221,13 @@ class Gateway:
 
     # ---- 影片 ---------------------------------------------------------------
 
-    def estimate_video_cny(self, key: ModelKey, *, resolution: str, ratio: str, duration_s: float) -> float:
+    def estimate_video_cny(
+        self, key: ModelKey, *, resolution: str, ratio: str, duration_s: float, audio: bool = False
+    ) -> float:
         caps = self.config.video_caps(key)
         width, height = video_dimensions(resolution, ratio)
         tokens = video_tokens(width, height, caps.fps, duration_s)
-        return cost_per_mtok(self.config, key, tokens, self.region)[1]
+        return cost_per_mtok(self.config, key, tokens, self.region, audio=audio)[1]
 
     async def run_video(
         self,
@@ -237,7 +245,11 @@ class Gateway:
                 job_id=ctx.job_id,
                 user_id=ctx.user_id,
                 add_cny=self.estimate_video_cny(
-                    key, resolution=request.resolution, ratio=request.ratio, duration_s=request.duration_s
+                    key,
+                    resolution=request.resolution,
+                    ratio=request.ratio,
+                    duration_s=request.duration_s,
+                    audio=request.generate_audio,
                 ),
             )
         async with self.limiter.slot(key, self._limit(key)):
@@ -273,7 +285,9 @@ class Gateway:
                 task = await self._poll(ctx, task_id)
                 if task.status == "cancelled":
                     raise JobCancelledError()
-                amount, cny = cost_per_mtok(self.config, key, task.completion_tokens, self.region)
+                amount, cny = cost_per_mtok(
+                    self.config, key, task.completion_tokens, self.region, audio=request.generate_audio
+                )
                 already = existing_task_id is not None and await self.recorder.remote_task_charged(task_id)
                 if task.completion_tokens and not already:
                     # 遠端任務已計費：先記賬，下載失敗也不會漏記
@@ -281,7 +295,7 @@ class Gateway:
                         call_id,
                         Charge(
                             usage={"completion_tokens": task.completion_tokens, **task.meta},
-                            unit_price=self.config.models.get(key).price_per_mtok or 0.0,
+                            unit_price=unit_price_mtok(self.config, key, audio=request.generate_audio),
                             currency=self._currency(),
                             amount=amount,
                             amount_cny=cny,

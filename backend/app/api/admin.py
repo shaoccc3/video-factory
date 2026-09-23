@@ -11,6 +11,7 @@ from app.api.schemas import (
     BudgetOut,
     BudgetUpdate,
     JobSummary,
+    MetaOut,
     ModelsConfigOut,
     Page,
     UsageByDay,
@@ -20,12 +21,23 @@ from app.api.schemas import (
 )
 from app.api.serializers import job_summaries
 from app.models import AuditLog, CostLedger, GenerationCall, Job, User
-from app.models.enums import JobPhase, JobStatus, Role
+from app.models.enums import AudioMode, JobPhase, JobStatus, Role
+from app.providers.pricing import CHARS_PER_SECOND
 from app.services.audit import audit
 from app.services.budget import limits_for, spent_today
+from app.services.jobs import tts_available
 from app.services.settings_store import get_budget, set_budget
 
 router = APIRouter(tags=["admin"])
+
+
+@router.get("/meta", response_model=MetaOut)
+async def meta(_: CurrentUser, runtime: RuntimeDep) -> MetaOut:
+    """前端用的平台資訊：區域、是否提供 TTS、旁白語速。"""
+    region = runtime.settings.ark_region
+    tts = tts_available(region)
+    modes = [AudioMode.NATIVE, *([AudioMode.TTS] if tts else []), AudioMode.NONE]
+    return MetaOut(region=region, tts_available=tts, chars_per_second=CHARS_PER_SECOND, audio_modes=modes)
 
 
 @router.get("/reviews/queue", response_model=list[JobSummary])
@@ -96,7 +108,8 @@ def _config_out(runtime: RuntimeDep, budget: BudgetOut) -> ModelsConfigOut:
     cfg = runtime.config
     models = {
         key: {k: v for k, v in cfg.models.get(key).model_dump(mode="json").items() if v is not None}
-        for key in ("script_llm", "keyframe", "video_draft", "video_final", "tts")
+        for key in ("script_llm", "keyframe", "video_draft", "video_final", "video_long", "tts")
+        if cfg.models.has(key)
     }
     region = runtime.settings.ark_region
     return ModelsConfigOut(

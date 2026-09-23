@@ -175,12 +175,12 @@ async def test_marketing_flow_over_http(
     assert {"edit_storyboard", "confirm_storyboard"} <= set(job["allowed_actions"])
     assert job["estimate"]["total_cny"] > 0
 
-    scene = job["scenes"][1]
+    scene = job["scenes"][0]
     patched = await client.patch(
         f"/api/v1/jobs/{job['id']}/scenes/{scene['id']}", json={"narration": "改過的旁白", "duration_s": 6}
     )
     assert patched.status_code == 200
-    assert patched.json()["scenes"][1]["narration"] == "改過的旁白"
+    assert patched.json()["scenes"][0]["narration"] == "改過的旁白"
 
     confirmed = await client.post(f"/api/v1/jobs/{job['id']}/confirm-storyboard")
     assert confirmed.status_code == 200 and confirmed.json()["status"] == "generating"
@@ -198,7 +198,7 @@ async def test_marketing_flow_over_http(
     assert part.headers["content-range"].startswith("bytes 0-99/")
 
     calls = (await client.get(f"/api/v1/jobs/{job['id']}/calls")).json()
-    assert {c["provider"] for c in calls} >= {"llm", "seedream", "seedance", "tts"}
+    assert {c["provider"] for c in calls} == {"llm", "seedream", "seedance"}  # 原生聲音：沒有 TTS
     assert sum(c["cost_cny"] for c in calls) == pytest.approx(job["actual_cost_cny"], abs=0.001)
 
     # 審核：換成審核者
@@ -243,7 +243,7 @@ async def test_reject_then_edit_and_regenerate(
         await client.post(
             "/api/v1/jobs",
             json={
-                "template_id": str(templates["marketing"].id),
+                "template_id": str(templates["marketing_multi"].id),
                 "inputs": {"topic": "咖啡"},
                 "audio_mode": "none",
             },
@@ -475,12 +475,16 @@ async def test_templates_admin_crud(
 ) -> None:
     await login(client, admin)
     listed = (await client.get("/api/v1/templates")).json()
-    assert {t["key"] for t in listed} == {"marketing", "quick", "training"}
+    assert {t["key"] for t in listed} == {"marketing", "quick", "training", "marketing_multi"}
     tpl = templates["quick"]
     r = await client.patch(f"/api/v1/templates/{tpl.id}", json={"is_active": False})
     assert r.json()["version"] == 2 and r.json()["is_active"] is False
-    assert {t["key"] for t in (await client.get("/api/v1/templates")).json()} == {"marketing", "training"}
-    assert len((await client.get("/api/v1/templates?include_inactive=true")).json()) == 3
+    assert {t["key"] for t in (await client.get("/api/v1/templates")).json()} == {
+        "marketing",
+        "training",
+        "marketing_multi",
+    }
+    assert len((await client.get("/api/v1/templates?include_inactive=true")).json()) == 4
     bad = await client.patch(f"/api/v1/templates/{tpl.id}", json={"min_shots": 5, "max_shots": 2})
     assert bad.status_code == 422
 
@@ -533,3 +537,71 @@ async def test_sse_requires_access(
     client.cookies.clear()
     await login(client, creator)
     assert (await client.get(f"/api/v1/jobs/{job['id']}/events")).status_code == 404
+
+
+async def test_meta_and_tts_region_rules(
+    client: httpx.AsyncClient, templates: dict[str, Template], creator: User
+) -> None:
+    await login(client, creator)
+    meta = (await client.get("/api/v1/meta")).json()
+    assert meta == {
+        "region": "byteplus",
+        "tts_available": False,
+        "chars_per_second": 4.5,
+        "audio_modes": ["native", "none"],
+    }
+    # 國際版手動選 TTS：422；培訓模板預設 TTS 自動改成原生聲音
+    r = await client.post(
+        "/api/v1/jobs",
+        json={"template_id": str(templates["training"].id), "inputs": {"topic": "資安"}, "audio_mode": "tts"},
+    )
+    assert r.status_code == 422 and "TTS" in r.json()["detail"]
+    r = await client.post(
+        "/api/v1/jobs", json={"template_id": str(templates["training"].id), "inputs": {"topic": "資安"}}
+    )
+    assert r.status_code == 201 and r.json()["options"]["audio_mode"] == "native"
+    r = await client.post(
+        "/api/v1/jobs",
+        json={
+            "template_id": str(templates["marketing"].id),
+            "inputs": {"topic": "茶"},
+            "voice_style": "沉穩男聲",
+            "music": "none",
+            "consistent_voice": True,
+        },
+    )
+    opts = r.json()["options"]
+    assert opts["voice_style"] == "沉穩男聲" and opts["music"] == "none" and opts["consistent_voice"] is True
+    templates_out = {t["key"]: t for t in (await client.get("/api/v1/templates")).json()}
+    assert templates_out["marketing"]["video_model"] == "video_long"
+
+
+async def test_native_narration_edit_regenerates_video(
+    client: httpx.AsyncClient, dispatcher: InlineDispatcher, templates: dict[str, Template], admin: User
+) -> None:
+    await login(client, admin)
+    job = (
+        await client.post(
+            "/api/v1/jobs",
+            json={"template_id": str(templates["marketing_multi"].id), "inputs": {"topic": "咖啡"}},
+        )
+    ).json()
+    await client.post(f"/api/v1/jobs/{job['id']}/submit")
+    await dispatcher.drain()
+    await client.post(f"/api/v1/jobs/{job['id']}/confirm-storyboard")
+    await dispatcher.drain()
+    r = await client.post(
+        f"/api/v1/jobs/{job['id']}/review",
+        json={"decision": "rejected", "checklist": {}, "reason": "旁白要改"},
+    )
+    scene = r.json()["scenes"][0]
+    r = await client.patch(
+        f"/api/v1/jobs/{job['id']}/scenes/{scene['id']}",
+        json={"narration": "新的一句話", "speaker": "店員", "sound": "咖啡機蒸汽聲"},
+    )
+    updated = r.json()["scenes"][0]
+    assert updated["status"] == "pending"  # 原生聲音：旁白在影片裡，改了就重做
+    too_long = await client.patch(f"/api/v1/jobs/{job['id']}/scenes/{scene['id']}", json={"duration_s": 20})
+    assert too_long.status_code == 422 and "4～15" in too_long.json()["detail"]
+    assert updated["speaker"] == "店員" and updated["sound"] == "咖啡機蒸汽聲"
+    assert r.json()["scenes"][1]["status"] == "succeeded"

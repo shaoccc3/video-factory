@@ -2,8 +2,10 @@
 
 主題：{{ topic }}
 {% if extra %}補充說明：{{ extra }}
-{% endif %}目標總長：約 {{ target_duration_s }} 秒，{{ min_shots }}～{{ max_shots }} 個鏡頭。
-{% if product_count %}已提供 {{ product_count }} 張商品圖：第一個鏡頭請以商品為主角（needs_first_frame 設為 true），其餘鏡頭呈現使用情境。
-{% endif %}結構建議：吸引注意的開場 → 產品亮點或情境 → 使用感受 → 簡短行動呼籲。
-旁白口語、有節奏，每個鏡頭的旁白長度要能在該鏡頭時長內唸完（約每秒 4 個字）。
-screen_text 放 6～12 字的畫面標語，沒有就留空。
+{% endif %}目標總長：約 {{ target_duration_s }} 秒，{{ min_shots }}～{{ max_shots }} 個鏡頭（影片模型單鏡最長 {{ clip_max_duration_s }} 秒，盡量用一個連貫的長鏡頭講完）。
+{% if product_count %}已提供 {{ product_count }} 張商品圖：第一個鏡頭請以商品為主角（needs_first_frame 設為 true）。
+{% endif %}結構建議：吸引注意的開場 → 產品亮點或使用情境 → 使用感受 → 簡短行動呼籲，在一個鏡頭內用運鏡與場景轉換完成。
+{% if audio_mode == "native" %}影片模型會直接生成聲音：narration 是畫面中說出的旁白或對白（每秒約 {{ chars_per_second }} 字，不要超過鏡頭時長），
+speaker 寫說話者（「旁白」或角色泛稱），sound 寫環境音與音效。
+{% else %}旁白口語、有節奏，每個鏡頭的旁白長度要能在該鏡頭時長內唸完（約每秒 {{ chars_per_second }} 字）。
+{% endif %}screen_text 放 6～12 字的畫面標語，沒有就留空。
