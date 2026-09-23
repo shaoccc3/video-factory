@@ -147,6 +147,7 @@ describe("管理", () => {
       currency: "CNY",
       models: {
         script_llm: { id: "seed-lite", price_per_mtok_input: 0.25, price_per_mtok_output: 2 },
+        video_hd: { id: "seedance-hd", price_per_mtok_by_resolution: { "720p": 7, "1080p": 7.7 } },
         video: {
           id: "seedance-pro",
           price_per_mtok: 7,
@@ -166,6 +167,7 @@ describe("管理", () => {
     expect(await screen.findByText("seedance-pro")).toBeInTheDocument();
     expect(screen.getByText("入 0.25／出 2")).toBeInTheDocument();
     expect(screen.getByText("7（1080p 7.7）")).toBeInTheDocument();
+    expect(screen.getByText("720p 7、1080p 7.7")).toBeInTheDocument();
     const perJob = screen.getByLabelText("單任務預算");
     await userEvent.clear(perJob);
     await userEvent.type(perJob, "80");

@@ -15,10 +15,10 @@ export function formatMtokPrice(m: ModelConfig, t: TFunction): string {
       output: m.price_per_mtok_output,
     });
   }
-  if (m.price_per_mtok === undefined) return "—";
   const extra = Object.entries(m.price_per_mtok_by_resolution ?? {})
-    .map(([resolution, price]) => `${resolution} ${price}`)
-    .join("、");
+    .map(([resolution, price]) => t("admin.budget.priceResolutionItem", { resolution, price }))
+    .join(t("admin.budget.priceSeparator"));
+  if (m.price_per_mtok === undefined) return extra || "—";
   return extra
     ? t("admin.budget.priceWithResolutions", { base: m.price_per_mtok, extra })
     : String(m.price_per_mtok);

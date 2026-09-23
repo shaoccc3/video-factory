@@ -82,7 +82,7 @@
 | `draft` | 2.0 不傳 | 只有 2.5、1.5 pro 支援；2.5 草稿只能 480p，由草稿生成正片只能 1080p | 2.0 維持 false；2.5 也設 false（樣片走 `video_draft`，不用兩步流程） |
 | 首幀與參考素材混用 | 第一鏡以後，首幀 + 參考音頻會一起送 | **首幀、首尾幀、全能參考（參考圖／影片／音頻）互斥，不能混用** | 見設計 4 與待確認 4 |
 | 只送參考音頻 | 沒有圖時可能只送音頻 | 2.0 系列不支援只有音頻，至少要有一張參考圖或一段參考影片；2.5 可以 | 2.0 沒有圖時不送參考音頻 |
-| `return_last_frame` | true | 名稱正確；返回 **jpeg** | 正確 |
+| `return_last_frame` | true，尾幀存成 `last_frame.png`、MIME `image/png` | 名稱正確；返回 **jpeg** | 存成 `last_frame.jpg`，MIME 按文件頭判斷（審查時補上） |
 | `watermark` | 按設定 | 名稱正確，預設 false | 正確 |
 | `safety_identifier` | 用戶 UUID | 名稱正確，≤64 字元 | 正確 |
 | 任務狀態 | queued／running／succeeded／failed／cancelled | 另有 **`expired`** | 現在會被當成 running 一直輪詢到總超時；改為失敗（超時類） |
@@ -203,9 +203,9 @@ models:
 
 - `VideoRequest.seed` 改為 `int | None`，`None` 時不送；`build_video_request` 只在 `caps.supports_seed` 時帶 `job.seed`。
 - `VideoRequest` 新增 `adaptive_ratio: bool`，為 true 時 payload 送 `"ratio": "adaptive"`；`ratio` 欄位仍保留任務畫幅，用於預估與 Mock。帶首幀且 `caps.frames_require_adaptive_ratio` 時設為 true。首幀是按任務畫幅生成的，2.5 會沿用它的畫幅。
-- 首幀與參考音頻互斥（待確認 4 採建議做法時）：要送參考音頻時，首幀改以 `reference_image` 送出，提示詞開頭加「以參考圖片 1 作為影片第一幀。」；不送參考音頻時行為不變。
-- `caps.reference_audio_needs_visual` 為 true 且沒有任何參考圖時，不送參考音頻（記一條 warning 日誌）。
-- `parse_task`：`expired` 狀態映射為 `failed`，`error_code` 設為 `TaskExpired`（`classify_code` 已把 expired 歸為超時）。
+- 首幀與參考音頻互斥（決定 4）：要送參考音頻時，首幀改以 `reference_image` 送出（@Image1），分鏡的參考圖接在後面；提示詞開頭加「影片第一幀使用 @Image1 的畫面，從這個畫面開始。」（官方文件用 `@Image1` 指稱參考圖）。不送參考音頻時行為不變。
+- `caps.reference_audio_needs_visual` 為 true 且沒有任何參考圖時，不送參考音頻（記一條 warning 日誌）。這種情況下（2.0 系列、第 2 鏡起都沒有首幀或參考圖），編排不再先只做第一鏡，全部鏡頭同時派發。
+- `parse_task`：`expired` 狀態映射為 `failed`；平台有返回錯誤碼時保留原碼，沒有時設為 `TaskExpired`（`classify_code` 已把 expired 歸為超時）。
 - `ArkSeedream`：不送 `seed`；送 `"output_format": "png"`。`ensure_keyframe` 的尺寸改用 `keyframe.image_sizes[ratio]`，沒配置時退回現在的影片寬高。
 - `ArkLLM` 的 `user` 欄位按待確認 5 處理。
 
@@ -271,6 +271,10 @@ models:
 - 2.5 的 1080p 輸出是 10-bit H.265；合成會重新編碼為 H.264，需要 ffmpeg 能解 HEVC 10-bit（常見版本都支援），真實驗證時確認。
 - Seedance 2.x 不接受含真人臉的參考圖／影片。關鍵幀由 Seedream 生成，平台說可信任部分模型的原始輸出，但未列明是否包含 Seedream；真實驗證時確認。
 - 大模型 `max_tokens` 預設 4096（不含思維鏈）；培訓片 12 個分鏡的 JSON 可能接近上限而被截斷，觸發修復重試。先觀察，必要時另開規格加配置。
+- Seedance 2.5 帶首幀時畫幅跟隨首幀圖（`adaptive`）。關鍵幀與尾幀都按任務畫幅生成，沒有問題；但用戶在分鏡頁手動把其他畫幅的圖設為首幀時，成片會加黑邊。後續可在送出前把首幀居中裁切成任務畫幅。
+- 預算 150 CNY 做不完最長的培訓片（180 秒正片約 193 CNY），約超過 140 秒會以 `budget_exceeded` 停下；已寫進 runbook。
+- 大模型預算預檢的輸出按 2000 token 估，深度思考的思維鏈可能更多，會稍微低估（金額很小）。
+- 既有問題（不在本規格）：大模型輸出被 `content_filter` 攔截、或修復迴圈中途遇到 5xx 被整體重試時，前面幾輪已計費的 token 不會記賬。
 - 豆包語音 TTS 的價格仍待核對，需要讀火山引擎文件或控制台。
 
 ## 決定（2026-09-23）
