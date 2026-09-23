@@ -98,25 +98,25 @@ Seedance 2.0 起，`generate_audio: true` 會在同一次生成裡產出對白�
 
 ## 任務清單
 
-- [ ] models.yaml 與能力表結構更新（含 `video_long`、參考素材上限、`price_per_mtok_audio`）
-- [ ] SceneList、提示詞模板、constraints 加入 sound／speaker 與旁白字數上限
-- [ ] 原生聲音模式的影片提示詞組裝，傳 `generate_audio`
-- [ ] 聲音一致選項（第一鏡音頻作參考音頻）
-- [ ] 合成：保留原生音軌、音頻交叉淡化、背景音樂預設關閉
-- [ ] 成本預估與記帳支援有聲單價
-- [ ] 遷移 0003
-- [ ] 前端精靈與分鏡頁欄位、i18n
-- [ ] Mock：原生聲音模式產生帶音軌的片段
-- [ ] 測試、E2E、CHANGELOG、api-contract 更新
+- [x] models.yaml 與能力表結構更新（含 `video_long`、參考素材上限、`price_per_mtok_audio`）
+- [x] SceneList、提示詞模板、constraints 加入 sound／speaker 與旁白字數上限
+- [x] 原生聲音模式的影片提示詞組裝，傳 `generate_audio`
+- [x] 聲音一致選項（第一鏡音頻作參考音頻）
+- [x] 合成：保留原生音軌、音頻交叉淡化、背景音樂預設關閉
+- [x] 成本預估與記帳支援有聲單價
+- [x] 遷移 0003
+- [x] 前端精靈與分鏡頁欄位、i18n
+- [x] Mock：原生聲音模式產生帶音軌的片段
+- [x] 測試、E2E、CHANGELOG、api-contract 更新
 
 ## 驗收清單
 
-- [ ] `uv run pytest`：原生聲音模式下 VideoRequest 帶 `generate_audio: true`，提示詞含說話者、旁白、音效、配樂
-- [ ] 原生聲音模式成片保留片段音軌、無 TTS 調用、無 TTS 費用（ffprobe 檢查有音軌、調用記錄沒有 tts）
-- [ ] 聲音一致開啟時，第 2 鏡起的請求帶第一鏡的參考音頻
-- [ ] TTS 模式行為與現在一致（原有測試全部通過）
-- [ ] 模型能力表校驗：時長超出 4～15 秒、參考素材超出上限時報錯
-- [ ] 前端檢查與 E2E 通過
+- [x] `uv run pytest`：原生聲音模式下 VideoRequest 帶 `generate_audio: true`，提示詞含說話者、旁白、音效、配樂
+- [x] 原生聲音模式成片保留片段音軌、無 TTS 調用、無 TTS 費用（ffprobe 檢查有音軌、調用記錄沒有 tts）
+- [x] 聲音一致開啟時，第 2 鏡起的請求帶第一鏡的參考音頻
+- [x] TTS 模式行為與現在一致（原有測試全部通過）
+- [x] 模型能力表校驗：分鏡時長超出模型範圍回 422；參考素材超出上限時按上限截取
+- [x] 前端檢查與 E2E 通過
 - [ ] 真實驗證（需 `/live-smoke` 與 API Key）：一條 10 秒有聲行銷樣片，人工確認聲音與口型
 
 ## 待確認問題

@@ -14,3 +14,5 @@
 - 權限、審核與審計（P12）
 - 測試與部署（P13）：覆蓋率、pip-audit、pnpm audit、gitleaks、前端 Nginx 映像、compose.prod.yaml、docs/runbook.md
 - 新增 scripts/dev-local.sh（無 Docker 的本地全套）、scripts/fetch_fonts.py（字幕字體）
+- 規格 12：模型原生聲音（旁白、音效、配樂由 Seedance 直接生成）、Seedance 2.0／2.5 與 Seedream 5.0 能力表（ID 與價格待核對）、
+  行銷片改 2.5 長鏡頭、聲音一致選項、TTS 只在國內版提供、GET /meta、API 契約 v1.1、遷移 0003
