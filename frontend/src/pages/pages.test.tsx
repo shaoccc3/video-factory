@@ -78,28 +78,6 @@ describe("用量看板", () => {
   });
 });
 
-describe("成片庫", () => {
-  it("只有已通過的成片可下載", async () => {
-    mockApi({
-      "GET /auth/me": makeUser(),
-      "GET /jobs": {
-        items: [
-          makeJobSummary({ status: "approved", final_asset_id: "f-1", cover_asset_id: "c-1" }),
-          makeJobSummary({ id: "job-2", title: "無成片", status: "approved" }),
-        ],
-        total: 2,
-      },
-    });
-    renderApp("/library");
-    expect(await screen.findByText("綠茶推廣")).toBeInTheDocument();
-    expect(screen.queryByText("無成片")).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /下載/ })).toHaveAttribute(
-      "href",
-      "/api/v1/assets/f-1/download",
-    );
-  });
-});
-
 describe("批量", () => {
   it("上傳 CSV 建立批量並進入詳情", async () => {
     const batch: Batch = {

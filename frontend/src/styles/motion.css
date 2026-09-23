@@ -8,6 +8,12 @@
   }
 }
 
+@keyframes vf-fade {
+  from {
+    opacity: 0;
+  }
+}
+
 @keyframes vf-kb-alt {
   from {
     transform: scale(1.15) translate3d(-2%, 1.5%, 0);

@@ -364,7 +364,9 @@
     "title": "成片库",
     "empty": "目前没有成片",
     "preview": "播放预览",
-    "detail": "详情"
+    "detail": "详情",
+    "playFilm": "放映《{{title}}》",
+    "noFinal": "这支片还没有成片文件。"
   },
   "assets": {
     "title": "素材库",

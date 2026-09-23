@@ -145,12 +145,6 @@
   animation: vf-fade 0.45s ease both;
 }
 
-@keyframes vf-fade {
-  from {
-    opacity: 0;
-  }
-}
-
 /* 運鏡示意：由播放頭驅動（animation-delay 設為負的進度），不自行播放 */
 .vf-shot-motion {
   position: absolute;
