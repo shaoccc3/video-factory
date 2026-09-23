@@ -1,0 +1,11 @@
+# 內容檢查詞表：旁白與畫面描述出現以下詞時標記警告（不阻擋，由創作者與審核者判斷）。
+# 只做提醒用的樣例清單，請按公司實際情況維護。比對不分大小寫。
+real_person:
+  label: 真人姓名或明星
+  words: [周杰倫, 蔡依林, 劉德華, 成龍, 馬斯克, 泰勒絲, Taylor Swift, Elon Musk, 川普, Trump]
+brand:
+  label: 第三方品牌
+  words: [可口可樂, Coca-Cola, 百事, Pepsi, Nike, 耐吉, Adidas, 愛迪達, Apple, 蘋果手機, iPhone, 星巴克, Starbucks, 麥當勞, McDonald, LV, Gucci, 特斯拉, Tesla]
+ip:
+  label: 影視或動漫 IP
+  words: [迪士尼, Disney, 漫威, Marvel, 米老鼠, Mickey, 寶可夢, Pokemon, 皮卡丘, 哈利波特, Harry Potter, 星際大戰, Star Wars, 冰雪奇緣, 哆啦A夢, 鬼滅之刃, 蜘蛛人, Spider-Man, 蝙蝠俠, Batman]

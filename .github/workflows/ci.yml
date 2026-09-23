@@ -1,0 +1,139 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+      - name: 安裝 ffmpeg 與字體
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg fonts-noto-cjk
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - run: uv python install 3.13
+      - run: uv sync --locked
+      - name: 準備字幕字體
+        run: uv run --with fonttools python ../scripts/fetch_fonts.py
+      - run: uv run ruff check
+      - run: uv run ruff format --check
+      - run: uv run mypy
+      - run: uv run pytest --cov=app --cov-report=term-missing:skip-covered --cov-report=xml
+      - name: 依賴漏洞掃描
+        run: uv export --locked --no-dev --no-hashes --format requirements-txt > /tmp/requirements.txt && uvx pip-audit -r /tmp/requirements.txt --strict
+      - uses: actions/upload-artifact@v7
+        with:
+          name: backend-coverage
+          path: backend/coverage.xml
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: frontend/package.json
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm biome ci .
+      - run: pnpm tsc --noEmit
+      - run: pnpm vitest run
+      - run: pnpm vite build
+      - name: 依賴漏洞掃描（生產依賴，高危以上）
+        run: pnpm audit --prod --audit-level high
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v7
+      - name: 安裝 ffmpeg 與字體
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg fonts-noto-cjk
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - run: uv python install 3.13
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: frontend/package.json
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: cd backend && uv sync --locked && uv run --with fonttools python ../scripts/fetch_fonts.py
+      - run: cd frontend && pnpm install --frozen-lockfile && pnpm exec playwright install --with-deps chromium
+      - name: 啟動本地全套（Mock 模型）
+        run: scripts/dev-local.sh start
+        env:
+          E2E_PASSWORD: admin-pass-123
+      - name: Playwright
+        run: cd frontend && pnpm e2e
+        env:
+          E2E_PASSWORD: admin-pass-123
+          E2E_SCREENSHOT_DIR: ${{ runner.temp }}/e2e
+      - name: 失敗時輸出日誌
+        if: failure()
+        run: tail -n 200 /tmp/vf-local/*.log
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: e2e-screenshots
+          path: |
+            ${{ runner.temp }}/e2e
+            frontend/playwright-report
+
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: 啟動全套服務
+        run: docker compose up -d --build --wait --wait-timeout 600
+      - name: 檢查 /healthz、/readyz 與前端
+        run: |
+          curl -fsS http://127.0.0.1:8000/healthz && echo
+          curl -fsS http://127.0.0.1:8000/readyz && echo
+          curl -fsS http://127.0.0.1:8080/ -o /dev/null
+          curl -fsS http://127.0.0.1:8080/readyz && echo
+      - name: 成片合成冒煙（容器內 ffmpeg 與字體）
+        run: docker compose exec -T worker python -c "import pathlib,shutil; assert shutil.which('ffmpeg'); assert pathlib.Path('/srv/assets/fonts/NotoSansCJKtc-Regular.otf').exists()"
+      - name: 失敗時輸出日誌
+        if: failure()
+        run: docker compose ps -a && docker compose logs --no-color
+      - name: 清理
+        if: always()
+        run: docker compose down -v

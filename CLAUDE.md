@@ -10,14 +10,18 @@
 - Playwright 用預裝 Chromium（/opt/pw-browsers/chromium），不要執行 playwright install
 
 ## 運行
-- 全套：docker compose up -d --wait
-- 後端：cd backend && uv run uvicorn app.main:app --reload
+- 全套：docker compose up -d --wait（前端 :8080、API :8000）；生產疊加 compose.prod.yaml，見 docs/runbook.md
+- 無 Docker 的本地全套（SQLite + 本地存儲 + Celery + Mock）：scripts/dev-local.sh start|stop
+- 字幕字體（首次）：cd backend && uv run --with fonttools python ../scripts/fetch_fonts.py
+- 後端：cd backend && uv run uvicorn --factory app.main:app_factory --reload
+- 遷移：cd backend && uv run alembic upgrade head
 - Worker：cd backend && uv run celery -A app.workers worker -l info
 - 前端：cd frontend && pnpm dev
 
 ## 檢查（提交前全部通過）
 - 後端：cd backend && uv run ruff check && uv run ruff format --check && uv run mypy && uv run pytest
-- 前端：cd frontend && pnpm biome ci . && pnpm tsc --noEmit && pnpm vitest run
+- 前端：cd frontend && pnpm biome ci . && pnpm tsc --noEmit && pnpm vitest run && pnpm build
+- E2E（改動前端或流水線時）：scripts/dev-local.sh start && (cd frontend && pnpm e2e)，截圖在 /tmp/e2e/
 - 單元測試一律用 MockProvider，禁止調用真實 API
 
 ## 付費調用

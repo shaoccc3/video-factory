@@ -1,0 +1,10 @@
+請為以下主題寫一支橫屏的知識／培訓講解影片的腳本與分鏡。
+
+主題：{{ topic }}
+{% if extra %}補充說明與要點：{{ extra }}
+{% endif %}目標總長：約 {{ target_duration_s }} 秒，{{ min_shots }}～{{ max_shots }} 個鏡頭（單鏡最長 {{ clip_max_duration_s }} 秒）。
+結構：開場說明學習目標 → 分點講解（每點一到兩個鏡頭，配具體例子）→ 重點回顧。
+旁白是影片主軸：用清楚、平實的口語，每個鏡頭的旁白字數約為鏡頭秒數 × {{ chars_per_second }}。
+{% if audio_mode == "native" %}影片模型會直接念出旁白：speaker 一律填「旁白」，sound 寫輕微的環境音或留空。
+{% endif %}visual_prompt 描述能輔助理解旁白的畫面（示意場景、物件、流程），不要出現需要清晰文字的畫面。
+screen_text 放該鏡頭的重點關鍵詞（4～10 字）。

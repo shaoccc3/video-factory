@@ -9,6 +9,10 @@ fi
 if [ -f backend/uv.lock ]; then
   (cd backend && uv sync --locked -q) || echo "SessionStart：backend 的 uv sync 失敗，先修依賴再做其他事"
 fi
+if [ ! -f assets/fonts/NotoSansCJKtc-Regular.otf ] && [ -d /usr/share/fonts/opentype/noto ]; then
+  (cd backend && uv run -q --with fonttools python ../scripts/fetch_fonts.py >/dev/null) \
+    || echo "SessionStart：字幕字體抽取失敗，執行 scripts/fetch_fonts.py 查看原因"
+fi
 if [ -f frontend/pnpm-lock.yaml ]; then
   (cd frontend && pnpm install --frozen-lockfile --reporter=silent) || echo "SessionStart：frontend 的 pnpm install 失敗"
 fi

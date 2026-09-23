@@ -29,3 +29,11 @@ dist/
 *.m4a
 *.aac
 media-out/
+
+# Claude Code 子代理工作目錄
+.claude/worktrees/
+
+# 字體文件由 scripts/fetch_fonts.py 生成（體積大，不進 Git）
+assets/fonts/*.otf
+assets/fonts/*.ttf
+assets/fonts/*.ttc

@@ -1,0 +1,71 @@
+[project]
+name = "video-factory-backend"
+version = "0.1.0"
+description = "video-factory 後端：API、流水線與 Celery worker"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "alembic>=1.20.0",
+    "argon2-cffi>=25.1.0",
+    "boto3>=1.43.100",
+    "celery>=5.6.3",
+    "fastapi>=0.141.1",
+    "httpx>=0.28.1",
+    "itsdangerous>=2.2.0",
+    "jinja2>=3.1.6",
+    "psycopg[binary]>=3.3.6",
+    "pydantic[email]>=2.13.5",
+    "pydantic-settings>=2.15.0",
+    "python-multipart>=0.0.32",
+    "pyyaml>=6.0.3",
+    "redis>=8.1.0",
+    "sqlalchemy[asyncio]>=2.0.54",
+    "structlog>=26.1.0",
+    "uvicorn[standard]>=0.53.0",
+]
+
+[dependency-groups]
+dev = [
+    "aiosqlite>=0.22.1",
+    "anyio>=4.15.1",
+    "boto3-stubs[s3]>=1.43.0",
+    "celery-types>=0.26.0",
+    "httpx>=0.28.1",
+    "mypy>=2.3.1",
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.16.8",
+    "types-pyyaml>=6.0.12.20260906",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 110
+target-version = "py313"
+
+[tool.ruff.format]
+# 已提交的遷移不得修改（包括格式）
+exclude = ["migrations/versions/*"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "ASYNC", "S"]
+# ASYNC240：worker 內對本地小文件的同步操作可接受；E501：行寬由 ruff format 控制（中文字串不拆行）
+ignore = ["RUF001", "RUF002", "RUF003", "ASYNC240", "E501"]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Form", "fastapi.File"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105", "S106", "S107"]
+
+[tool.mypy]
+strict = true
+python_version = "3.13"
+files = ["app", "tests", "migrations"]
+plugins = ["pydantic.mypy"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["live: 調用真實付費 API，預設跳過，只由 /live-smoke 觸發"]
+addopts = "-m 'not live'"
