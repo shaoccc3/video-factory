@@ -1,0 +1,100 @@
+/* 404：深藍測試色條加顆粒的「NO SIGNAL」字卡 */
+.vf-nosignal {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: min(640px, 72vh);
+  overflow: hidden;
+  border: 1px solid var(--vf-line);
+}
+
+.vf-nosignal-screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  opacity: 0.5;
+}
+
+.vf-nosignal-bars {
+  flex: 1;
+  display: flex;
+}
+
+.vf-nosignal-bars span,
+.vf-nosignal-pluge span {
+  flex: 1;
+}
+
+.vf-nosignal-pluge {
+  display: flex;
+  height: 16%;
+}
+
+.vf-nosignal-grain {
+  position: absolute;
+  inset: -50%;
+  background-image: var(--vf-grain-image);
+  background-size: 240px 240px;
+  opacity: 0.35;
+  mix-blend-mode: overlay;
+  animation: vf-grain 0.9s steps(6) infinite;
+}
+
+/* 一道慢慢往下捲的掃描帶，像失去同步的畫面 */
+.vf-nosignal-roll {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 18%;
+  background: linear-gradient(180deg, transparent, rgba(232, 236, 243, 0.12), transparent);
+  animation: vf-nosignal-roll 5s linear infinite;
+}
+
+@keyframes vf-nosignal-roll {
+  from {
+    transform: translateY(-100%);
+  }
+  to {
+    transform: translateY(560%);
+  }
+}
+
+.vf-nosignal-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  max-width: 460px;
+  padding: 32px 40px;
+  border: 1px solid var(--vf-line-2);
+  background: var(--vf-scrim);
+  text-align: center;
+}
+
+.vf-nosignal-tag {
+  color: var(--vf-accent);
+  font-size: 13px;
+  letter-spacing: 0.3em;
+}
+
+.vf-nosignal-card h1 {
+  margin: 0;
+  font-size: 32px;
+  letter-spacing: 0.04em;
+}
+
+.vf-nosignal-card p {
+  margin: 0;
+}
+
+.vf-nosignal-path {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--vf-text-3);
+  font-size: 12px;
+}

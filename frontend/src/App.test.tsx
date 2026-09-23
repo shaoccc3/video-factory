@@ -155,12 +155,22 @@ describe("App 與認證", () => {
   });
 });
 
+describe("404", () => {
+  it("未知路徑顯示 NO SIGNAL 字卡與回片場的連結", async () => {
+    mockApi({ "GET /auth/me": makeUser(), "GET /reviews/queue": [] });
+    renderApp("/no-such-page");
+    expect(await screen.findByRole("heading", { name: "這裡沒有畫面" })).toBeInTheDocument();
+    expect(screen.getByText("/no-such-page")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "回到片場" })).toHaveAttribute("href", "/");
+  });
+});
+
 describe("safeRedirect", () => {
   it("只接受站內路徑", () => {
     expect(safeRedirect("/jobs/1")).toBe("/jobs/1");
-    expect(safeRedirect(null)).toBe("/jobs");
-    expect(safeRedirect("//evil.example")).toBe("/jobs");
-    expect(safeRedirect("https://evil.example")).toBe("/jobs");
-    expect(safeRedirect("/login")).toBe("/jobs");
+    expect(safeRedirect(null)).toBe("/");
+    expect(safeRedirect("//evil.example")).toBe("/");
+    expect(safeRedirect("https://evil.example")).toBe("/");
+    expect(safeRedirect("/login")).toBe("/");
   });
 });

@@ -118,7 +118,12 @@
     "password": "密碼",
     "passwordRequired": "請輸入密碼",
     "submit": "登入",
-    "invalid": "電子郵件或密碼錯誤"
+    "invalid": "電子郵件或密碼錯誤",
+    "heading": "進片場",
+    "lead": "用公司帳號登入，繼續你的片。",
+    "tagline": "從一個想法，到一支可以上映的片。",
+    "stillLabel": "片頭靜幀：黎明的山谷",
+    "note": "忘記密碼請聯絡管理員。"
   },
   "jobs": {
     "title": "全部任務",
@@ -593,5 +598,8 @@
     "summary": "{{count}} 個鏡頭 · 總長 {{runtime}}",
     "shots": "{{count}} SHOTS",
     "facts": "片子資料"
+  },
+  "notFound": {
+    "title": "這裡沒有畫面"
   }
 }

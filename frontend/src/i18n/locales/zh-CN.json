@@ -118,7 +118,12 @@
     "password": "密码",
     "passwordRequired": "请输入密码",
     "submit": "登录",
-    "invalid": "电子邮件或密码错误"
+    "invalid": "电子邮件或密码错误",
+    "heading": "进片场",
+    "lead": "用公司账号登录，继续你的片。",
+    "tagline": "从一个想法，到一支可以上映的片。",
+    "stillLabel": "片头静帧：黎明的山谷",
+    "note": "忘记密码请联系管理员。"
   },
   "jobs": {
     "title": "全部任务",
@@ -593,5 +598,8 @@
     "summary": "{{count}} 个镜头 · 总长 {{runtime}}",
     "shots": "{{count}} SHOTS",
     "facts": "片子资料"
+  },
+  "notFound": {
+    "title": "这里没有画面"
   }
 }
