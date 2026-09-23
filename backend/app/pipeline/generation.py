@@ -15,7 +15,7 @@ from app.models.enums import AssetKind, AudioMode, JobPhase, JobStatus, SceneSta
 from app.pipeline.common import clip_duration, job_options, job_resolution, video_model_key
 from app.providers.base import VideoImageInput, VideoRequest
 from app.providers.gateway import CallContext, Gateway
-from app.services.assets import NewAsset, model_input_url, store_asset
+from app.services.assets import NewAsset, model_input_url, sniff_mime, store_asset
 from app.services.runtime import Runtime
 
 log = structlog.get_logger(__name__)
@@ -59,6 +59,15 @@ def video_prompt(job: Job, scene: Scene) -> str:
     return "。".join(parts) + "。"
 
 
+def keyframe_size(runtime: Runtime, resolution: str, ratio: str) -> str:
+    """關鍵幀尺寸：優先用 models.yaml 的 image_sizes（Seedream 5.0 lite 有最小總像素），沒配置時用影片寬高。"""
+    size = (runtime.config.models.keyframe.image_sizes or {}).get(ratio)
+    if size:
+        return size
+    width, height = video_dimensions(resolution, ratio)
+    return f"{width}x{height}"
+
+
 async def ensure_keyframe(runtime: Runtime, gateway: Gateway, job: Job, scene: Scene) -> uuid.UUID | None:
     """需要首幀且還沒有時，用 Seedream 生成（商品圖作參考圖）。返回首幀素材 id。"""
     if scene.first_frame_asset_id is not None or not scene.needs_first_frame:
@@ -69,12 +78,11 @@ async def ensure_keyframe(runtime: Runtime, gateway: Gateway, job: Job, scene: S
             asset = await session.get(Asset, uuid.UUID(ref_id))
             if asset is not None and not asset.is_deleted:
                 refs.append(model_input_url(runtime, asset))
-    width, height = video_dimensions(job.resolution, job.ratio)
     dest = work_dir(runtime, job.id, f"scene-{scene.index}") / f"keyframe-{uuid.uuid4().hex[:8]}.png"
     await gateway.generate_image(
         CallContext(job.id, job.owner_id, scene.id),
         prompt=video_prompt(job, scene),
-        size=f"{width}x{height}",
+        size=keyframe_size(runtime, job.resolution, job.ratio),
         seed=job.seed + scene.index,
         ref_image_urls=tuple(refs),
         dest=dest,
@@ -127,32 +135,65 @@ async def _reference_voice(runtime: Runtime, job: Job, scene: Scene) -> Asset | 
         return await session.get(Asset, first.audio_asset_id)
 
 
+async def _reference_images(runtime: Runtime, scene: Scene, limit: int) -> list[VideoImageInput]:
+    images: list[VideoImageInput] = []
+    if limit <= 0:
+        return images
+    async with runtime.sessionmaker() as session:
+        for ref_id in scene.ref_asset_ids[:limit]:
+            ref = await session.get(Asset, uuid.UUID(ref_id))
+            if ref is not None and not ref.is_deleted:
+                images.append(VideoImageInput(model_input_url(runtime, ref), "reference_image"))
+    return images
+
+
+# 首幀改作參考圖送出時，在提示詞裡指定它是第一幀（官方文件的參考素材寫法為 @Image1）
+FIRST_FRAME_REFERENCE_HINT = "影片第一幀使用 @Image1 的畫面，從這個畫面開始。"
+
+
 async def build_video_request(
     runtime: Runtime, job: Job, scene: Scene, first_frame: Asset | None
 ) -> VideoRequest:
+    """組裝 Seedance 請求。官方規定：首幀／首尾幀與全能參考（參考圖、影片、音頻）互斥，不能混用。"""
     key = video_model_key(job, runtime.config)
     caps = runtime.config.video_caps(key)
-    images: list[VideoImageInput] = []
-    if first_frame is not None and "first_frame" in caps.image_roles:
-        images.append(VideoImageInput(model_input_url(runtime, first_frame), "first_frame"))
-    elif scene.ref_asset_ids and "reference_image" in caps.image_roles:
-        async with runtime.sessionmaker() as session:
-            for ref_id in scene.ref_asset_ids[: max(1, caps.max_reference_images)]:
-                ref = await session.get(Asset, uuid.UUID(ref_id))
-                if ref is not None and not ref.is_deleted:
-                    images.append(VideoImageInput(model_input_url(runtime, ref), "reference_image"))
-    audio_mode = job_options(job).audio_mode
-    audios: list[VideoImageInput] = []
     voice_ref = await _reference_voice(runtime, job, scene)
-    if voice_ref is not None and "reference_audio" in caps.image_roles and caps.max_reference_audios > 0:
-        audios.append(VideoImageInput(model_input_url(runtime, voice_ref), "reference_audio"))
+    wants_voice = (
+        voice_ref is not None and "reference_audio" in caps.image_roles and caps.max_reference_audios > 0
+    )
+    prompt = video_prompt(job, scene)
+    adaptive_ratio = False
+    images: list[VideoImageInput] = []
+    if first_frame is not None and wants_voice and "reference_image" in caps.image_roles:
+        # 聲音一致：要送參考音頻，首幀改以參考圖（@Image1）送出，分鏡的參考圖接在後面
+        images.append(VideoImageInput(model_input_url(runtime, first_frame), "reference_image"))
+        images.extend(await _reference_images(runtime, scene, caps.max_reference_images - 1))
+        prompt = f"{FIRST_FRAME_REFERENCE_HINT}{prompt}"
+    elif first_frame is not None and "first_frame" in caps.image_roles:
+        images.append(VideoImageInput(model_input_url(runtime, first_frame), "first_frame"))
+        adaptive_ratio = caps.frames_require_adaptive_ratio
+        wants_voice = False
+    elif scene.ref_asset_ids and "reference_image" in caps.image_roles:
+        images.extend(await _reference_images(runtime, scene, max(1, caps.max_reference_images)))
+    audios: list[VideoImageInput] = []
+    if wants_voice and voice_ref is not None:
+        if caps.reference_audio_needs_visual and not images:
+            log.warning(
+                "voice_reference_skipped",
+                job_id=str(job.id),
+                scene=scene.index,
+                reason="模型不支援只送參考音頻",
+            )
+        else:
+            audios.append(VideoImageInput(model_input_url(runtime, voice_ref), "reference_audio"))
+    audio_mode = job_options(job).audio_mode
     return VideoRequest(
         model_id=runtime.config.models.get(key).id,
-        prompt=video_prompt(job, scene),
+        prompt=prompt,
         ratio=job.ratio,
         resolution=job_resolution(job, runtime.config),
         duration_s=clip_duration(scene.duration_s, caps),
-        seed=job.seed,
+        seed=job.seed if caps.supports_seed else None,
         images=tuple(images),
         audios=tuple(audios),
         generate_audio=audio_mode == AudioMode.NATIVE and caps.supports_audio,
@@ -160,10 +201,17 @@ async def build_video_request(
         watermark=runtime.settings.model_watermark,
         draft=job.phase == JobPhase.DRAFT and caps.supports_draft,
         safety_identifier=str(job.owner_id),
+        adaptive_ratio=adaptive_ratio,
     )
 
 
 REFERENCE_AUDIO_S = 10
+
+
+def _image_mime(path: Path) -> str:
+    """尾幀格式按文件頭判斷：Seedance 返回 JPEG，Mock 生成 PNG。"""
+    with path.open("rb") as fh:
+        return sniff_mime(fh.read(32)) or "image/png"
 
 
 async def _extract_voice_reference(
@@ -250,7 +298,13 @@ async def generate_scene_video(
     if run.outputs.last_frame is not None:
         last = await store_asset(
             runtime,
-            NewAsset(run.outputs.last_frame, AssetKind.LAST_FRAME, "image/png", job.owner_id, job.id),
+            NewAsset(
+                run.outputs.last_frame,
+                AssetKind.LAST_FRAME,
+                _image_mime(run.outputs.last_frame),
+                job.owner_id,
+                job.id,
+            ),
         )
     voice_ref = await _extract_voice_reference(runtime, job, scene, run.outputs.video, dest_dir)
     async with runtime.sessionmaker() as session:

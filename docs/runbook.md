@@ -51,7 +51,12 @@
 
 1. 先在控制台體驗中心試片，確認效果與價格。
 2. 在 Claude Code 會話用 Plan 模式：「把 video_final 換成 <新 Model ID>，對照文檔檢查能力差異，登記到能力表」。
-3. 修改 `config/models.yaml`：`id`、`price_per_mtok`、`capabilities`（解析度、畫幅、時長範圍、fps、是否支援 draft／音頻、圖片 role）。
+3. 修改 `config/models.yaml`（對照官方模型列表、價格、接口文件，欄位說明見規格 13）：
+   - `id`；單價：影片 `price_per_mtok` 與 `price_per_mtok_by_resolution`，大模型 `price_per_mtok_input`／`price_per_mtok_output`，關鍵幀 `price_per_image`
+   - 關鍵幀 `image_sizes`：每個畫幅的尺寸（Seedream 5.0 lite 總像素須在 2560x1440～4096x4096）
+   - `capabilities`：解析度、畫幅、時長範圍、fps、`supports_draft`／`supports_audio`／`supports_seed`、圖片 role、參考素材上限、
+     `frames_require_adaptive_ratio`（帶首幀時只能 adaptive）、`reference_audio_needs_visual`（參考音頻要搭配參考圖）、
+     `dimensions`（官方寬高表，用於估算 token）
 4. 在開發環境執行 `/live-smoke`（付費，會先報預估費用）。
 5. 合併後在服務器 `git pull` 並重啟 api、worker。
 
@@ -61,7 +66,8 @@
 |---|---|
 | 任務 `failed`，error_kind = moderation | 輸入或輸出未通過內容審核。修改畫面描述或旁白後「重做」該分鏡；不要反覆重試同樣內容。 |
 | error_kind = rate_limit／timeout／server | 平台已自動重試（指數退避）仍失敗。稍後「續跑」；頻繁發生時調低 `concurrency`、`rpm` 或錯峰批量。 |
-| `budget_exceeded` | 超出單任務或每日預算。管理員確認後在「預算與模型」調高，或為該用戶設 `daily_budget_cny`，再「續跑」。 |
+| `budget_exceeded` | 超出單任務或每日預算。管理員確認後在「預算與模型」調高，或為該用戶設 `daily_budget_cny`，再「續跑」。預設單任務 150 CNY 約可做 140 秒 720p 的 Seedance 2.0 正片；最長 180 秒的培訓片要先調高。 |
+| error_code = TaskExpired | Seedance 任務超過平台時限（預設 48 小時）被終止，按超時處理；「續跑」即可。 |
 | error_code = asset_url | 存儲無法生成公網地址。設定 `S3_PUBLIC_ENDPOINT_URL`，確認 Seedance 能訪問。 |
 | error_code = download_host_denied | 模型返回的結果地址不在白名單。確認域名後加到 `DOWNLOAD_ALLOWED_HOSTS`（JSON 陣列）。 |
 | 合成失敗「找不到字體」 | 映像構建時抽取字體失敗。重建 backend 映像，看構建日誌裡的 fetch_fonts 步驟。 |
@@ -75,7 +81,7 @@
 
 1. claude.ai/code 連接 GitHub，確認 Claude GitHub App 已安裝到本倉庫。
 2. 雲朵圖標 → Add cloud environment，名稱 `video-factory-dev`：
-   - Network access：Custom，勾選默認套件源清單，Allowed domains 加 `*.bytepluses.com`、`*.volces.com`、`openspeech.bytedance.com`、`production.cloudfront.docker.com`
+   - Network access：Custom，勾選默認套件源清單，Allowed domains 加 `*.bytepluses.com`、`*.volces.com`、`openspeech.bytedance.com`、`production.cloudfront.docker.com`、`docs.byteplus.com`（核對官方文件）
    - Environment variables：`ARK_REGION=byteplus`、`ARK_API_KEY=injected-by-proxy`、`LIVE_BUDGET_CNY=5`
    - Setup script：貼上 `scripts/cloud-setup.sh` 的內容
    - Pro／Max：保存後再編輯，在 API credentials 加方舟密鑰（Bearer，Allowed websites 填對應區域的 ark 域名）

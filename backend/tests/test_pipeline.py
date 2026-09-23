@@ -6,11 +6,12 @@ import pytest
 from sqlalchemy import func, select, update
 
 from app.media.ffmpeg import probe
-from app.models import Asset, Batch, CostLedger, GenerationCall, Scene, Template, User
+from app.models import Asset, Batch, CostLedger, GenerationCall, Job, Scene, Template, User
 from app.models.enums import AssetKind, AudioMode, JobStatus, SceneStatus
 from app.pipeline import orchestrator
 from app.pipeline.common import StoryboardRules, check_storyboard, normalize_storyboard
 from app.pipeline.content_check import check_texts, load_blocklist
+from app.pipeline.generation import FIRST_FRAME_REFERENCE_HINT, _image_mime, keyframe_size
 from app.pipeline.orchestrator import ActionError
 from app.pipeline.schemas import SceneDraft
 from app.providers.gateway import Gateway
@@ -86,6 +87,10 @@ async def test_marketing_end_to_end(
     assert first_request.model_id == runtime.config.models.get("video_long").id
     assert first_request.generate_audio is True
     assert [img.role for img in first_request.images] == ["first_frame"]
+    # 規格 13：Seedance 2.5 帶首幀時 ratio 只能 adaptive；2.x 不送 seed
+    payload = first_request.to_payload()
+    assert first_request.adaptive_ratio and payload["ratio"] == "adaptive" and first_request.ratio == "9:16"
+    assert "seed" not in payload
     assert "旁白（溫暖的年輕女聲，國語）說：「" in first_request.prompt
     assert "配樂：輕快的鋼琴" in first_request.prompt and "音效：" in first_request.prompt
     assert first_request.prompt.count(str(templates["marketing"].style_prefix)) == 1
@@ -107,6 +112,10 @@ async def test_marketing_end_to_end(
     assert job.actual_cost_cny == pytest.approx(float(ledger_total or 0), rel=1e-6)
     counts = await calls_by_provider(runtime)
     assert counts["llm"] >= 1 and counts["seedream"] == 1
+    async with runtime.sessionmaker() as s:
+        keyframe_call = await s.scalar(select(GenerationCall).where(GenerationCall.provider == "seedream"))
+    # 規格 13：Seedream 5.0 lite 最小總像素 2560x1440，關鍵幀用官方 2K 尺寸
+    assert keyframe_call is not None and keyframe_call.request_summary["size"] == "1600x2848"
     assert counts["seedance"] == len(scenes) and "tts" not in counts  # 原生聲音：沒有 TTS
 
 
@@ -136,12 +145,41 @@ async def test_tts_mode_still_works_in_volcengine(
     assert (await calls_by_provider(runtime))["tts"] >= 4
 
 
-async def test_consistent_voice_uses_first_shot_audio(
+async def test_consistent_voice_skipped_without_visual_on_seedance_2_0(
     runtime: Runtime, dispatcher: InlineDispatcher, templates: dict[str, Template], user: User
 ) -> None:
+    """規格 13：Seedance 2.0 不支援只送參考音頻；後續鏡頭都沒有圖時不送，也不必等第一鏡。"""
     job = await new_job(
         runtime, user, templates["marketing_multi"], consistent_voice=True, voice_style="沉穩男聲"
     )
+    await orchestrator.submit(runtime, dispatcher, job.id)
+    await dispatcher.drain()
+    await orchestrator.confirm_storyboard(runtime, dispatcher, job.id)
+    scenes = await scenes_of(runtime, job.id)
+    assert len(scenes) >= 3
+    assert [k for k, _ in dispatcher.queue] == ["scene"] * len(scenes)  # 全部鏡頭同時派發
+    await dispatcher.drain()
+    assert (await reload(runtime, job.id)).status == JobStatus.IN_REVIEW
+    created = seedance(runtime).created
+    assert len(created) == len(scenes) and all(r.audios == () for r in created)
+    # 只有第一鏡有關鍵幀首幀；後續鏡頭沒有任何圖
+    assert sum(1 for r in created if r.images) <= 1
+
+
+async def test_consistent_voice_audio_only_on_seedance_2_5(
+    runtime: Runtime, dispatcher: InlineDispatcher, templates: dict[str, Template], user: User
+) -> None:
+    """Seedance 2.5 可以只送參考音頻：先只做第一鏡，第 2 鏡起帶第一鏡的聲音。"""
+    job = await new_job(
+        runtime, user, templates["marketing_multi"], consistent_voice=True, voice_style="沉穩男聲"
+    )
+    async with runtime.sessionmaker() as s:
+        await s.execute(
+            update(Job)
+            .where(Job.id == job.id)
+            .values(template_snapshot={**job.template_snapshot, "video_model": "video_long"})
+        )
+        await s.commit()
     await orchestrator.submit(runtime, dispatcher, job.id)
     await dispatcher.drain()
     await orchestrator.confirm_storyboard(runtime, dispatcher, job.id)
@@ -149,11 +187,39 @@ async def test_consistent_voice_uses_first_shot_audio(
     await dispatcher.drain()
     assert (await reload(runtime, job.id)).status == JobStatus.IN_REVIEW
     created = seedance(runtime).created
-    assert created[0].audios == ()
-    assert len(created) >= 3
-    assert all([a.role for a in r.audios] == ["reference_audio"] for r in created[1:])
+    assert all(r.model_id == runtime.config.models.get("video_long").id for r in created)
+    assert created[0].audios == () and len(created) >= 3
+    assert all(r.images == () and [a.role for a in r.audios] == ["reference_audio"] for r in created[1:])
     scenes = await scenes_of(runtime, job.id)
     assert scenes[0].audio_asset_id is not None
+
+
+async def test_consistent_voice_sends_first_frame_as_reference_image(
+    runtime: Runtime, dispatcher: InlineDispatcher, templates: dict[str, Template], user: User, tmp_path: Path
+) -> None:
+    """官方規定首幀與參考素材互斥：要送參考音頻時，首幀改以參考圖送出，並在提示詞指定為第一幀。
+
+    連續鏡頭讓第 2 鏡起都有首幀（上一鏡的最後一幀）。
+    """
+    job = await new_job(
+        runtime, user, templates["marketing_multi"], continuous_shots=True, consistent_voice=True
+    )
+    await orchestrator.submit(runtime, dispatcher, job.id)
+    await dispatcher.drain()
+    await orchestrator.confirm_storyboard(runtime, dispatcher, job.id)
+    await dispatcher.drain()
+    assert (await reload(runtime, job.id)).status == JobStatus.IN_REVIEW
+    created = seedance(runtime).created
+    assert [img.role for img in created[0].images] == ["first_frame"] and created[0].audios == ()
+    later = [r for r in created[1:] if r.audios]
+    assert later, "第 2 鏡起應帶參考音頻"
+    for r in later:
+        assert [img.role for img in r.images] == ["reference_image"]
+        assert [a.role for a in r.audios] == ["reference_audio"]
+        assert r.prompt.startswith(FIRST_FRAME_REFERENCE_HINT)
+        content = r.to_payload()["content"]
+        assert isinstance(content, list)
+        assert "first_frame" not in {c.get("role") for c in content} and not r.adaptive_ratio
 
 
 async def test_quick_image_to_video_auto_confirms(
@@ -167,6 +233,9 @@ async def test_quick_image_to_video_auto_confirms(
     assert job.status == JobStatus.IN_REVIEW
     [req] = seedance(runtime).created
     assert req.images[0].role == "first_frame" and req.images[0].url == f"asset://{image.id}"
+    # Seedance 2.0 帶首幀時可以指定畫幅；不送 seed
+    payload = req.to_payload()
+    assert payload["ratio"] == job.ratio and not req.adaptive_ratio and "seed" not in payload
     assert "llm" not in await calls_by_provider(runtime)  # 跳過腳本
     assert job.subtitle_asset_id is None
 
@@ -374,6 +443,18 @@ async def test_storyboard_fix_round(
     assert len(llm.calls) == 2
     assert "鏡頭數必須在" in llm.calls[1][-1].content
     assert len(await scenes_of(runtime, job.id)) == 4
+
+
+def test_last_frame_mime_follows_file_header(tmp_path: Path) -> None:
+    jpeg, png = tmp_path / "a.png", tmp_path / "b.jpg"
+    jpeg.write_bytes(b"\xff\xd8\xff\xe0" + b"0" * 28)
+    png.write_bytes(b"\x89PNG\r\n\x1a\n" + b"0" * 24)
+    assert _image_mime(jpeg) == "image/jpeg" and _image_mime(png) == "image/png"
+
+
+async def test_seedream_keyframe_size_uses_config_table(runtime: Runtime) -> None:
+    assert keyframe_size(runtime, "720p", "9:16") == "1600x2848"
+    assert keyframe_size(runtime, "480p", "21:9") == "3136x1344"
 
 
 async def test_normalize_storyboard_clamps(runtime: Runtime) -> None:

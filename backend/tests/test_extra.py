@@ -75,6 +75,8 @@ async def test_seedream_b64_and_url(tmp_path: Path) -> None:
     assert r1.path.read_bytes() == PNG and r2.path.read_bytes() == PNG
     assert "image" not in bodies[0] and bodies[1]["image"] == ["https://x/1.png", "https://x/2.png"]
     assert bodies[0]["watermark"] is True and bodies[0]["size"] == "720x1280"
+    # 規格 13：Seedream 5.0 沒有 seed 參數；輸出 PNG
+    assert all("seed" not in b and b["output_format"] == "png" for b in bodies)
 
 
 async def test_doubao_tts(tmp_path: Path) -> None:

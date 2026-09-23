@@ -399,6 +399,11 @@ export interface UsageSummary {
 export interface ModelConfig {
   id: string;
   price_per_mtok?: number;
+  /** 大模型輸入／輸出分價（每百萬 token） */
+  price_per_mtok_input?: number;
+  price_per_mtok_output?: number;
+  /** 影片按輸出解析度覆蓋 price_per_mtok */
+  price_per_mtok_by_resolution?: Record<string, number>;
   price_per_image?: number;
   rpm?: number;
   concurrency?: number;

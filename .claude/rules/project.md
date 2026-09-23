@@ -19,7 +19,7 @@
 - 每次調用把 model、task_id、usage、估算金額寫入 cost_ledger 表
 - 超出單任務或每日預算時停止後續步驟，狀態記為 budget_exceeded
 - 只重試限流、超時、服務端錯誤；內容審核類錯誤直接回報給用戶
-- 調用時把平台內部用戶 ID 傳給 safety_identifier
+- 接口支援時（目前是 Seedance），調用時把平台內部用戶 ID 傳給 safety_identifier；不支援的接口（大模型、Seedream）由 generation_calls.user_id 追溯
 
 ## 媒體與合規
 - 成片必須加 AI 生成顯式標識（片頭 + 畫面角落），並在文件元數據寫入隱式標識

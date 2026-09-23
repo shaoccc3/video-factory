@@ -1,10 +1,28 @@
 import { App as AntdApp, Button, Card, Descriptions, Form, InputNumber, Spin, Table } from "antd";
+import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { useModelsConfig, useUpdateBudget } from "../../api/hooks";
 import type { BudgetConfig, ModelConfig } from "../../api/types";
 import { ErrorAlert, ErrorResult } from "../../components/ErrorResult";
 
 type ModelRow = ModelConfig & { key: string };
+
+/** 每百萬 token 單價摘要：大模型顯示輸入／輸出，影片顯示按解析度的覆蓋價 */
+export function formatMtokPrice(m: ModelConfig, t: TFunction): string {
+  if (m.price_per_mtok_input !== undefined && m.price_per_mtok_output !== undefined) {
+    return t("admin.budget.priceInputOutput", {
+      input: m.price_per_mtok_input,
+      output: m.price_per_mtok_output,
+    });
+  }
+  const extra = Object.entries(m.price_per_mtok_by_resolution ?? {})
+    .map(([resolution, price]) => t("admin.budget.priceResolutionItem", { resolution, price }))
+    .join(t("admin.budget.priceSeparator"));
+  if (m.price_per_mtok === undefined) return extra || "—";
+  return extra
+    ? t("admin.budget.priceWithResolutions", { base: m.price_per_mtok, extra })
+    : String(m.price_per_mtok);
+}
 
 export function BudgetTab() {
   const { t } = useTranslation();
@@ -70,9 +88,9 @@ export function BudgetTab() {
             { title: t("admin.budget.modelId"), dataIndex: "id" },
             {
               title: t("admin.budget.pricePerMtok"),
-              dataIndex: "price_per_mtok",
+              key: "price_per_mtok",
               align: "right",
-              render: num,
+              render: (_: unknown, m: ModelRow) => formatMtokPrice(m, t),
             },
             {
               title: t("admin.budget.pricePerImage"),

@@ -17,7 +17,7 @@ from app.providers.base import ChatMessage, VideoImageInput, VideoRequest
 from app.providers.downloader import download, host_allowed
 from app.providers.errors import BudgetExceededError, ProviderError, classify_code, with_retries
 from app.providers.gateway import CallContext, Gateway, JobCancelledError
-from app.providers.live import ArkLLM, ArkSeedance, parse_task
+from app.providers.live import ArkLLM, ArkSeedance, parse_task, task_error
 from app.providers.mock import MockLLM, MockSeedance, moderation_error
 from app.providers.pricing import video_tokens
 from app.providers.ratelimit import Limit, MemoryRateLimiter
@@ -75,6 +75,18 @@ def test_video_request_payload() -> None:
     assert payload["draft"] is True
     assert payload["safety_identifier"] == "user-1"
     assert "camera_fixed" not in payload
+
+
+def test_parse_task_expired_is_timeout() -> None:
+    task = parse_task({"id": "cgt-1", "status": "expired"})
+    assert task.status == "failed" and task.error_code == "TaskExpired"
+    assert task_error(task).kind is ErrorKind.TIMEOUT
+
+
+def test_video_request_payload_optional_seed_and_adaptive_ratio() -> None:
+    payload = _request(seed=None, adaptive_ratio=True).to_payload()
+    assert "seed" not in payload and payload["ratio"] == "adaptive"
+    assert _request().to_payload()["seed"] == 42 and _request().to_payload()["ratio"] == "9:16"
 
 
 def test_parse_task_success_and_failure() -> None:
@@ -370,6 +382,12 @@ async def test_chat_json_records_call_and_cost(runtime: Runtime, gateway: Gatewa
     assert call.status == "succeeded" and call.provider == "llm"
     [entry] = await _ledger(runtime)
     assert entry.amount_cny > 0 and entry.currency == "USD"
+    assert entry.usage["price_per_mtok_input"] == 0.25 and entry.usage["price_per_mtok_output"] == 2.0
+    prompt, completion = entry.usage["prompt_tokens"], entry.usage["completion_tokens"]
+    assert isinstance(prompt, int) and isinstance(completion, int)
+    assert float(entry.unit_price) == pytest.approx(
+        (prompt * 0.25 + completion * 2.0) / (prompt + completion), rel=1e-3
+    )
     async with runtime.sessionmaker() as s:
         refreshed = await s.get(Job, job.id)
         assert refreshed is not None and refreshed.actual_cost_cny == pytest.approx(entry.amount_cny)
@@ -396,7 +414,10 @@ async def test_run_video_polls_downloads_and_bills(
     assert run.outputs.last_frame is not None and run.outputs.last_frame.exists()
     assert sd.created[0].safety_identifier == "user-1"
     [entry] = await _ledger(runtime)
-    assert entry.usage["completion_tokens"] == video_tokens(480, 854, 24, 2)
+    assert entry.usage["completion_tokens"] == video_tokens(
+        480, 854, 24, 2
+    )  # 測試用模型 ID 不在能力表，按短邊推算
+    assert float(entry.unit_price) == pytest.approx(7.0)
     [call] = await _calls(runtime)
     assert call.remote_task_id == created[0]
 

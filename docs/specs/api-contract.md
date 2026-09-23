@@ -218,6 +218,6 @@ JobCreate = {
 | 方法 | 路徑 | 回應 |
 |---|---|---|
 | GET | `/usage/summary?days=30` | `{ total_cny, today_user_cny, daily_budget_cny, by_user: [{ user_id, display_name, amount_cny }], by_day: [{ date, amount_cny }], by_model: [{ model_id, calls, amount_cny }] }`（creator 只看自己） |
-| GET | `/config/models`（admin） | `{ region, provider_mode, currency, models: Record<string, { id, price_per_mtok?, price_per_image?, rpm?, concurrency? }>, budget: { per_job_cny, per_user_daily_cny } }` |
+| GET | `/config/models`（admin） | `{ region, provider_mode, currency, models: Record<string, { id, price_per_mtok?, price_per_mtok_input?, price_per_mtok_output?, price_per_mtok_by_resolution?, price_per_image?, rpm?, concurrency? }>, budget: { per_job_cny, per_user_daily_cny } }`（v1.2：新增大模型輸入／輸出單價與影片按解析度單價，皆為選填；其他非空欄位照 models.yaml 輸出） |
 | PATCH | `/config/budget`（admin） | `{ per_job_cny?, per_user_daily_cny? }` → 同上 `budget` |
 | GET | `/audit-logs?action=&page=&page_size=`（admin） | `{ items: [{ id, actor_id, actor_name, action, target_type, target_id, detail, ip, created_at }], total }` |

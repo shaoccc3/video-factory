@@ -51,6 +51,8 @@ class ArkLLM:
         *,
         safety_identifier: str | None = None,
     ) -> ChatResult[T]:
+        # Chat API 沒有 user／safety_identifier 參數（官方文件 2026-09-18），不發送；
+        # 用戶由 generation_calls.user_id 追溯
         convo = [{"role": m.role, "content": m.content} for m in messages]
         usage = LLMUsage()
         for attempt in range(1, LLM_REPAIR_ATTEMPTS + 2):
@@ -62,8 +64,6 @@ class ArkLLM:
                     "messages": convo,
                     "response_format": {"type": "json_object"},
                     "temperature": 0.7,
-                    # 對話接口用 user 欄位傳終端用戶標識（等同 safety_identifier）
-                    **({"user": safety_identifier} if safety_identifier else {}),
                 },
             )
             u = data.get("usage") or {}
@@ -85,6 +85,7 @@ class ArkLLM:
                         "大模型輸出無法通過校驗",
                         code="llm_invalid_json",
                         billed_tokens=usage.total_tokens,
+                        billed_completion_tokens=usage.completion_tokens,
                     ) from exc
                 convo.append({"role": "assistant", "content": content})
                 convo.append(
@@ -123,12 +124,13 @@ class ArkSeedream:
         dest: Path,
         safety_identifier: str | None = None,
     ) -> ImageResult:
-        # 圖片接口（SDK 原碼）沒有 safety_identifier／user 欄位，不發送；由 generation_calls.user_id 追溯
+        # 圖片接口沒有 safety_identifier／user 欄位，不發送；由 generation_calls.user_id 追溯。
+        # Seedream 5.0 的官方文件沒有 seed 參數，也不發送（seed 只用於記錄與 Mock）。
         body: dict[str, Any] = {
             "model": model_id,
             "prompt": prompt,
             "size": size,
-            "seed": seed,
+            "output_format": "png",  # 預設 jpeg；關鍵幀按 PNG 存儲
             "watermark": self._watermark,
             "response_format": "url",
         }
@@ -193,7 +195,7 @@ class ArkSeedance:
             last = await download(
                 self._http.downloader,
                 task.last_frame_url,
-                dest_dir / "last_frame.png",
+                dest_dir / "last_frame.jpg",  # return_last_frame 返回 JPEG
                 allowed_hosts=self._allowed,
                 max_bytes=self._max,
             )
@@ -202,10 +204,17 @@ class ArkSeedance:
 
 def parse_task(data: dict[str, Any]) -> VideoTask:
     status = str(data.get("status", "queued"))
-    if status not in ("queued", "running", "succeeded", "failed", "cancelled"):
+    error = data.get("error") or {}
+    if status == "expired":
+        # 任務超過 execution_expires_after 被平台終止；按超時類錯誤處理
+        status = "failed"
+        error = {
+            "code": error.get("code") or "TaskExpired",
+            "message": error.get("message") or "影片生成任務已過期",
+        }
+    elif status not in ("queued", "running", "succeeded", "failed", "cancelled"):
         status = "running"
     content = data.get("content") or {}
-    error = data.get("error") or {}
     usage = data.get("usage") or {}
     keys = ("seed", "resolution", "ratio", "duration", "framespersecond")
     meta: dict[str, object] = {k: data[k] for k in keys if k in data}

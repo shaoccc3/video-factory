@@ -13,7 +13,7 @@ from time import monotonic
 import structlog
 from pydantic import BaseModel
 
-from app.core.models_config import ModelKey, ModelsConfig, Region, video_dimensions
+from app.core.models_config import ModelKey, ModelsConfig, Region
 from app.core.settings import Settings
 from app.models.enums import ErrorKind, ProviderName
 from app.providers.base import (
@@ -31,9 +31,11 @@ from app.providers.live import task_error
 from app.providers.pricing import (
     cost_per_image,
     cost_per_kchar,
-    cost_per_mtok,
-    unit_price_mtok,
-    video_tokens,
+    llm_cost,
+    llm_unit_prices,
+    video_cost,
+    video_tokens_for,
+    video_unit_price,
 )
 from app.providers.ratelimit import Limit, RateLimiter
 from app.services.budget import BudgetGuard
@@ -113,11 +115,11 @@ class Gateway:
     ) -> T:
         key: ModelKey = "script_llm"
         model_id = self.config.models.script_llm.id
-        est_tokens = sum(len(m.content) for m in messages) + 2000
+        est_prompt_tokens = sum(len(m.content) for m in messages)
         await self.budget.check(
             job_id=ctx.job_id,
             user_id=ctx.user_id,
-            add_cny=cost_per_mtok(self.config, key, est_tokens, self.region)[1],
+            add_cny=llm_cost(self.config, est_prompt_tokens, 2000, self.region)[1],
         )
         async with self.limiter.slot(key, self._limit(key)):
             call_id = await self.recorder.start(
@@ -138,7 +140,9 @@ class Gateway:
                 )
             except BaseException as exc:
                 if isinstance(exc, ProviderError) and exc.billed_tokens:
-                    await self.recorder.charge(call_id, self._llm_charge(exc.billed_tokens, 0, 0))
+                    completion = exc.billed_completion_tokens
+                    charge = self._llm_charge(exc.billed_tokens - completion, completion, 0)
+                    await self.recorder.charge(call_id, charge)
                 await self.recorder.fail(call_id, exc)
                 raise
             await self.recorder.succeed(
@@ -148,14 +152,19 @@ class Gateway:
             return result.value
 
     def _llm_charge(self, prompt_tokens: int, completion_tokens: int, attempts: int) -> Charge:
-        amount, cny = cost_per_mtok(self.config, "script_llm", prompt_tokens + completion_tokens, self.region)
+        amount, cny = llm_cost(self.config, prompt_tokens, completion_tokens, self.region)
+        price_in, price_out = llm_unit_prices(self.config)
+        total = prompt_tokens + completion_tokens
         return Charge(
             usage={
                 "prompt_tokens": prompt_tokens,
                 "completion_tokens": completion_tokens,
                 "attempts": attempts,
+                "price_per_mtok_input": price_in,
+                "price_per_mtok_output": price_out,
             },
-            unit_price=self.config.models.script_llm.price_per_mtok or 0.0,
+            # 輸入與輸出分價：記加權平均單價（金額 ÷ 總 token）
+            unit_price=amount / total * 1_000_000 if total else price_in,
             currency=self._currency(),
             amount=amount,
             amount_cny=cny,
@@ -224,10 +233,8 @@ class Gateway:
     def estimate_video_cny(
         self, key: ModelKey, *, resolution: str, ratio: str, duration_s: float, audio: bool = False
     ) -> float:
-        caps = self.config.video_caps(key)
-        width, height = video_dimensions(resolution, ratio)
-        tokens = video_tokens(width, height, caps.fps, duration_s)
-        return cost_per_mtok(self.config, key, tokens, self.region, audio=audio)[1]
+        tokens = video_tokens_for(self.config.video_caps(key), resolution, ratio, duration_s)
+        return video_cost(self.config, key, tokens, self.region, resolution=resolution, audio=audio)[1]
 
     async def run_video(
         self,
@@ -267,6 +274,8 @@ class Gateway:
                     "duration": request.duration_s,
                     "seed": request.seed,
                     "images": [img.role for img in request.images],
+                    "audios": [a.role for a in request.audios],
+                    "adaptive_ratio": request.adaptive_ratio,
                     "generate_audio": request.generate_audio,
                     "draft": request.draft,
                     "resumed": existing_task_id is not None,
@@ -285,8 +294,13 @@ class Gateway:
                 task = await self._poll(ctx, task_id)
                 if task.status == "cancelled":
                     raise JobCancelledError()
-                amount, cny = cost_per_mtok(
-                    self.config, key, task.completion_tokens, self.region, audio=request.generate_audio
+                amount, cny = video_cost(
+                    self.config,
+                    key,
+                    task.completion_tokens,
+                    self.region,
+                    resolution=request.resolution,
+                    audio=request.generate_audio,
                 )
                 already = existing_task_id is not None and await self.recorder.remote_task_charged(task_id)
                 if task.completion_tokens and not already:
@@ -295,7 +309,9 @@ class Gateway:
                         call_id,
                         Charge(
                             usage={"completion_tokens": task.completion_tokens, **task.meta},
-                            unit_price=unit_price_mtok(self.config, key, audio=request.generate_audio),
+                            unit_price=video_unit_price(
+                                self.config, key, request.resolution, audio=request.generate_audio
+                            ),
                             currency=self._currency(),
                             amount=amount,
                             amount_cny=cny,

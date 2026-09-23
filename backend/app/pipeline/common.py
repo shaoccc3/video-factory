@@ -2,10 +2,11 @@
 
 import math
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from app.core.models_config import ModelsConfig, VideoCapabilities, VideoModelKey
-from app.models import Job
+from app.models import Job, Scene
 from app.models.enums import AudioMode, JobPhase
 from app.pipeline.schemas import SceneDraft
 from app.providers.pricing import CHARS_PER_SECOND, narration_seconds
@@ -54,6 +55,18 @@ def video_model_key(job: Job, config: ModelsConfig | None = None) -> VideoModelK
     if wanted == "video_long" and (config is None or config.models.has("video_long")):
         return "video_long"
     return "video_final"
+
+
+def voice_reference_usable(config: ModelsConfig, job: Job, scenes: Sequence[Scene]) -> bool:
+    """聲音一致的參考音頻能否送出。模型要求搭配參考圖時（Seedance 2.0 系列），第 2 鏡起至少要有一鏡帶圖。"""
+    caps = config.video_caps(video_model_key(job, config))
+    if "reference_audio" not in caps.image_roles or caps.max_reference_audios == 0:
+        return False
+    if not caps.reference_audio_needs_visual or job_options(job).continuous_shots:
+        return True
+    return any(
+        s.needs_first_frame or s.first_frame_asset_id or s.ref_asset_ids for s in scenes if s.index > 0
+    )
 
 
 def job_resolution(job: Job, config: ModelsConfig) -> str:

@@ -52,7 +52,7 @@ class VideoRequest:
     ratio: str
     resolution: str
     duration_s: int
-    seed: int
+    seed: int | None  # None 時不送（Seedance 2.x 不支援 seed）
     images: tuple[VideoImageInput, ...] = ()
     audios: tuple[VideoImageInput, ...] = ()  # 參考音頻（例如 role=reference_audio，用來保持聲音一致）
     generate_audio: bool = False
@@ -61,6 +61,8 @@ class VideoRequest:
     draft: bool = False
     camera_fixed: bool | None = None
     safety_identifier: str | None = None
+    # 送出 ratio=adaptive（Seedance 2.5 帶首幀時只接受它）；ratio 欄位仍保留任務畫幅，用於預估與 Mock
+    adaptive_ratio: bool = False
 
     def to_payload(self) -> dict[str, object]:
         content: list[dict[str, object]] = [{"type": "text", "text": self.prompt}]
@@ -71,14 +73,15 @@ class VideoRequest:
         payload: dict[str, object] = {
             "model": self.model_id,
             "content": content,
-            "ratio": self.ratio,
+            "ratio": "adaptive" if self.adaptive_ratio else self.ratio,
             "resolution": self.resolution,
             "duration": self.duration_s,
-            "seed": self.seed,
             "generate_audio": self.generate_audio,
             "return_last_frame": self.return_last_frame,
             "watermark": self.watermark,
         }
+        if self.seed is not None:
+            payload["seed"] = self.seed
         if self.draft:
             payload["draft"] = True
         if self.camera_fixed is not None:

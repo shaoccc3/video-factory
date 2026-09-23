@@ -10,12 +10,12 @@ from pathlib import Path
 
 import pytest
 
-from app.core.models_config import load_models_config, video_dimensions
+from app.core.models_config import load_models_config
 from app.core.settings import Settings
 from app.media.ffmpeg import probe
 from app.providers.base import VideoRequest
 from app.providers.gateway import CallContext
-from app.providers.pricing import cost_per_mtok, video_tokens
+from app.providers.pricing import video_cost, video_tokens_for
 from app.services.runtime import build_gateway, build_runtime
 
 pytestmark = [pytest.mark.live, pytest.mark.anyio]
@@ -36,10 +36,8 @@ async def test_seedance_live_smoke(tmp_path: Path) -> None:
     config = load_models_config(settings.models_config_path)
     caps = config.video_caps("video_draft")
     resolution, duration = caps.resolutions[0], max(caps.min_duration_s, min(5, caps.max_duration_s))
-    width, height = video_dimensions(resolution, "16:9")
-    _, est_cny = cost_per_mtok(
-        config, "video_draft", video_tokens(width, height, caps.fps, duration), settings.ark_region
-    )
+    tokens = video_tokens_for(caps, resolution, "16:9", duration)
+    _, est_cny = video_cost(config, "video_draft", tokens, settings.ark_region, resolution=resolution)
     budget = float(os.environ.get("LIVE_BUDGET_CNY", "5"))
     assert est_cny <= budget, f"預估 {est_cny:.2f} 元超過 LIVE_BUDGET_CNY={budget}"
 
@@ -57,7 +55,7 @@ async def test_seedance_live_smoke(tmp_path: Path) -> None:
             ratio="16:9",
             resolution=resolution,
             duration_s=duration,
-            seed=42,
+            seed=None,  # Seedance 2.x 不支援 seed
             generate_audio=False,
             safety_identifier=f"live-smoke-{uuid.uuid4().hex[:8]}",
         ),
