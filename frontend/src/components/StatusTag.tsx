@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import type { JobStatus, SceneStatus } from "../api/types";
 import "./status.css";
 
-type Tone = "accent" | "rec" | "mix" | "info" | "ok" | "warn" | "muted" | "live";
+export type Tone = "accent" | "rec" | "mix" | "info" | "ok" | "warn" | "muted" | "live";
 
 const JOB_TONES: Record<JobStatus, Tone> = {
   draft: "muted",
@@ -27,6 +27,11 @@ const SCENE_TONES: Record<SceneStatus, Tone> = {
   failed: "warn",
   cancelled: "muted",
 };
+
+/** 任務狀態的色調（批量的分段進度條依此上色） */
+export function jobTone(status: JobStatus): Tone {
+  return JOB_TONES[status];
+}
 
 function Marker({ tone }: { tone: Tone }) {
   if (tone === "rec") return <span className="vf-rec-dot" aria-hidden="true" />;

@@ -311,7 +311,16 @@ function frameAction(job: JobSummary, reviewer: boolean): { to: string; label: s
   }
 }
 
-function FilmFrame({ job, now, reviewer }: { job: JobSummary; now: Date; reviewer: boolean }) {
+/** 片場底片的一格（批量詳情也用） */
+export function FilmFrame({
+  job,
+  now,
+  reviewer,
+}: {
+  job: JobSummary;
+  now: Date;
+  reviewer: boolean;
+}) {
   const { t } = useTranslation();
   const action = frameAction(job, reviewer);
   const preview = job.preview_asset_id;

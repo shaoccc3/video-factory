@@ -444,22 +444,6 @@
   border-right: 1px solid var(--vf-line);
 }
 
-.vf-stepper {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  border: none;
-  min-width: 0;
-}
-
-.vf-stepper output {
-  flex: 1;
-  text-align: center;
-  font-size: 22px;
-}
-
 @media (max-width: 720px) {
   .vf-shot-grid,
   .vf-shot-grid .vf-cell.vf-shot-trio {

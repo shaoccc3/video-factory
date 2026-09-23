@@ -540,3 +540,9 @@
     grid-template-columns: 1fr 1fr;
   }
 }
+
+/* 沒有畫面的底片格：只留海報底色，片名由底片格自己的字卡顯示，避免重疊 */
+.vf-frame .vf-poster-title,
+.vf-frame .vf-poster .vf-label {
+  visibility: hidden;
+}

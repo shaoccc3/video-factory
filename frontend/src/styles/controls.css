@@ -330,3 +330,20 @@
 .vf-slate-reset:hover {
   color: var(--vf-accent-hover);
 }
+
+/* 數字步進：− 值 ＋（分鏡時長、批量並發數） */
+.vf-stepper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  min-width: 0;
+}
+
+.vf-stepper output {
+  flex: 1;
+  text-align: center;
+  font-size: 22px;
+}

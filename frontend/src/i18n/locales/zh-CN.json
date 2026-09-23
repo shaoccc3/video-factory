@@ -364,7 +364,20 @@
     "running": "进行中",
     "done": "已完成",
     "counts": "状态统计",
-    "detailTitle": "批量：{{name}}"
+    "detailTitle": "批量：{{name}}",
+    "replaceFiles": "换文件",
+    "filesRequired": "请选择文件",
+    "sourceLabel": "SOURCE 来源",
+    "templateLabel": "TEMPLATE 模板",
+    "csvLabel": "CSV 每行一支片",
+    "imagesLabel": "IMAGES 每张图一支片",
+    "topicLabel": "STORY 共同的想法",
+    "parallelLabel": "PARALLEL 同时生成",
+    "draftLabel": "DRAFT 先出样片",
+    "fewer": "减少 1",
+    "more": "增加 1",
+    "rollHint": "每支片会先写分镜，确认后才生成",
+    "reelSpec": "{{total}} 支 · 同时 {{parallel}} 支"
   },
   "library": {
     "title": "成片库",

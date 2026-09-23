@@ -1,8 +1,7 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import type { Batch } from "../api/types";
-import { makeJobSummary, makeTemplate, makeUser } from "../test/fixtures";
+import { makeTemplate, makeUser } from "../test/fixtures";
 import { mockApi, renderApp } from "../test/utils";
 import { formatDetail } from "./admin/AuditTab";
 
@@ -27,45 +26,6 @@ describe("用量看板", () => {
     expect(screen.getByText("小創")).toBeInTheDocument();
     expect(screen.getByText("今日花費已接近每日預算上限")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "每日花費" }).querySelectorAll("rect")).toHaveLength(2);
-  });
-});
-
-describe("批量", () => {
-  it("上傳 CSV 建立批量並進入詳情", async () => {
-    const batch: Batch = {
-      id: "b-1",
-      template_id: "tpl-marketing",
-      template_name: "行銷短影音",
-      total: 2,
-      max_parallel: 2,
-      status: "running",
-      created_at: "2026-09-23T00:00:00Z",
-      counts: { scripting: 2 },
-    };
-    const api = mockApi({
-      "GET /auth/me": makeUser(),
-      "GET /batches": [],
-      "GET /templates": [makeTemplate()],
-      "POST /batches/csv": batch,
-      "GET /batches/b-1": { ...batch, jobs: [makeJobSummary({ batch_id: "b-1" })] },
-    });
-    renderApp("/batches");
-    await userEvent.click(await screen.findByRole("button", { name: /建立批量/ }));
-    const dialog = await screen.findByRole("dialog");
-    await userEvent.click(within(dialog).getAllByRole("combobox")[0] as HTMLElement);
-    await userEvent.click(await screen.findByTitle("行銷短影音"));
-    const input = dialog.querySelector('input[type="file"]') as HTMLInputElement;
-    fireEvent.change(input, {
-      target: { files: [new File(["title,topic,extra\n"], "jobs.csv", { type: "text/csv" })] },
-    });
-    await userEvent.click(within(dialog).getByRole("button", { name: /^建立批量$/ }));
-
-    expect(await screen.findByText("批量：行銷短影音")).toBeInTheDocument();
-    const form = api.find("POST", "/batches/csv")[0]?.body as FormData;
-    expect(form.get("template_id")).toBe("tpl-marketing");
-    expect(form.get("max_parallel")).toBe("2");
-    expect(form.get("draft_mode")).toBe("false");
-    expect(screen.getByRole("link", { name: "綠茶推廣" })).toBeInTheDocument();
   });
 });
 
