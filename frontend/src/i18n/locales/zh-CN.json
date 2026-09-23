@@ -451,7 +451,18 @@
     "model": "模型",
     "calls": "调用次数",
     "amount": "金额",
-    "noData": "这段期间没有花费"
+    "noData": "这段期间没有花费",
+    "range": "统计区间",
+    "summary": "花费摘要",
+    "todayLabel": "TODAY 今日花费",
+    "todayHint": "你今天的生成花费",
+    "perDay": "平均每天 {{amount}}",
+    "remaining": "今日预算剩余",
+    "overLimit": "今日花费已超出每日预算，后续生成会停止",
+    "showTable": "以表格查看",
+    "showChart": "以图表查看",
+    "date": "日期",
+    "share": "占比"
   },
   "admin": {
     "title": "管理",

@@ -24,25 +24,6 @@
   gap: 14px;
 }
 
-.vf-underline-tabs {
-  gap: 0;
-  border-bottom: 1px solid var(--vf-line);
-}
-
-.vf-underline-tabs .vf-tab {
-  min-height: 40px;
-  padding: 0 16px;
-  border: none;
-  border-bottom: 2px solid transparent;
-  border-radius: 0;
-  background: transparent;
-}
-
-.vf-underline-tabs .vf-tab[aria-pressed="true"] {
-  border-bottom-color: var(--vf-accent);
-  background: transparent;
-}
-
 .vf-library-tools {
   display: flex;
   align-items: center;

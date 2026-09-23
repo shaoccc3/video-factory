@@ -316,7 +316,12 @@ export function useDeleteAsset() {
 // ---- 用量與配置 ----
 
 export function useUsage(days: number) {
-  return useQuery({ queryKey: queryKeys.usage(days), queryFn: () => api.usageSummary(days) });
+  // 切換區間時保留上一次的圖，重取期間降低不透明度，不閃爍
+  return useQuery({
+    queryKey: queryKeys.usage(days),
+    queryFn: () => api.usageSummary(days),
+    placeholderData: keepPreviousData,
+  });
 }
 
 export function useModelsConfig() {

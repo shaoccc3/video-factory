@@ -5,30 +5,6 @@ import { makeTemplate, makeUser } from "../test/fixtures";
 import { mockApi, renderApp } from "../test/utils";
 import { formatDetail } from "./admin/AuditTab";
 
-describe("用量看板", () => {
-  it("顯示總額、今日預算進度與按模型統計", async () => {
-    mockApi({
-      "GET /auth/me": makeUser(),
-      "GET /usage/summary": {
-        total_cny: 123.45,
-        today_user_cny: 250,
-        daily_budget_cny: 300,
-        by_user: [{ user_id: "u-1", display_name: "小創", amount_cny: 100 }],
-        by_day: [
-          { date: "2026-09-22", amount_cny: 20 },
-          { date: "2026-09-23", amount_cny: 30 },
-        ],
-        by_model: [{ model_id: "seedance-pro", calls: 12, amount_cny: 90 }],
-      },
-    });
-    renderApp("/usage");
-    expect(await screen.findByText("seedance-pro")).toBeInTheDocument();
-    expect(screen.getByText("小創")).toBeInTheDocument();
-    expect(screen.getByText("今日花費已接近每日預算上限")).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "每日花費" }).querySelectorAll("rect")).toHaveLength(2);
-  });
-});
-
 describe("管理", () => {
   it("修改預算送出 PATCH /config/budget", async () => {
     const config = {

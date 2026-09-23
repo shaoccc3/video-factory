@@ -451,7 +451,18 @@
     "model": "模型",
     "calls": "調用次數",
     "amount": "金額",
-    "noData": "這段期間沒有花費"
+    "noData": "這段期間沒有花費",
+    "range": "統計區間",
+    "summary": "花費摘要",
+    "todayLabel": "TODAY 今日花費",
+    "todayHint": "你今天的生成花費",
+    "perDay": "平均每天 {{amount}}",
+    "remaining": "今日預算剩餘",
+    "overLimit": "今日花費已超出每日預算，後續生成會停止",
+    "showTable": "以表格檢視",
+    "showChart": "以圖表檢視",
+    "date": "日期",
+    "share": "佔比"
   },
   "admin": {
     "title": "管理",
