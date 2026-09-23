@@ -3,7 +3,13 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from app.core.models_config import ModelEntry, ModelsConfigError, VideoCapabilities, load_models_config
+from app.core.models_config import (
+    ModelEntry,
+    ModelsConfigError,
+    VideoCapabilities,
+    load_models_config,
+    parse_size,
+)
 from app.core.settings import REPO_ROOT, Settings
 from app.main import create_app
 
@@ -17,8 +23,30 @@ def test_repo_config_is_valid() -> None:
     assert set(cfg.base_url) == {"volcengine", "byteplus"}
 
 
+def test_repo_config_verified_against_official_docs() -> None:
+    """規格 13：除了國內版 TTS，模型 ID 不再是佔位，也不再標「待核對」。"""
+    cfg = load_models_config(REPO_CONFIG)
+    for key in ("script_llm", "keyframe", "video_draft", "video_final", "video_long"):
+        assert not cfg.models.get(key).id.startswith("<"), key
+    lines = REPO_CONFIG.read_text(encoding="utf-8").splitlines()
+    tts_start = next(
+        i for i, line in enumerate(lines) if line.strip() == "tts:" or line.strip().startswith("tts: ")
+    )
+    flagged = [i for i, line in enumerate(lines) if "待核對" in line and not line.lstrip().startswith("#")]
+    assert flagged and all(i > tts_start for i in flagged)
+
+
+def test_repo_config_keyframe_sizes_cover_video_ratios() -> None:
+    cfg = load_models_config(REPO_CONFIG)
+    sizes = cfg.models.keyframe.image_sizes or {}
+    for key in ("video_draft", "video_final", "video_long"):
+        for ratio in cfg.video_caps(key).ratios:
+            w, h = parse_size(sizes[ratio])
+            assert 2560 * 1440 <= w * h <= 4096 * 4096, ratio  # Seedream 5.0 lite 的總像素範圍
+
+
 def test_missing_field_names_the_path(tmp_path: Path) -> None:
-    text = REPO_CONFIG.read_text(encoding="utf-8").replace("per_job_cny: 50", "")
+    text = REPO_CONFIG.read_text(encoding="utf-8").replace("per_job_cny: 150", "")
     path = tmp_path / "models.yaml"
     path.write_text(text, encoding="utf-8")
     with pytest.raises(ModelsConfigError, match=r"budget\.per_job_cny"):

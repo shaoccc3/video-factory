@@ -4,11 +4,11 @@ from dataclasses import dataclass
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.models_config import ModelKey, ModelsConfig, Region, VideoModelKey, video_dimensions
+from app.core.models_config import ModelKey, ModelsConfig, Region, VideoModelKey
 from app.models import Job, Scene, User
 from app.models.enums import AudioMode, JobPhase
 from app.pipeline.common import clip_duration, job_options, job_resolution, video_model_key
-from app.providers.pricing import cost_per_image, cost_per_kchar, cost_per_mtok, video_tokens
+from app.providers.pricing import cost_per_image, cost_per_kchar, video_cost, video_tokens_for
 from app.services.budget import NEAR_LIMIT_RATIO, limits_for, spent_on_job, spent_today
 
 
@@ -43,10 +43,11 @@ def _video_item(
     audio: bool = False,
 ) -> CostItem:
     caps = config.video_caps(key)
-    width, height = video_dimensions(resolution, ratio)
     seconds = sum(clip_duration(s.duration_s, caps) for s in scenes)
-    tokens = video_tokens(width, height, caps.fps, seconds)
-    amount = cost_per_mtok(config, key, tokens, region, audio=audio and caps.supports_audio)[1]
+    tokens = video_tokens_for(caps, resolution, ratio, seconds)
+    amount = video_cost(
+        config, key, tokens, region, resolution=resolution, audio=audio and caps.supports_audio
+    )[1]
     return CostItem(label, key, seconds, "秒", round(amount, 4))
 
 

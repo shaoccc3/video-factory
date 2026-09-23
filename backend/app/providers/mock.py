@@ -10,13 +10,14 @@ import json
 import math
 import re
 from collections import deque
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel
 
-from app.core.models_config import video_dimensions
+from app.core.models_config import VideoCapabilities, video_dimensions
 from app.media.samples import extract_last_frame, make_test_audio, make_test_image, make_test_video
 from app.models.enums import ErrorKind
 from app.providers.base import (
@@ -141,9 +142,15 @@ class MockSeedream:
 
 
 class MockSeedance:
-    """建立的任務在第 running_polls 次查詢後成功（預設第一次就成功）。"""
+    """建立的任務在第 running_polls 次查詢後成功（預設第一次就成功）。
 
-    def __init__(self, *, running_polls: int = 0) -> None:
+    caps_by_model：模型 ID → 能力表，用官方寬高表模擬輸出尺寸與 token 用量；沒有時按短邊推算。
+    """
+
+    def __init__(
+        self, *, running_polls: int = 0, caps_by_model: Mapping[str, VideoCapabilities] | None = None
+    ) -> None:
+        self.caps_by_model = dict(caps_by_model or {})
         self.failures = FailurePlan()
         self.task_failures: dict[int, tuple[str, str]] = {}  # 第 N 個任務 → (error_code, message)
         self.running_polls = running_polls
@@ -156,6 +163,7 @@ class MockSeedance:
         self.created.append(request)
         spec = {
             "n": len(self.created),
+            "model": request.model_id,
             "ratio": request.ratio,
             "resolution": request.resolution,
             "duration": request.duration_s,
@@ -165,6 +173,12 @@ class MockSeedance:
         }
         token = base64.urlsafe_b64encode(json.dumps(spec).encode()).decode().rstrip("=")
         return f"mock-{token}"
+
+    def _dimensions(self, spec: dict[str, Any]) -> tuple[int, int]:
+        caps = self.caps_by_model.get(str(spec.get("model", "")))
+        if caps is not None:
+            return caps.dimensions_for(spec["resolution"], spec["ratio"])
+        return video_dimensions(spec["resolution"], spec["ratio"])
 
     @staticmethod
     def decode(task_id: str) -> dict[str, Any]:
@@ -181,7 +195,7 @@ class MockSeedance:
         failure = self.task_failures.get(int(spec["n"]))
         if failure:
             return VideoTask(id=task_id, status="failed", error_code=failure[0], error_message=failure[1])
-        width, height = video_dimensions(spec["resolution"], spec["ratio"])
+        width, height = self._dimensions(spec)
         tokens = video_tokens(width, height, spec["fps"], spec["duration"])
         return VideoTask(
             id=task_id,
@@ -197,7 +211,7 @@ class MockSeedance:
 
     async def fetch_outputs(self, task: VideoTask, dest_dir: Path) -> VideoOutputs:
         spec = self.decode(task.id)
-        width, height = video_dimensions(spec["resolution"], spec["ratio"])
+        width, height = self._dimensions(spec)
         # Mock 影片用較低解析度生成以節省時間，合成時會統一縮放
         scale = max(1, max(width, height) // 640)
         video = await make_test_video(

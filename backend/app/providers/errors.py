@@ -29,6 +29,7 @@ class ProviderError(Exception):
         code: str | None = None,
         status: int | None = None,
         billed_tokens: int = 0,
+        billed_completion_tokens: int = 0,
     ) -> None:
         super().__init__(message)
         self.kind = kind
@@ -36,6 +37,7 @@ class ProviderError(Exception):
         self.status = status
         # 失敗前已經計費的 token（例如大模型多次修復仍失敗），網關會照樣記賬
         self.billed_tokens = billed_tokens
+        self.billed_completion_tokens = billed_completion_tokens  # billed_tokens 中屬於輸出的部分
 
     @property
     def retryable(self) -> bool:

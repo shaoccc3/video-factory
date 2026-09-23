@@ -85,6 +85,7 @@ class ArkLLM:
                         "大模型輸出無法通過校驗",
                         code="llm_invalid_json",
                         billed_tokens=usage.total_tokens,
+                        billed_completion_tokens=usage.completion_tokens,
                     ) from exc
                 convo.append({"role": "assistant", "content": content})
                 convo.append(

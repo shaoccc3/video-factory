@@ -2,7 +2,7 @@
 
 import structlog
 
-from app.core.models_config import ModelsConfig
+from app.core.models_config import ModelsConfig, VideoCapabilities, VideoModelKey
 from app.core.settings import Settings
 from app.providers.ark import ArkHttp
 from app.providers.base import Providers
@@ -14,9 +14,19 @@ class ProviderConfigError(RuntimeError):
     pass
 
 
-def build_mock_providers() -> Providers:
+def build_mock_providers(config: ModelsConfig | None = None) -> Providers:
+    caps: dict[str, VideoCapabilities] = {}
+    if config is not None:
+        keys: tuple[VideoModelKey, ...] = ("video_draft", "video_final", "video_long")
+        for key in keys:
+            if config.models.has(key):
+                caps[config.models.get(key).id] = config.video_caps(key)
     return Providers(
-        mode="mock", llm=MockLLM(), seedream=MockSeedream(), seedance=MockSeedance(), tts=MockTTS()
+        mode="mock",
+        llm=MockLLM(),
+        seedream=MockSeedream(),
+        seedance=MockSeedance(caps_by_model=caps),
+        tts=MockTTS(),
     )
 
 
@@ -57,4 +67,4 @@ def build_live_providers(settings: Settings, config: ModelsConfig) -> Providers:
 def build_providers(settings: Settings, config: ModelsConfig) -> Providers:
     if settings.provider_mode == "live":
         return build_live_providers(settings, config)
-    return build_mock_providers()
+    return build_mock_providers(config)

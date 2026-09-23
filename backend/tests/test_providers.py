@@ -370,6 +370,12 @@ async def test_chat_json_records_call_and_cost(runtime: Runtime, gateway: Gatewa
     assert call.status == "succeeded" and call.provider == "llm"
     [entry] = await _ledger(runtime)
     assert entry.amount_cny > 0 and entry.currency == "USD"
+    assert entry.usage["price_per_mtok_input"] == 0.25 and entry.usage["price_per_mtok_output"] == 2.0
+    prompt, completion = entry.usage["prompt_tokens"], entry.usage["completion_tokens"]
+    assert isinstance(prompt, int) and isinstance(completion, int)
+    assert float(entry.unit_price) == pytest.approx(
+        (prompt * 0.25 + completion * 2.0) / (prompt + completion), rel=1e-3
+    )
     async with runtime.sessionmaker() as s:
         refreshed = await s.get(Job, job.id)
         assert refreshed is not None and refreshed.actual_cost_cny == pytest.approx(entry.amount_cny)
@@ -396,7 +402,10 @@ async def test_run_video_polls_downloads_and_bills(
     assert run.outputs.last_frame is not None and run.outputs.last_frame.exists()
     assert sd.created[0].safety_identifier == "user-1"
     [entry] = await _ledger(runtime)
-    assert entry.usage["completion_tokens"] == video_tokens(480, 854, 24, 2)
+    assert entry.usage["completion_tokens"] == video_tokens(
+        480, 854, 24, 2
+    )  # 測試用模型 ID 不在能力表，按短邊推算
+    assert float(entry.unit_price) == pytest.approx(7.0)
     [call] = await _calls(runtime)
     assert call.remote_task_id == created[0]
 

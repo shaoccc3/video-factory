@@ -72,7 +72,7 @@ async def test_llm_sends_user_and_gives_up_without_retry() -> None:
     with pytest.raises(ProviderError) as info:
         await llm.chat_json("m", [ChatMessage("user", "hi")], Echo, safety_identifier="user-9")
     assert info.value.kind is ErrorKind.CLIENT and not info.value.retryable
-    assert info.value.billed_tokens == 45
+    assert info.value.billed_tokens == 45 and info.value.billed_completion_tokens == 15
     assert all(b["user"] == "user-9" for b in bodies)
 
 
@@ -81,7 +81,13 @@ async def test_failed_llm_call_is_still_billed(runtime: Runtime, gateway: Gatewa
     llm = runtime.providers.llm
     assert isinstance(llm, MockLLM)
     llm.failures.errors.append(
-        ProviderError(ErrorKind.CLIENT, "bad", code="llm_invalid_json", billed_tokens=5000)
+        ProviderError(
+            ErrorKind.CLIENT,
+            "bad",
+            code="llm_invalid_json",
+            billed_tokens=5000,
+            billed_completion_tokens=1000,
+        )
     )
     with pytest.raises(ProviderError):
         await gateway.chat_json(CallContext(job.id, user.id), [ChatMessage("user", "hi")], Echo)
@@ -89,7 +95,9 @@ async def test_failed_llm_call_is_still_billed(runtime: Runtime, gateway: Gatewa
         [entry] = (await s.scalars(select(CostLedger))).all()
         [call] = (await s.scalars(select(GenerationCall))).all()
         refreshed = await s.get(Job, job.id)
-    assert entry.usage["prompt_tokens"] == 5000 and call.status == "failed"
+    assert entry.usage["prompt_tokens"] == 4000 and entry.usage["completion_tokens"] == 1000
+    assert call.status == "failed"
+    assert float(entry.amount) == pytest.approx((4000 * 0.25 + 1000 * 2.0) / 1e6)
     assert refreshed is not None and refreshed.actual_cost_cny == pytest.approx(entry.amount_cny)
 
 
