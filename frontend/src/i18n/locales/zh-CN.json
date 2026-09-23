@@ -112,7 +112,6 @@
     }
   },
   "login": {
-    "title": "登录",
     "email": "电子邮件",
     "emailRequired": "请输入电子邮件",
     "password": "密码",
@@ -127,9 +126,7 @@
   },
   "jobs": {
     "title": "全部任务",
-    "new": "开新片",
     "empty": "目前还没有任务",
-    "filterStatus": "全部状态",
     "filterType": "全部类型",
     "search": "搜索标题或主题",
     "mine": "只看我的",
@@ -138,7 +135,6 @@
       "type": "类型",
       "template": "模板",
       "status": "状态",
-      "progress": "分镜进度",
       "owner": "创建者",
       "cost": "实际／预估",
       "createdAt": "创建时间",
@@ -160,22 +156,11 @@
     "newLink": "开一支新片 →"
   },
   "wizard": {
-    "title": "新建任务",
-    "steps": {
-      "template": "选模板",
-      "inputs": "主题与素材",
-      "settings": "设定",
-      "confirm": "确认提交"
-    },
     "noTemplates": "目前没有可用的模板，请联系管理员",
     "fields": {
-      "title": "任务标题",
-      "titleRequired": "请输入任务标题",
       "topic": "主题",
-      "topicRequired": "请输入主题",
       "topicHelp": "描述视频要表达的内容；请勿使用真实人名、明星、第三方品牌或影视 IP。",
       "extra": "补充说明",
-      "assets": "素材",
       "products": "商品图",
       "pickProducts": "选择商品图",
       "firstFrame": "首帧图片",
@@ -188,7 +173,6 @@
       "duration": "目标时长",
       "durationHelp": "留空由模板决定（{{min}}～{{max}} 秒）",
       "audioMode": "声音方式",
-      "draftMode": "样片模式",
       "draftModeHelp": "先用低成本样片确认效果，满意后再出正片",
       "continuousShots": "连续镜头",
       "continuousShotsHelp": "以上一镜头的尾帧作为下一镜头的首帧，画面更连贯但只能依序生成",
@@ -205,13 +189,7 @@
       "none": "无声"
     },
     "ttsUnavailable": "当前区域不提供 TTS 配音，已改用模型原生声音。",
-    "longShotTag": "Seedance 2.5 长镜头",
-    "assetCount": "已选 {{count}} 个",
-    "durationAuto": "由模板决定",
-    "submitHint": "提交后会先由大模型撰写脚本与分镜，确认分镜前不会生成视频。",
-    "prev": "上一步",
-    "next": "下一步",
-    "submit": "创建并提交"
+    "longShotTag": "Seedance 2.5 长镜头"
   },
   "jobDetail": {
     "cost": "实际／预估成本",
@@ -230,8 +208,6 @@
     "cancelConfirm": "确定取消这个任务？未完成的生成会一并取消。"
   },
   "storyboard": {
-    "title": "分镜确认",
-    "summary": "共 {{count}} 个镜头，约 {{seconds}} 秒",
     "sceneTitle": "镜头 {{index}}",
     "narration": "旁白",
     "narrationCount": "{{count}} 字",
@@ -248,13 +224,9 @@
     "sound": "音效",
     "soundPlaceholder": "例如：清晨鸟鸣、倒茶水声",
     "needsFirstFrame": "需要首帧",
-    "firstFrame": "首帧",
     "replaceFirstFrame": "从素材库替换首帧",
-    "save": "保存此镜头",
-    "saved": "分镜已保存",
     "readOnly": "目前不可编辑分镜",
     "rejected": "{{name}} 退回了这个任务",
-    "confirm": "确认生成",
     "confirmTitle": "确认分镜并开始生成？",
     "confirmDescription": "预估花费 ¥{{amount}}，确认后会开始调用视频模型。",
     "overBudgetHint": "预估成本超出预算，请减少镜头或时长，或联系管理员调整预算。",
@@ -262,17 +234,8 @@
     "regenerateScriptConfirm": "重新生成会覆盖目前的分镜，确定？"
   },
   "estimate": {
-    "title": "成本预估",
-    "total": "本任务预估",
-    "perJobBudget": "单任务预算",
-    "todaySpent": "今日已用／每日预算",
-    "dailyProgress": "今日预算使用",
     "overBudget": "预估超出预算，无法确认生成",
-    "nearLimit": "已接近预算上限（80%）",
-    "item": "项目",
-    "model": "模型",
-    "quantity": "数量",
-    "amount": "金额"
+    "nearLimit": "已接近预算上限（80%）"
   },
   "scene": {
     "title": "分镜预览",
@@ -380,15 +343,12 @@
     "reelSpec": "{{total}} 支 · 同时 {{parallel}} 支"
   },
   "library": {
-    "title": "成片库",
     "empty": "目前没有成片",
-    "preview": "播放预览",
     "detail": "详情",
     "playFilm": "放映《{{title}}》",
     "noFinal": "这支片还没有成片文件。"
   },
   "assets": {
-    "title": "素材库",
     "upload": "上传素材",
     "uploaded": "素材已上传",
     "kind": "类型",
@@ -399,7 +359,6 @@
     "file": "文件",
     "chooseFile": "选择文件",
     "empty": "目前没有素材",
-    "preview": "预览",
     "deleteConfirm": "确定删除这个素材？",
     "deleted": "素材已删除",
     "size": "大小",
@@ -442,7 +401,6 @@
     "title": "用量看板",
     "days": "近 {{count}} 天",
     "total": "近 {{count}} 天总花费",
-    "today": "今日花费／每日预算",
     "nearLimit": "今日花费已接近每日预算上限",
     "byDay": "每日花费",
     "byUser": "按用户",

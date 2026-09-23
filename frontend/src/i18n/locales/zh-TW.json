@@ -112,7 +112,6 @@
     }
   },
   "login": {
-    "title": "登入",
     "email": "電子郵件",
     "emailRequired": "請輸入電子郵件",
     "password": "密碼",
@@ -127,9 +126,7 @@
   },
   "jobs": {
     "title": "全部任務",
-    "new": "開新片",
     "empty": "目前還沒有任務",
-    "filterStatus": "全部狀態",
     "filterType": "全部類型",
     "search": "搜尋標題或主題",
     "mine": "只看我的",
@@ -138,7 +135,6 @@
       "type": "類型",
       "template": "模板",
       "status": "狀態",
-      "progress": "分鏡進度",
       "owner": "建立者",
       "cost": "實際／預估",
       "createdAt": "建立時間",
@@ -160,22 +156,11 @@
     "newLink": "開一支新片 →"
   },
   "wizard": {
-    "title": "新建任務",
-    "steps": {
-      "template": "選模板",
-      "inputs": "主題與素材",
-      "settings": "設定",
-      "confirm": "確認提交"
-    },
     "noTemplates": "目前沒有可用的模板，請聯絡管理員",
     "fields": {
-      "title": "任務標題",
-      "titleRequired": "請輸入任務標題",
       "topic": "主題",
-      "topicRequired": "請輸入主題",
       "topicHelp": "描述影片要表達的內容；請勿使用真實人名、明星、第三方品牌或影視 IP。",
       "extra": "補充說明",
-      "assets": "素材",
       "products": "商品圖",
       "pickProducts": "選擇商品圖",
       "firstFrame": "首幀圖片",
@@ -188,7 +173,6 @@
       "duration": "目標時長",
       "durationHelp": "留空由模板決定（{{min}}～{{max}} 秒）",
       "audioMode": "聲音方式",
-      "draftMode": "樣片模式",
       "draftModeHelp": "先用低成本樣片確認效果，滿意後再出正片",
       "continuousShots": "連續鏡頭",
       "continuousShotsHelp": "以上一鏡頭的尾幀作為下一鏡頭的首幀，畫面更連貫但只能依序生成",
@@ -205,13 +189,7 @@
       "none": "無聲"
     },
     "ttsUnavailable": "目前區域不提供 TTS 配音，已改用模型原生聲音。",
-    "longShotTag": "Seedance 2.5 長鏡頭",
-    "assetCount": "已選 {{count}} 個",
-    "durationAuto": "由模板決定",
-    "submitHint": "提交後會先由大模型撰寫腳本與分鏡，確認分鏡前不會生成影片。",
-    "prev": "上一步",
-    "next": "下一步",
-    "submit": "建立並提交"
+    "longShotTag": "Seedance 2.5 長鏡頭"
   },
   "jobDetail": {
     "cost": "實際／預估成本",
@@ -230,8 +208,6 @@
     "cancelConfirm": "確定取消這個任務？未完成的生成會一併取消。"
   },
   "storyboard": {
-    "title": "分鏡確認",
-    "summary": "共 {{count}} 個鏡頭，約 {{seconds}} 秒",
     "sceneTitle": "鏡頭 {{index}}",
     "narration": "旁白",
     "narrationCount": "{{count}} 字",
@@ -248,13 +224,9 @@
     "sound": "音效",
     "soundPlaceholder": "例如：清晨鳥鳴、倒茶水聲",
     "needsFirstFrame": "需要首幀",
-    "firstFrame": "首幀",
     "replaceFirstFrame": "從素材庫替換首幀",
-    "save": "儲存此鏡頭",
-    "saved": "分鏡已儲存",
     "readOnly": "目前不可編輯分鏡",
     "rejected": "{{name}} 退回了這個任務",
-    "confirm": "確認生成",
     "confirmTitle": "確認分鏡並開始生成？",
     "confirmDescription": "預估花費 ¥{{amount}}，確認後會開始調用影片模型。",
     "overBudgetHint": "預估成本超出預算，請減少鏡頭或時長，或聯絡管理員調整預算。",
@@ -262,17 +234,8 @@
     "regenerateScriptConfirm": "重新生成會覆蓋目前的分鏡，確定？"
   },
   "estimate": {
-    "title": "成本預估",
-    "total": "本任務預估",
-    "perJobBudget": "單任務預算",
-    "todaySpent": "今日已用／每日預算",
-    "dailyProgress": "今日預算使用",
     "overBudget": "預估超出預算，無法確認生成",
-    "nearLimit": "已接近預算上限（80%）",
-    "item": "項目",
-    "model": "模型",
-    "quantity": "數量",
-    "amount": "金額"
+    "nearLimit": "已接近預算上限（80%）"
   },
   "scene": {
     "title": "分鏡預覽",
@@ -380,15 +343,12 @@
     "reelSpec": "{{total}} 支 · 同時 {{parallel}} 支"
   },
   "library": {
-    "title": "成片庫",
     "empty": "目前沒有成片",
-    "preview": "播放預覽",
     "detail": "詳情",
     "playFilm": "放映《{{title}}》",
     "noFinal": "這支片還沒有成片檔。"
   },
   "assets": {
-    "title": "素材庫",
     "upload": "上傳素材",
     "uploaded": "素材已上傳",
     "kind": "類型",
@@ -399,7 +359,6 @@
     "file": "文件",
     "chooseFile": "選擇文件",
     "empty": "目前沒有素材",
-    "preview": "預覽",
     "deleteConfirm": "確定刪除這個素材？",
     "deleted": "素材已刪除",
     "size": "大小",
@@ -442,7 +401,6 @@
     "title": "用量看板",
     "days": "近 {{count}} 天",
     "total": "近 {{count}} 天總花費",
-    "today": "今日花費／每日預算",
     "nearLimit": "今日花費已接近每日預算上限",
     "byDay": "每日花費",
     "byUser": "按用戶",

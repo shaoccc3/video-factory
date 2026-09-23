@@ -82,9 +82,9 @@ export function narrationLimit(durationS: number, charsPerSecond: number): numbe
 export function cameraMotion(cameraMove: string): string {
   const move = cameraMove.toLowerCase();
   if (/拉|pull|zoom out|dolly out/.test(move)) return "pull";
-  if (/環繞|orbit|arc/.test(move)) return "orbit";
+  if (/環繞|环绕|orbit|arc/.test(move)) return "orbit";
   if (/推|push|zoom in|dolly in/.test(move)) return "push";
-  if (/移|搖|跟|pan|track|truck/.test(move)) return "pan";
+  if (/移|搖|摇|跟|pan|track|truck/.test(move)) return "pan";
   if (/固定|static|fixed|lock/.test(move)) return "breathe";
   return "kb";
 }
