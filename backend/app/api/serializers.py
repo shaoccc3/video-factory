@@ -85,6 +85,7 @@ async def _preview_frames(session: AsyncSession, job_ids: list[uuid.UUID]) -> di
 async def job_summaries(session: AsyncSession, jobs: Sequence[Job]) -> list[JobSummary]:
     ids = [j.id for j in jobs]
     progress: dict[uuid.UUID, Progress] = {}
+    runtimes: dict[uuid.UUID, float] = {}
     if ids:
         rows = await session.execute(
             select(
@@ -92,14 +93,14 @@ async def job_summaries(session: AsyncSession, jobs: Sequence[Job]) -> list[JobS
                 func.count(),
                 func.sum(case((Scene.status == SceneStatus.SUCCEEDED.value, 1), else_=0)),
                 func.sum(case((Scene.status == SceneStatus.FAILED.value, 1), else_=0)),
+                func.sum(Scene.duration_s),
             )
             .where(Scene.job_id.in_(ids))
             .group_by(Scene.job_id)
         )
-        progress = {
-            r[0]: Progress(total=int(r[1]), succeeded=int(r[2] or 0), failed=int(r[3] or 0))
-            for r in rows.all()
-        }
+        for r in rows.all():
+            progress[r[0]] = Progress(total=int(r[1]), succeeded=int(r[2] or 0), failed=int(r[3] or 0))
+            runtimes[r[0]] = round(float(r[4] or 0), 2)
     owners = await _names(session, User, {j.owner_id for j in jobs})
     templates = await _names(session, Template, {j.template_id for j in jobs})
     frames = await _preview_frames(session, [j.id for j in jobs if j.cover_asset_id is None])
@@ -121,6 +122,7 @@ async def job_summaries(session: AsyncSession, jobs: Sequence[Job]) -> list[JobS
             final_asset_id=j.final_asset_id,
             cover_asset_id=j.cover_asset_id,
             preview_asset_id=j.cover_asset_id or frames.get(j.id),
+            runtime_s=runtimes.get(j.id),
             progress=progress.get(j.id, Progress(total=0, succeeded=0, failed=0)),
             created_at=j.created_at,
             updated_at=j.updated_at,

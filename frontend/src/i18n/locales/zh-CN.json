@@ -141,8 +141,23 @@
       "progress": "分镜进度",
       "owner": "创建者",
       "cost": "实际／预估",
-      "createdAt": "创建时间"
-    }
+      "createdAt": "创建时间",
+      "still": "画面",
+      "ratio": "画幅",
+      "runtime": "长度",
+      "updatedAt": "更新时间"
+    },
+    "tabs": {
+      "all": "全部",
+      "active": "进行中",
+      "review": "待审核",
+      "approved": "已通过",
+      "attention": "需要处理",
+      "draft": "草稿",
+      "cancelled": "已取消"
+    },
+    "clearStatus": "清除",
+    "newLink": "开一支新片 →"
   },
   "wizard": {
     "title": "新建任务",

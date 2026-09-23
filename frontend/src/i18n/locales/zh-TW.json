@@ -141,8 +141,23 @@
       "progress": "分鏡進度",
       "owner": "建立者",
       "cost": "實際／預估",
-      "createdAt": "建立時間"
-    }
+      "createdAt": "建立時間",
+      "still": "畫面",
+      "ratio": "畫幅",
+      "runtime": "長度",
+      "updatedAt": "更新時間"
+    },
+    "tabs": {
+      "all": "全部",
+      "active": "進行中",
+      "review": "待審核",
+      "approved": "已通過",
+      "attention": "需要處理",
+      "draft": "草稿",
+      "cancelled": "已取消"
+    },
+    "clearStatus": "清除",
+    "newLink": "開一支新片 →"
   },
   "wizard": {
     "title": "新建任務",

@@ -1,7 +1,7 @@
-import { PlusOutlined } from "@ant-design/icons";
-import { Button, Empty, Flex, Input, Progress, Select, Switch, Table, Typography } from "antd";
+import { Input, Pagination, Progress, Typography } from "antd";
 import { useTranslation } from "react-i18next";
-import { Link, useNavigate, useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
+import { assetThumbnailUrl } from "../api/client";
 import { useJobs } from "../api/hooks";
 import {
   JOB_STATUSES,
@@ -11,8 +11,12 @@ import {
   type VideoType,
 } from "../api/types";
 import { ErrorAlert } from "../components/ErrorResult";
+import { formatRuntime } from "../components/job/JobHeader";
 import { JobStatusTag } from "../components/StatusTag";
+import { PosterFallback } from "../components/studio/PosterFallback";
+import { Toggle } from "../components/studio/Toggle";
 import { formatCny, formatDateTime, percent } from "../utils/format";
+import "./jobs.css";
 
 function pick<T extends string>(values: readonly T[], value: string | null): T | undefined {
   return (values as readonly string[]).includes(value ?? "") ? (value as T) : undefined;
@@ -32,22 +36,68 @@ export function JobProgressBar({ job }: { job: JobSummary }) {
   );
 }
 
+/** 狀態頁籤：多個狀態一組（v1.3 的 GET /jobs 可帶多個 status） */
+const STATUS_TABS: Record<string, readonly JobStatus[] | undefined> = {
+  all: undefined,
+  active: ["scripting", "storyboard_ready", "generating", "composing"],
+  review: ["in_review"],
+  approved: ["approved"],
+  attention: ["failed", "budget_exceeded", "rejected"],
+  draft: ["draft"],
+  cancelled: ["cancelled"],
+};
+const TAB_KEYS = Object.keys(STATUS_TABS);
+const SKELETON_ROWS = ["a", "b", "c", "d", "e"];
+
+/** 分鏡進度：成功／總數，失敗時轉紅 */
+function ShotProgress({ job }: { job: JobSummary }) {
+  const { total, succeeded, failed } = job.progress;
+  if (total === 0) return <span className="vf-muted">—</span>;
+  return (
+    <span className="vf-jobs-progress" data-failed={failed > 0}>
+      <span className="vf-jobs-progress-bar" aria-hidden="true">
+        <span style={{ width: `${percent(succeeded, total)}%` }} />
+      </span>
+      <span className="vf-mono">
+        {succeeded}/{total}
+      </span>
+    </span>
+  );
+}
+
+function Still({ job }: { job: JobSummary }) {
+  const portrait = job.ratio === "9:16" || job.ratio === "3:4";
+  return (
+    <span className="vf-jobs-still" data-portrait={portrait}>
+      {job.preview_asset_id ? (
+        <img src={assetThumbnailUrl(job.preview_asset_id)} alt="" loading="lazy" />
+      ) : (
+        <PosterFallback title={job.title} size="sm" />
+      )}
+    </span>
+  );
+}
+
+/** 全部任務：一列一支片，頁籤篩選狀態，保留搜尋、只看我的與分頁 */
 export function JobsPage() {
   const { t, i18n } = useTranslation();
   const [params, setParams] = useSearchParams();
-  const navigate = useNavigate();
-  const status = pick<JobStatus>(JOB_STATUSES, params.get("status"));
+  const single = pick<JobStatus>(JOB_STATUSES, params.get("status"));
+  const tab = TAB_KEYS.includes(params.get("tab") ?? "") ? (params.get("tab") as string) : "all";
   const videoType = pick<VideoType>(VIDEO_TYPES, params.get("video_type"));
   const mine = params.get("mine") === "1";
   const q = params.get("q") ?? "";
   const page = Number(params.get("page") ?? "1") || 1;
   const pageSize = Number(params.get("page_size") ?? "20") || 20;
+  const group = STATUS_TABS[tab];
+  const statuses: JobStatus[] | undefined = single ? [single] : group ? [...group] : undefined;
 
   const jobs = useJobs({
-    status,
+    status: statuses,
     video_type: videoType,
     mine: mine || undefined,
     q: q || undefined,
+    sort: "updated",
     page,
     page_size: pageSize,
   });
@@ -62,102 +112,171 @@ export function JobsPage() {
     setParams(next, { replace: true });
   };
 
+  const items = jobs.data?.items ?? [];
+
   return (
-    <>
-      <Flex justify="space-between" align="center" style={{ marginBottom: 16 }}>
-        <Typography.Title level={3} style={{ margin: 0 }}>
-          {t("jobs.title")}
-        </Typography.Title>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => void navigate("/jobs/new")}>
-          {t("jobs.new")}
-        </Button>
-      </Flex>
-      <Flex gap={12} wrap style={{ marginBottom: 16 }} align="center">
-        <Select
-          aria-label={t("jobs.columns.status")}
-          allowClear
-          placeholder={t("jobs.filterStatus")}
-          style={{ width: 160 }}
-          value={status}
-          onChange={(v?: JobStatus) => update({ status: v })}
-          options={JOB_STATUSES.map((s) => ({ value: s, label: t(`jobStatus.${s}`) }))}
-        />
-        <Select
-          aria-label={t("jobs.columns.type")}
-          allowClear
-          placeholder={t("jobs.filterType")}
-          style={{ width: 160 }}
-          value={videoType}
-          onChange={(v?: VideoType) => update({ video_type: v })}
-          options={VIDEO_TYPES.map((v) => ({ value: v, label: t(`videoType.${v}`) }))}
-        />
-        <Input.Search
-          allowClear
-          style={{ width: 240 }}
-          placeholder={t("jobs.search")}
-          defaultValue={q}
-          onSearch={(text) => update({ q: text })}
-        />
-        <Flex gap={6} align="center">
-          <Switch
-            checked={mine}
-            onChange={(checked) => update({ mine: checked ? "1" : undefined })}
-            aria-label={t("jobs.mine")}
+    <div className="vf-jobs">
+      <header className="vf-jobs-head vf-rise">
+        <div>
+          <span className="vf-label">
+            ALL PRODUCTIONS{jobs.data ? ` · ${jobs.data.total}` : ""}
+          </span>
+          <h1 className="vf-serif">{t("jobs.title")}</h1>
+        </div>
+      </header>
+
+      <div className="vf-jobs-filters vf-rise-2">
+        <fieldset className="vf-tabs vf-jobs-tabs" aria-label={t("jobs.columns.status")}>
+          {TAB_KEYS.map((key) => (
+            <button
+              key={key}
+              type="button"
+              className="vf-tab"
+              aria-pressed={!single && tab === key}
+              onClick={() => update({ tab: key === "all" ? undefined : key, status: undefined })}
+            >
+              {t(`jobs.tabs.${key}`)}
+            </button>
+          ))}
+        </fieldset>
+        <div className="vf-jobs-tools">
+          <fieldset className="vf-tabs vf-jobs-types" aria-label={t("jobs.columns.type")}>
+            <button
+              type="button"
+              className="vf-tab"
+              aria-pressed={!videoType}
+              onClick={() => update({ video_type: undefined })}
+            >
+              {t("jobs.filterType")}
+            </button>
+            {VIDEO_TYPES.map((v) => (
+              <button
+                key={v}
+                type="button"
+                className="vf-tab"
+                aria-pressed={videoType === v}
+                onClick={() => update({ video_type: v })}
+              >
+                {t(`videoType.${v}`)}
+              </button>
+            ))}
+          </fieldset>
+          <Input.Search
+            allowClear
+            className="vf-jobs-search"
+            placeholder={t("jobs.search")}
+            aria-label={t("jobs.search")}
+            defaultValue={q}
+            onSearch={(text) => update({ q: text })}
           />
-          <Typography.Text>{t("jobs.mine")}</Typography.Text>
-        </Flex>
-      </Flex>
+          <span className="vf-jobs-mine">
+            <Toggle
+              checked={mine}
+              onChange={(on) => update({ mine: on ? "1" : undefined })}
+              label={t("jobs.mine")}
+            />
+            <span aria-hidden="true">{t("jobs.mine")}</span>
+          </span>
+        </div>
+        {single && (
+          <p className="vf-jobs-chip">
+            {t("jobs.columns.status")}：{t(`jobStatus.${single}`)}
+            <button
+              type="button"
+              className="vf-slate-reset"
+              onClick={() => update({ status: undefined })}
+            >
+              {t("jobs.clearStatus")}
+            </button>
+          </p>
+        )}
+      </div>
+
       <ErrorAlert error={jobs.error} />
-      <Table<JobSummary>
-        rowKey="id"
-        loading={jobs.isFetching}
-        dataSource={jobs.data?.items ?? []}
-        locale={{ emptyText: <Empty description={t("jobs.empty")} /> }}
-        pagination={{
-          current: page,
-          pageSize,
-          total: jobs.data?.total ?? 0,
-          showSizeChanger: true,
-          onChange: (p, size) => update({ page: String(p), page_size: String(size) }),
-        }}
-        scroll={{ x: 960 }}
-        columns={[
-          {
-            title: t("jobs.columns.title"),
-            dataIndex: "title",
-            render: (title: string, job) => <Link to={`/jobs/${job.id}`}>{title}</Link>,
-          },
-          {
-            title: t("jobs.columns.type"),
-            dataIndex: "video_type",
-            render: (v: VideoType) => t(`videoType.${v}`),
-          },
-          { title: t("jobs.columns.template"), dataIndex: "template_name" },
-          {
-            title: t("jobs.columns.status"),
-            dataIndex: "status",
-            render: (s: JobStatus) => <JobStatusTag status={s} />,
-          },
-          {
-            title: t("jobs.columns.progress"),
-            key: "progress",
-            render: (_, job) => <JobProgressBar job={job} />,
-          },
-          { title: t("jobs.columns.owner"), dataIndex: "owner_name" },
-          {
-            title: t("jobs.columns.cost"),
-            key: "cost",
-            align: "right",
-            render: (_, job) =>
-              `${formatCny(job.actual_cost_cny)} / ${formatCny(job.estimated_cost_cny)}`,
-          },
-          {
-            title: t("jobs.columns.createdAt"),
-            dataIndex: "created_at",
-            render: (v: string) => formatDateTime(v, i18n.language),
-          },
-        ]}
+
+      <div className="vf-jobs-table-wrap vf-rise-3">
+        <table className="vf-jobs-table" aria-busy={jobs.isFetching}>
+          <thead>
+            <tr>
+              <th scope="col">
+                <span className="vf-sr-only">{t("jobs.columns.still")}</span>
+              </th>
+              <th scope="col">{t("jobs.columns.title")}</th>
+              <th scope="col">{t("jobs.columns.status")}</th>
+              <th scope="col">{t("jobs.columns.type")}</th>
+              <th scope="col">{t("jobs.columns.ratio")}</th>
+              <th scope="col">{t("jobs.columns.runtime")}</th>
+              <th scope="col" className="vf-num">
+                {t("jobs.columns.cost")}
+              </th>
+              <th scope="col">{t("jobs.columns.updatedAt")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {jobs.isPending
+              ? SKELETON_ROWS.map((key) => (
+                  <tr key={key}>
+                    <td colSpan={8}>
+                      <span className="vf-skel vf-skel-row" aria-hidden="true" />
+                    </td>
+                  </tr>
+                ))
+              : items.map((job) => (
+                  <tr key={job.id} className="vf-jobs-row">
+                    <td>
+                      <Still job={job} />
+                    </td>
+                    <td>
+                      <div className="vf-jobs-title">
+                        <Link to={`/jobs/${job.id}`} className="vf-stretched">
+                          {job.title}
+                        </Link>
+                        <span className="vf-muted">
+                          {job.template_name} · {job.owner_name}
+                        </span>
+                      </div>
+                    </td>
+                    <td>
+                      <span className="vf-jobs-status">
+                        <JobStatusTag status={job.status} />
+                        <ShotProgress job={job} />
+                      </span>
+                    </td>
+                    <td className="vf-mono">{t(`videoType.${job.video_type}`)}</td>
+                    <td className="vf-mono">{job.ratio}</td>
+                    <td className="vf-mono">
+                      {job.runtime_s === null ? "—" : formatRuntime(job.runtime_s)}
+                    </td>
+                    <td className="vf-mono vf-num">
+                      {formatCny(job.actual_cost_cny)}
+                      <span className="vf-muted"> / {formatCny(job.estimated_cost_cny)}</span>
+                    </td>
+                    <td className="vf-mono vf-muted">
+                      {formatDateTime(job.updated_at, i18n.language)}
+                    </td>
+                  </tr>
+                ))}
+          </tbody>
+        </table>
+        {!jobs.isPending && items.length === 0 && (
+          <div className="vf-jobs-empty">
+            <p>{t("jobs.empty")}</p>
+            <Link to="/jobs/new" className="vf-link">
+              {t("jobs.newLink")}
+            </Link>
+          </div>
+        )}
+      </div>
+
+      <Pagination
+        className="vf-jobs-pager"
+        current={page}
+        pageSize={pageSize}
+        total={jobs.data?.total ?? 0}
+        showSizeChanger
+        hideOnSinglePage
+        onChange={(p, size) => update({ page: String(p), page_size: String(size) })}
       />
-    </>
+    </div>
   );
 }

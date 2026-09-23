@@ -159,6 +159,8 @@ class JobSummary(BaseModel):
     cover_asset_id: uuid.UUID | None
     # v1.3：列表與卡片的畫面。依序取封面、最後一個成功鏡頭的尾幀、第一個有首幀的鏡頭的首幀
     preview_asset_id: uuid.UUID | None
+    # v1.3：片長（秒），各鏡時長加總；還沒有分鏡時為 null
+    runtime_s: float | None
     progress: Progress
     created_at: datetime
     updated_at: datetime

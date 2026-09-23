@@ -84,6 +84,7 @@ JobSummary = {
   estimated_cost_cny: number | null; actual_cost_cny: number;
   final_asset_id: string | null; cover_asset_id: string | null;
   preview_asset_id: string | null;            // v1.3：卡片畫面，依序取封面、最後一個成功鏡頭的尾幀、第一個有首幀的鏡頭的首幀；都沒有時為 null
+  runtime_s: number | null;                   // v1.3：片長（秒），各鏡時長加總；還沒有分鏡時為 null
   progress: { total: number; succeeded: number; failed: number };  // 分鏡數
   created_at: string; updated_at: string;
 }

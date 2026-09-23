@@ -135,6 +135,25 @@ async def test_job_detail_shot_duration_follows_video_model(
         assert body["shot_duration_s"] == {"min_s": caps.min_duration_s, "max_s": caps.max_duration_s}
 
 
+async def test_job_summary_runtime(
+    client: httpx.AsyncClient, runtime: Runtime, templates: dict[str, Template], creator: User
+) -> None:
+    """JobSummary.runtime_s：各鏡時長加總；還沒有分鏡時為 null（全部任務列表的「長度」）。"""
+    await login(client, creator)
+    scripted = await new_job(runtime, creator, templates["marketing"], title="有分鏡")
+    await new_job(runtime, creator, templates["marketing"], title="還沒寫分鏡")
+    async with runtime.sessionmaker() as session:
+        for i, duration in enumerate((5.0, 7.5, 4.0)):
+            scene = Scene(
+                job_id=scripted.id, index=i, narration="", visual_prompt="茶園", duration_s=duration
+            )
+            session.add(scene)
+        await session.commit()
+    items = {j["title"]: j for j in (await client.get("/api/v1/jobs")).json()["items"]}
+    assert items["有分鏡"]["runtime_s"] == 16.5
+    assert items["還沒寫分鏡"]["runtime_s"] is None
+
+
 # ---- JobSummary.preview_asset_id ---------------------------------------------
 
 

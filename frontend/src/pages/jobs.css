@@ -1,0 +1,253 @@
+/* 全部任務：一列一支片（規格 14 第 4 節） */
+.vf-jobs {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  max-width: 1440px;
+}
+
+.vf-jobs-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.vf-jobs-head > div {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vf-jobs-head h1 {
+  margin: 0;
+  font-size: clamp(30px, 3.6vw, 44px);
+  letter-spacing: 0.04em;
+}
+
+.vf-jobs-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.vf-jobs-tabs {
+  flex-wrap: wrap;
+  gap: 0;
+  border-bottom: 1px solid var(--vf-line);
+}
+
+.vf-jobs-tabs .vf-tab {
+  min-height: 40px;
+  padding: 0 16px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+}
+
+.vf-jobs-tabs .vf-tab[aria-pressed="true"] {
+  border-bottom-color: var(--vf-accent);
+  background: transparent;
+}
+
+.vf-jobs-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+}
+
+.vf-jobs-types {
+  flex-wrap: wrap;
+}
+
+.vf-jobs-types .vf-tab {
+  min-height: 32px;
+  font-size: 13px;
+}
+
+.vf-jobs-search {
+  width: 260px;
+}
+
+.vf-jobs-mine {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--vf-text-2);
+  font-size: 14px;
+}
+
+.vf-jobs-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  color: var(--vf-text-2);
+  font-size: 13px;
+}
+
+.vf-jobs-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--vf-line);
+}
+
+.vf-jobs-table {
+  width: 100%;
+  min-width: 980px;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.vf-jobs-table th {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--vf-line);
+  background: var(--vf-panel);
+  color: var(--vf-text-3);
+  font-family: var(--vf-font-mono);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.18em;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.vf-jobs-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--vf-line);
+  vertical-align: middle;
+}
+
+.vf-jobs-table td.vf-mono {
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.vf-jobs-table .vf-num {
+  text-align: right;
+}
+
+.vf-jobs-row {
+  position: relative;
+  transition: background-color 0.2s;
+}
+
+.vf-jobs-row:hover {
+  background: rgba(17, 27, 46, 0.7);
+}
+
+.vf-jobs-row:last-child td {
+  border-bottom: none;
+}
+
+.vf-jobs-still {
+  display: block;
+  width: 88px;
+  height: 50px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--vf-raised);
+}
+
+.vf-jobs-still[data-portrait="true"] {
+  width: 40px;
+  height: 64px;
+  margin: 0 24px;
+}
+
+.vf-jobs-still img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.4s var(--vf-ease);
+}
+
+.vf-jobs-row:hover .vf-jobs-still img {
+  transform: scale(1.08);
+}
+
+.vf-jobs-still .vf-poster {
+  padding: 6px;
+}
+
+.vf-jobs-still .vf-poster-title {
+  font-size: 10px;
+}
+
+.vf-jobs-still .vf-poster-rule {
+  display: none;
+}
+
+.vf-jobs-title {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 220px;
+}
+
+.vf-jobs-title a {
+  color: var(--vf-text);
+  font-family: var(--vf-font-serif);
+  font-size: 16px;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.vf-jobs-title a:hover {
+  color: var(--vf-accent);
+}
+
+.vf-jobs-title .vf-muted {
+  font-size: 12px;
+}
+
+.vf-jobs-status {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.vf-jobs-progress {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--vf-text-3);
+  font-size: 11px;
+}
+
+.vf-jobs-progress-bar {
+  position: relative;
+  width: 64px;
+  height: 3px;
+  background: var(--vf-line-2);
+}
+
+.vf-jobs-progress-bar span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--vf-ok);
+}
+
+.vf-jobs-progress[data-failed="true"] {
+  color: #ff8d90;
+}
+
+.vf-jobs-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 48px 16px;
+  color: var(--vf-text-2);
+}
+
+.vf-jobs-empty p {
+  margin: 0;
+}
+
+.vf-jobs-pager {
+  align-self: flex-end;
+}

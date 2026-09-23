@@ -250,6 +250,8 @@ export interface JobSummary {
   cover_asset_id: string | null;
   /** v1.3：封面，否則最後一個成功鏡頭的尾幀，否則第一個有首幀的鏡頭的首幀 */
   preview_asset_id: string | null;
+  /** v1.3：片長（秒），各鏡時長加總；還沒有分鏡時為 null */
+  runtime_s: number | null;
   progress: JobProgress;
   created_at: string;
   updated_at: string;
