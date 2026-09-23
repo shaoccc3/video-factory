@@ -55,7 +55,7 @@ def test_redact_urls() -> None:
     assert redact_urls(text) == "無法下載 https://tos.volces.com/a.png?… 請檢查"
 
 
-async def test_llm_sends_user_and_gives_up_without_retry() -> None:
+async def test_llm_omits_user_and_gives_up_without_retry() -> None:
     bodies: list[dict[str, object]] = []
 
     def handler(req: httpx.Request) -> httpx.Response:
@@ -73,7 +73,8 @@ async def test_llm_sends_user_and_gives_up_without_retry() -> None:
         await llm.chat_json("m", [ChatMessage("user", "hi")], Echo, safety_identifier="user-9")
     assert info.value.kind is ErrorKind.CLIENT and not info.value.retryable
     assert info.value.billed_tokens == 45 and info.value.billed_completion_tokens == 15
-    assert all(b["user"] == "user-9" for b in bodies)
+    # 規格 13：Chat API 沒有 user／safety_identifier 參數，不發送
+    assert bodies and all("user" not in b and "safety_identifier" not in b for b in bodies)
 
 
 async def test_failed_llm_call_is_still_billed(runtime: Runtime, gateway: Gateway, user: User) -> None:

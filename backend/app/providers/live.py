@@ -51,6 +51,8 @@ class ArkLLM:
         *,
         safety_identifier: str | None = None,
     ) -> ChatResult[T]:
+        # Chat API 沒有 user／safety_identifier 參數（官方文件 2026-09-18），不發送；
+        # 用戶由 generation_calls.user_id 追溯
         convo = [{"role": m.role, "content": m.content} for m in messages]
         usage = LLMUsage()
         for attempt in range(1, LLM_REPAIR_ATTEMPTS + 2):
@@ -62,8 +64,6 @@ class ArkLLM:
                     "messages": convo,
                     "response_format": {"type": "json_object"},
                     "temperature": 0.7,
-                    # 對話接口用 user 欄位傳終端用戶標識（等同 safety_identifier）
-                    **({"user": safety_identifier} if safety_identifier else {}),
                 },
             )
             u = data.get("usage") or {}
