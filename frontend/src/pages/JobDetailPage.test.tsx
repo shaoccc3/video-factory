@@ -238,6 +238,27 @@ describe("分鏡表", () => {
     expect(screen.getByText(/預估成本超出預算/)).toBeInTheDocument();
   });
 
+  it("減少動態效果時監看不自動播放；一般情況自動播放", async () => {
+    mockApi(baseRoutes(storyboardJob()));
+    const { unmount } = renderApp("/jobs/job-1");
+    // 測試環境預設「減少動態效果」（見 test/setup.ts）
+    expect(await screen.findByRole("button", { name: "播放預覽" })).toBeInTheDocument();
+    unmount();
+
+    const reduced = window.matchMedia;
+    window.matchMedia = ((query: string) => ({
+      ...reduced(query),
+      matches: false,
+    })) as typeof window.matchMedia;
+    try {
+      mockApi(baseRoutes(storyboardJob()));
+      renderApp("/jobs/job-1");
+      expect(await screen.findByRole("button", { name: "暫停預覽" })).toBeInTheDocument();
+    } finally {
+      window.matchMedia = reduced;
+    }
+  });
+
   it("技術細節（調用記錄）只有管理員看得到", async () => {
     mockApi({ ...baseRoutes(storyboardJob()), "GET /auth/me": makeUser({ roles: ["creator"] }) });
     renderApp("/jobs/job-1");

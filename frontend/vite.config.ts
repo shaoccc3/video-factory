@@ -36,6 +36,8 @@ export default defineConfig({
         // 把變動少的第三方庫拆出，業務代碼更新時瀏覽器仍可沿用快取
         codeSplitting: {
           groups: [
+            // 字體宣告只由動態載入的 styles/fonts 引用，單獨成塊才不會被首屏的 vendor 帶進來
+            { name: "fonts", test: /node_modules[\\/]@fontsource[\\/]/ },
             {
               name: "antd",
               test: /node_modules[\\/](antd|@ant-design|@rc-component|rc-[^\\/]+)[\\/]/,
