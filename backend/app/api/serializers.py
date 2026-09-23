@@ -3,7 +3,7 @@
 import uuid
 from collections.abc import Sequence
 
-from sqlalchemy import case, func, select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.schemas import (
@@ -56,6 +56,31 @@ async def _names(
     return {row[0]: row[1] for row in rows.all()}
 
 
+async def _preview_frames(session: AsyncSession, job_ids: list[uuid.UUID]) -> dict[uuid.UUID, uuid.UUID]:
+    """沒有封面的任務用哪張畫面：最後一個成功鏡頭的尾幀，否則第一個有首幀的鏡頭的首幀。
+
+    整頁任務只查一次，只取需要的欄位。
+    """
+    if not job_ids:
+        return {}
+    rows = await session.execute(
+        select(Scene.job_id, Scene.status, Scene.first_frame_asset_id, Scene.last_frame_asset_id)
+        .where(
+            Scene.job_id.in_(job_ids),
+            or_(Scene.first_frame_asset_id.is_not(None), Scene.last_frame_asset_id.is_not(None)),
+        )
+        .order_by(Scene.job_id, Scene.index)
+    )
+    last: dict[uuid.UUID, uuid.UUID] = {}
+    first: dict[uuid.UUID, uuid.UUID] = {}
+    for job_id, scene_status, first_frame, last_frame in rows.all():
+        if last_frame is not None and scene_status == SceneStatus.SUCCEEDED:
+            last[job_id] = last_frame  # 按鏡頭順序，後面的覆蓋前面的
+        if first_frame is not None:
+            first.setdefault(job_id, first_frame)
+    return {**first, **last}
+
+
 async def job_summaries(session: AsyncSession, jobs: Sequence[Job]) -> list[JobSummary]:
     ids = [j.id for j in jobs]
     progress: dict[uuid.UUID, Progress] = {}
@@ -76,6 +101,7 @@ async def job_summaries(session: AsyncSession, jobs: Sequence[Job]) -> list[JobS
         }
     owners = await _names(session, User, {j.owner_id for j in jobs})
     templates = await _names(session, Template, {j.template_id for j in jobs})
+    frames = await _preview_frames(session, [j.id for j in jobs if j.cover_asset_id is None])
     return [
         JobSummary(
             id=j.id,
@@ -93,6 +119,7 @@ async def job_summaries(session: AsyncSession, jobs: Sequence[Job]) -> list[JobS
             actual_cost_cny=round(float(j.actual_cost_cny or 0), 4),
             final_asset_id=j.final_asset_id,
             cover_asset_id=j.cover_asset_id,
+            preview_asset_id=j.cover_asset_id or frames.get(j.id),
             progress=progress.get(j.id, Progress(total=0, succeeded=0, failed=0)),
             created_at=j.created_at,
             updated_at=j.updated_at,

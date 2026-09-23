@@ -70,6 +70,11 @@ CostEstimate = {
   budget_per_job_cny: number; spent_today_cny: number; daily_budget_cny: number;
   within_budget: boolean; near_limit: boolean;   // near_limit：已用 + 預估 ≥ 80% 上限
 }
+EstimatePreview = {                           // v1.3：開新片的即時預估（POST /jobs/estimate）
+  total_cny: number; items: CostItem[];
+  budget_per_job_cny: number;                 // 目前的單任務上限
+  within_budget: boolean;                     // 預估（樣片模式不含正片）不超過單任務上限，且加上今日已用不超過每日上限
+}
 
 JobSummary = {
   id: string; title: string; status: JobStatus; video_type: VideoType;
@@ -78,6 +83,7 @@ JobSummary = {
   ratio: Ratio; draft_mode: boolean; batch_id: string | null;
   estimated_cost_cny: number | null; actual_cost_cny: number;
   final_asset_id: string | null; cover_asset_id: string | null;
+  preview_asset_id: string | null;            // v1.3：卡片畫面，依序取封面、最後一個成功鏡頭的尾幀、第一個有首幀的鏡頭的首幀；都沒有時為 null
   progress: { total: number; succeeded: number; failed: number };  // 分鏡數
   created_at: string; updated_at: string;
 }
@@ -152,7 +158,8 @@ Batch = {
 | 方法 | 路徑 | 請求 | 回應 |
 |---|---|---|---|
 | POST | `/jobs` | `JobCreate`（見下） | `JobDetail`（status=`draft`） |
-| GET | `/jobs?status=&video_type=&mine=&q=&batch_id=&page=&page_size=` | — | `{ items: JobSummary[], total }`；creator 只看到自己的 |
+| POST | `/jobs/estimate`（v1.3，creator、admin） | `EstimateCreate`（見下） | `EstimatePreview`；參數不合法 422（規則同 `POST /jobs`） |
+| GET | `/jobs?status=&video_type=&mine=&q=&batch_id=&sort=&page=&page_size=` | — | `{ items: JobSummary[], total }`；creator 只看到自己的。v1.3：`status` 可重複帶多個值（`?status=generating&status=composing`），只帶一個時行為不變；`sort=created\|updated`（預設 `created`），按建立或更新時間由新到舊 |
 | GET | `/jobs/{id}` | — | `JobDetail` |
 | POST | `/jobs/{id}/submit` | — | `JobDetail`（→ `scripting`，完成後自動 → `storyboard_ready`） |
 | POST | `/jobs/{id}/regenerate-script` | — | `JobDetail` |
@@ -179,7 +186,20 @@ JobCreate = {
   music?: string;             // v1.1：配樂描述，≤ 100 字；"none" 表示不要配樂
   consistent_voice?: boolean; // v1.1：用第一鏡的聲音作後續鏡頭的參考音頻（較慢）
 }
+
+// v1.3：開新片的即時預估。畫幅、時長、聲音方式的預設與校驗同 JobCreate（例如國際版選 TTS 回 422）
+EstimateCreate = {
+  template_id: string; target_duration_s?: number | null; ratio?: Ratio | null;
+  audio_mode?: AudioMode | null; draft_mode?: boolean;
+  resolution?: "480p" | "720p" | "1080p" | null;  // 省略時用模板預設
+}
 ```
+
+`POST /jobs/estimate` 還沒有分鏡，按以下假設計算，再沿用 `GET /jobs/{id}/estimate` 的計價邏輯與 models.yaml 單價；不寫數據庫、不調用模型：
+- 鏡頭數：模板 `min_shots`～`max_shots` 的中間值，向上取整。
+- 時長：`target_duration_s`（省略時取模板時長範圍的中間值）平均分到各鏡，按模型能力表取整並夾緊到單鏡上下限。
+- 保守估算：每鏡都生成首幀；TTS 旁白按念滿鏡頭時長計字數。
+- 分鏡相同（鏡頭數、各鏡時長相同且都要生成首幀）的任務，`GET /jobs/{id}/estimate` 的 `items`、`total_cny` 與此相同；腳本（大模型）費用兩者都不計入。
 
 ### 審核
 | 方法 | 路徑 | 回應 |

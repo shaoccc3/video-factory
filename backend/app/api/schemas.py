@@ -157,6 +157,8 @@ class JobSummary(BaseModel):
     actual_cost_cny: float
     final_asset_id: uuid.UUID | None
     cover_asset_id: uuid.UUID | None
+    # v1.3：列表與卡片的畫面。依序取封面、最後一個成功鏡頭的尾幀、第一個有首幀的鏡頭的首幀
+    preview_asset_id: uuid.UUID | None
     progress: Progress
     created_at: datetime
     updated_at: datetime
@@ -201,6 +203,24 @@ class CostEstimateOut(BaseModel):
     daily_budget_cny: float
     within_budget: bool
     near_limit: bool
+
+
+class EstimatePreviewIn(BaseModel):
+    """v1.3：開新片的即時預估。欄位與校驗同 JobCreate；resolution 省略時用模板預設。"""
+
+    template_id: uuid.UUID
+    target_duration_s: float | None = Field(default=None, gt=0, le=600)
+    ratio: Ratio | None = None
+    audio_mode: AudioMode | None = None
+    draft_mode: bool = False
+    resolution: Literal["480p", "720p", "1080p"] | None = None
+
+
+class EstimatePreviewOut(BaseModel):
+    total_cny: float
+    items: list[CostItemOut]
+    budget_per_job_cny: float
+    within_budget: bool
 
 
 class ReviewOut(BaseModel):
