@@ -195,6 +195,9 @@ def test_operational_env_values(clean_env: pytest.MonkeyPatch) -> None:
         ("DOWNLOAD_ALLOWED_HOSTS", '["169.254.169.254.nip.io"]'),
         ("DOWNLOAD_ALLOWED_HOSTS", '["*.co.uk"]'),
         ("DOWNLOAD_ALLOWED_HOSTS", '["*.s3.amazonaws.com"]'),
+        ("DOWNLOAD_ALLOWED_HOSTS", '["nas.lan"]'),
+        ("DOWNLOAD_ALLOWED_HOSTS", '["kubernetes.default.svc"]'),
+        ("DOWNLOAD_ALLOWED_HOSTS", '["127.0.0.1.traefik.me"]'),
         ("DOWNLOAD_MAX_BYTES", "0"),
         ("SEEDANCE_TOTAL_TIMEOUT_S", "-1"),
         ("PRESIGN_EXPIRES_S", "0"),
@@ -207,3 +210,14 @@ def test_invalid_operational_env_fails_at_startup(
     clean_env.setenv(name, value)
     with pytest.raises(ValidationError):
         Settings()
+
+
+def test_allowed_hosts_error_names_each_reason(clean_env: pytest.MonkeyPatch) -> None:
+    clean_env.setenv("DOWNLOAD_ALLOWED_HOSTS", '["*.volces.com", "*", "metadata.google.internal", "*.co.uk"]')
+    with pytest.raises(ValidationError) as exc:
+        Settings()
+    message = str(exc.value)
+    assert "*（格式不對" in message
+    assert "metadata.google.internal（內部域名" in message
+    assert "*.co.uk（公共後綴" in message
+    assert "*.volces.com（" not in message  # 合法的項不列為問題（輸入值本身會出現在錯誤訊息裡）

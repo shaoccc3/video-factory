@@ -3,7 +3,8 @@
 # 只用於開發與測試，不產生任何費用。正式部署請用 compose.yaml + compose.prod.yaml（見 docs/runbook.md）。
 #
 #   scripts/dev-local.sh start   啟動 API（:8000）、worker、前端（:5173），全部就緒才返回；失敗時印日誌並非零退出
-#   scripts/dev-local.sh stop    停止（只停本 checkout 啟動的進程）
+#   scripts/dev-local.sh stop    停止本 checkout 啟動的進程（記錄的 checkout 已刪除時也清理它留下的）；
+#                                pid 目錄屬於另一個仍在跑的 checkout 時不處理並非零退出
 # 數據放在 VF_LOCAL_DIR（預設 /tmp/vf-local，所有 checkout 共用；同一時間只能跑一套）。
 # 不同分支或 worktree 請各用自己的 VF_LOCAL_DIR：共用的 app.db 會帶著別的分支的遷移版本
 # 前置：系統的 ffmpeg 與 fonts-noto-cjk、cd backend && uv sync、scripts/fetch_fonts.py、cd frontend && pnpm install
@@ -48,11 +49,15 @@ pid_owner() {
   if [ -f "$PIDS/root" ]; then cat "$PIDS/root"; fi
 }
 
-# 要停上一套時該執行的命令：記錄的 checkout 還在就指向它
+# 要停上一套時該執行的命令：記錄的是另一個仍存在的 checkout 就指向它
 stop_hint() {
   local owner
   owner="$(pid_owner)"
-  if [ -n "$owner" ] && [ -d "$owner" ]; then echo "$owner/scripts/dev-local.sh stop"; else echo "$ROOT/scripts/dev-local.sh stop"; fi
+  if [ -n "$owner" ] && [ "$owner" != "$ROOT" ] && [ -d "$owner" ]; then
+    echo "$owner/scripts/dev-local.sh stop"
+  else
+    echo "$ROOT/scripts/dev-local.sh stop（另一個 checkout／worktree 啟動的要在那裡執行 stop）"
+  fi
 }
 
 # pid 文件記錄、仍在運行、且命令列和本腳本啟動的完全一致的進程（pid 可能被重用）
@@ -62,7 +67,8 @@ recorded_pids() {
     [ -f "$PIDS/$name" ] || continue
     pid="$(cat "$PIDS/$name")"
     alive "$pid" || continue
-    case "$(ps -o args= -p "$pid" 2>/dev/null || true)" in
+    # -ww：不按 COLUMNS 截斷命令列
+    case "$(ps -ww -o args= -p "$pid" 2>/dev/null || true)" in
       "uv run $API_ARGS" | "uv run $WORKER_ARGS" | *pnpm*" $WEB_ARGS") echo "$pid" ;;
     esac
   done
@@ -104,8 +110,13 @@ fail() {
     echo "---- $DATA/$name.log（最後 30 行）" >&2
     tail -n 30 "$DATA/$name.log" >&2 2>/dev/null || true
   done
+  # 已退出的 pid 會被回收、可能被重用：只收仍是本 shell 子進程的
+  local p mine=""
+  for p in $STARTED; do
+    if [ "$(ps -o ppid= -p "$p" 2>/dev/null | tr -d ' ')" = "$$" ]; then mine="$mine $p"; fi
+  done
   # shellcheck disable=SC2086
-  if [ -n "${STARTED// }" ]; then terminate_tree $STARTED; fi
+  if [ -n "${mine// }" ]; then terminate_tree $mine; fi
   if [ "$(pid_owner)" = "$ROOT" ]; then rm -f "$PIDS/api" "$PIDS/worker" "$PIDS/web" "$PIDS/root"; fi
   exit 1
 }
@@ -217,29 +228,37 @@ terminate_tree() {
   kill -9 $all 2>/dev/null || true
 }
 
-# 停 pid 文件記錄的進程。另一個仍存在的 checkout 啟動的不處理（回 1）；
+# 停 pid 文件記錄、仍在運行的進程。記錄的是另一個仍存在的 checkout，或是沒有 checkout 記錄（舊版腳本啟動）時不處理（回 1）；
 # 記錄的 checkout 已被刪除（例如移除了 worktree）時沒有別處能停，照 pid 文件清理
 stop_own() {
   local owner pids
   owner="$(pid_owner)"
-  if [ -n "$owner" ] && [ "$owner" != "$ROOT" ]; then
+  pids="$(recorded_pids | tr '\n' ' ')"
+  if [ -z "${pids// }" ]; then
+    rm -f "$PIDS/api" "$PIDS/worker" "$PIDS/web" "$PIDS/root"  # 都已經停了，清掉過期記錄
+    return 0
+  fi
+  if [ -z "$owner" ]; then
+    echo "$PIDS 的進程沒有 checkout 記錄（舊版腳本啟動），不處理；請在啟動它的 checkout 執行 stop" >&2
+    return 1
+  fi
+  if [ "$owner" != "$ROOT" ]; then
     if [ -d "$owner" ]; then
       echo "$PIDS 記錄的是另一個 checkout（$owner）啟動的進程，不處理；請執行 $owner/scripts/dev-local.sh stop" >&2
       return 1
     fi
     echo "$PIDS 記錄的 checkout（$owner）已不存在，清理它留下的進程" >&2
   fi
-  pids="$(recorded_pids | tr '\n' ' ')"
   rm -f "$PIDS/api" "$PIDS/worker" "$PIDS/web" "$PIDS/root"
   # shellcheck disable=SC2086
-  if [ -n "${pids// }" ]; then terminate_tree $pids; fi
+  terminate_tree $pids
   return 0
 }
 
 re_escape() { printf '%s' "$1" | sed 's/[][\.*^$+?(){}|]/\\&/g'; }
 
-# pid 文件以外的殘留進程：命令列從開頭就要是本 checkout 的 .venv python／node_modules 的 vite，
-# 參數也要和 start 的一致——不會碰到 Docker 容器、其他 checkout、手動啟動的服務或命令列提到這些路徑的 shell。
+# pid 文件以外的殘留進程：命令列要是（任一）python 執行本 checkout 的 .venv/bin/uvicorn／celery，或 node 執行本 checkout
+# node_modules 裡的 vite，參數也要和 start 的一致——不會碰到 Docker 容器、其他 checkout、手動啟動的服務或命令列提到這些路徑的 shell。
 # 父進程也在名單裡的（celery pool 子進程）跳過，由主進程負責收
 leftovers() {
   local root_re cands p ppid
@@ -262,6 +281,11 @@ stop() {
   rest="$(leftovers | tr '\n' ' ')"
   # shellcheck disable=SC2086
   if [ -n "${rest// }" ]; then terminate_tree $rest; fi
+  # 被拒絕處理的記錄如果已經由上面的兜底收掉（同一個 checkout 用舊版腳本啟動的），就不算失敗
+  if [ "$rc" -ne 0 ] && [ -z "$(recorded_pids)" ]; then
+    rm -f "$PIDS/api" "$PIDS/worker" "$PIDS/web" "$PIDS/root"
+    rc=0
+  fi
   return "$rc"
 }
 

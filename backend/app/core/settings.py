@@ -21,11 +21,25 @@ _INTERNAL_SUFFIXES = (
     "internal",
     "localdomain",
     "home.arpa",
+    "lan",
+    "home",
+    "corp",
+    "private",
+    "intranet",
+    "svc",
+    "test",
+    "example",
+    "invalid",
     "nip.io",
     "sslip.io",
     "xip.io",
     "localtest.me",
     "lvh.me",
+    "traefik.me",
+    "nip.direct",
+    "vcap.me",
+    "localh.st",
+    "1u.ms",
 )
 # 任何人都能註冊子域名的常見公共後綴，不能用「*.」整個放行（只擋常見的，不是完整的公共後綴清單）
 _PUBLIC_SUFFIXES = frozenset(
@@ -58,15 +72,17 @@ _PUBLIC_SUFFIXES = frozenset(
 )
 
 
-def _bad_allowed_host(host: str) -> bool:
+def _allowed_host_problem(host: str) -> str | None:
     if not _ALLOWED_HOST.fullmatch(host):
-        return True
+        return "格式不對，只接受域名或 *.域名（至少兩段，不能是 IP）"
     domain = host.lower().removeprefix("*.")
     if "localhost" in domain.split(".") or any(
         domain == suffix or domain.endswith("." + suffix) for suffix in _INTERNAL_SUFFIXES
     ):
-        return True
-    return host.startswith("*.") and domain in _PUBLIC_SUFFIXES
+        return "內部域名或通配 DNS，可能解析到內網"
+    if host.startswith("*.") and domain in _PUBLIC_SUFFIXES:
+        return "公共後綴不能用 *. 整個放行"
+    return None
 
 
 class Settings(BaseSettings):
@@ -155,9 +171,9 @@ class Settings(BaseSettings):
     @classmethod
     def _check_allowed_hosts(cls, hosts: tuple[str, ...]) -> tuple[str, ...]:
         """防 SSRF：拒絕「*」「*.com」「*.co.uk」、IP、localhost、內部域與通配 DNS 等會讓白名單形同虛設的寫法。"""
-        bad = [h for h in hosts if _bad_allowed_host(h)]
-        if bad:
-            raise ValueError(f"只接受域名或 *.域名（至少兩段）：{', '.join(bad)}")
+        problems = [f"{h}（{why}）" for h in hosts if (why := _allowed_host_problem(h))]
+        if problems:
+            raise ValueError("DOWNLOAD_ALLOWED_HOSTS 不接受：" + "；".join(problems))
         return hosts
 
     @property
