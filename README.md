@@ -8,12 +8,35 @@
 
 ## 快速開始
 
+以下兩種方式預設都用 Mock 模型，不產生費用；填了 `ARK_API_KEY` 也不會調用真實接口。
+真實生成（會計費）要用生產疊加 `compose.prod.yaml`，並準備公網可訪問的對象存儲，步驟見 [docs/runbook.md](docs/runbook.md)。
+
+### A. Docker（和正式環境同一套映像）
+
 ```bash
-# 開發（Mock 模型，不產生費用）
-docker compose up -d --wait         # 前端 http://localhost:8080
-# 或沒有 Docker 時
-scripts/dev-local.sh start          # 前端 http://localhost:5173，admin@example.com / admin-pass-123
+docker compose up -d --build --wait     # 前端 http://localhost:8080，API http://localhost:8000
+# 沒有預設帳號：建立管理員（密碼從環境變量讀，不寫在命令行）
+read -s ADMIN_PW && export ADMIN_PW
+docker compose run --rm -e ADMIN_PW api \
+  python -m app.cli create-user admin@example.com 管理員 --roles admin,reviewer,creator --password-env ADMIN_PW
 ```
+
+映像裡已有 ffmpeg 與字幕字體；`curl http://localhost:8000/readyz` 應全部 ok。
+
+### B. 沒有 Docker（SQLite + 本地存儲 + Celery）
+
+需要 Python 3.13 與 uv、Node 24 與 pnpm，以及系統套件 ffmpeg、fonts-noto-cjk（Debian／Ubuntu：`sudo apt-get install ffmpeg fonts-noto-cjk`）。
+
+```bash
+(cd backend && uv sync && uv run --with fonttools python ../scripts/fetch_fonts.py)   # 依賴與字幕字體（首次）
+(cd frontend && pnpm install)
+scripts/dev-local.sh start    # 前端 http://localhost:5173，admin@example.com / admin-pass-123
+scripts/dev-local.sh stop
+```
+
+`start` 會先檢查 ffmpeg、字體、前端依賴，等 API、worker、前端都就緒才返回；缺東西或啟動失敗時會說明原因、印出日誌並停止。
+
+## 文件
 
 - 項目說明與命令：[CLAUDE.md](CLAUDE.md)
 - 總體規格與各階段規格：[docs/specs/](docs/specs/)

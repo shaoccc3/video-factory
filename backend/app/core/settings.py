@@ -12,7 +12,8 @@ DEV_SECRET_KEY = "dev-only-change-me"  # noqa: S105 - 僅開發預設值，正�
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(extra="ignore")
+    # 空字串視同未設定：compose 以 ${VAR:-} 轉發選填變量，沒填時沿用這裡的預設值
+    model_config = SettingsConfigDict(extra="ignore", env_ignore_empty=True)
 
     # 區域與模型
     ark_region: Literal["volcengine", "byteplus"] = "byteplus"

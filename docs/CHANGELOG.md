@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 2026-09-24
+
+- 部署就緒修正（從全新 clone 試跑發現）：
+  - 生產 worker 的 `worker-tmp` 卷擁有者是 root、app 用戶寫不進去，首幀、影片下載與合成全部失敗——
+    Dockerfile 先建 `/tmp/video-factory-work` 並交給 app；worker 啟動時自檢臨時目錄，不可寫就直接退出並寫明原因
+  - `/readyz` 新增 fonts、ffmpeg 檢查；worker 啟動時缺字體或 ffmpeg 記錯誤日誌
+  - compose 轉發 `DOWNLOAD_ALLOWED_HOSTS`、`DOWNLOAD_MAX_BYTES`、`SEEDANCE_TOTAL_TIMEOUT_S`、`PRESIGN_EXPIRES_S`、`ARK_STRIP_AUTH_HEADER`；
+    設定忽略空字串環境變量（留空時用預設值）
+  - `scripts/dev-local.sh start` 先檢查 ffmpeg、字體、前端依賴，等 API（/readyz）、worker、前端都就緒才返回；
+    進程提前退出或逾時會印日誌、停止並非零退出
+  - README 快速開始補齊兩種方式的前置條件、字體與建立管理員；runbook 補區域、選填變量、卷權限與白名單說明
+
 ## 2026-09-23
 
 - 環境檢查（P0）：新增 scripts/check_connectivity.py 與 docs/env-check.md

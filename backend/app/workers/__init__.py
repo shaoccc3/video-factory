@@ -4,7 +4,9 @@
 """
 
 from celery import Celery
+from celery.signals import worker_init
 
+from app.core.readiness import worker_preflight
 from app.core.settings import get_settings
 
 _settings = get_settings()
@@ -30,3 +32,9 @@ app.conf.update(
     task_soft_time_limit=45 * 60,
     task_time_limit=50 * 60,
 )
+
+
+@worker_init.connect
+def _preflight(**_: object) -> None:
+    """worker 啟動前自檢臨時目錄、字體與 ffmpeg（不要等到第一個任務才失敗）。"""
+    worker_preflight(_settings)

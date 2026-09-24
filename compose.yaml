@@ -24,6 +24,12 @@ x-backend: &backend
     SECRET_KEY: ${SECRET_KEY:-dev-only-change-me}
     COOKIE_SECURE: ${COOKIE_SECURE:-false}
     LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    # 選填的運維參數：留空時用 backend/app/core/settings.py 的預設值（說明見 docs/runbook.md）
+    DOWNLOAD_ALLOWED_HOSTS: ${DOWNLOAD_ALLOWED_HOSTS:-}
+    DOWNLOAD_MAX_BYTES: ${DOWNLOAD_MAX_BYTES:-}
+    SEEDANCE_TOTAL_TIMEOUT_S: ${SEEDANCE_TOTAL_TIMEOUT_S:-}
+    PRESIGN_EXPIRES_S: ${PRESIGN_EXPIRES_S:-}
+    ARK_STRIP_AUTH_HEADER: ${ARK_STRIP_AUTH_HEADER:-}
 
 services:
   postgres:
