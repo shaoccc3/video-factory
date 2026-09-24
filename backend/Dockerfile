@@ -29,6 +29,8 @@ COPY backend/app ./app
 
 ENV PATH="/srv/backend/.venv/bin:$PATH" \
     WORK_DIR=/tmp/video-factory-work
+# worker 臨時工作目錄先建好並交給 app：compose.prod.yaml 在這裡掛命名卷，新卷會沿用這個擁有者
+RUN install -d -o app -g app "$WORK_DIR"
 USER app
 EXPOSE 8000
 CMD ["uvicorn", "--factory", "app.main:app_factory", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]

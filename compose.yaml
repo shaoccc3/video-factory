@@ -1,5 +1,6 @@
-# 開發與內部部署用。啟動：docker compose up -d --wait
+# 開發用（Mock）。啟動：docker compose up -d --build --wait；部署一律疊加 compose.prod.yaml（見 docs/runbook.md）
 # 預設值只用於本機開發（Mock 模型、SeaweedFS、PostgreSQL）；生產用 compose.prod.yaml 疊加，並在 .env 填真實值。
+# 單獨用本文件時固定 Mock（.env 裡的 PROVIDER_MODE 不生效），避免誤用生產 .env 產生費用；真實生成只經 compose.prod.yaml。
 # 前端：http://localhost:8080（Nginx，反向代理 /api）；API：http://localhost:8000
 
 x-backend: &backend
@@ -9,10 +10,8 @@ x-backend: &backend
   image: video-factory-backend:dev
   environment:
     ARK_REGION: ${ARK_REGION:-byteplus}
-    ARK_API_KEY: ${ARK_API_KEY:-}
-    PROVIDER_MODE: ${PROVIDER_MODE:-mock}
-    TTS_APP_ID: ${TTS_APP_ID:-}
-    TTS_TOKEN: ${TTS_TOKEN:-}
+    # Mock 用不到模型與語音的密鑰，不轉發進開發容器；疊加 compose.prod.yaml 時由其 prod-env 帶上
+    PROVIDER_MODE: mock  # compose.prod.yaml 的 prod-env 覆蓋為 ${PROVIDER_MODE:-live}
     DATABASE_URL: postgresql+psycopg://video_factory:${POSTGRES_PASSWORD:-video_factory}@postgres:5432/video_factory
     VALKEY_URL: redis://valkey:6379/0
     S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-http://seaweedfs:8333}
@@ -24,6 +23,11 @@ x-backend: &backend
     SECRET_KEY: ${SECRET_KEY:-dev-only-change-me}
     COOKIE_SECURE: ${COOKIE_SECURE:-false}
     LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    # 選填的運維參數：留空時用 backend/app/core/settings.py 的預設值（說明見 docs/runbook.md）
+    DOWNLOAD_ALLOWED_HOSTS: ${DOWNLOAD_ALLOWED_HOSTS:-}
+    DOWNLOAD_MAX_BYTES: ${DOWNLOAD_MAX_BYTES:-}
+    SEEDANCE_TOTAL_TIMEOUT_S: ${SEEDANCE_TOTAL_TIMEOUT_S:-}
+    PRESIGN_EXPIRES_S: ${PRESIGN_EXPIRES_S:-}
 
 services:
   postgres:

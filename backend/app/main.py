@@ -11,7 +11,7 @@ from app.api.middleware import RequestIdMiddleware
 from app.api.router import api_router
 from app.core.logging import configure_logging
 from app.core.models_config import load_models_config
-from app.core.readiness import Check, database_check, storage_check, valkey_check
+from app.core.readiness import Check, database_check, ffmpeg_check, fonts_check, storage_check, valkey_check
 from app.core.settings import DEV_SECRET_KEY, Settings, get_settings
 from app.pipeline.orchestrator import Dispatcher
 from app.services.runtime import Runtime, build_gateway, build_runtime
@@ -54,6 +54,8 @@ def create_app(
     checks: dict[str, Check] = {
         "database": database_check(rt.engine),
         "storage": storage_check(rt.storage),
+        "fonts": fonts_check(settings.fonts_dir / settings.font_file),
+        "ffmpeg": ffmpeg_check(),
     }
     if settings.broker_url.startswith(("redis://", "rediss://")):
         checks["valkey"] = valkey_check(settings.valkey_url)

@@ -1,18 +1,93 @@
 """環境變量設定。密鑰只從環境讀取，不寫進代碼或日誌。"""
 
+import re
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import SecretStr
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEV_SECRET_KEY = "dev-only-change-me"  # noqa: S105 - 僅開發預設值，正式環境啟動時會拒絕
+# 下載白名單的一項：完整域名（至少兩段、頂級域以字母開頭，排除 IP 與 localhost），可帶開頭的「*.」
+_ALLOWED_HOST = re.compile(
+    r"(\*\.)?(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z](?:[a-z0-9-]*[a-z0-9])?", re.IGNORECASE
+)
+# 會解析到內網、本機或任意 IP 的名稱（內部域、通配 DNS 服務），不能出現在白名單
+_INTERNAL_SUFFIXES = (
+    "localhost",
+    "local",
+    "internal",
+    "localdomain",
+    "home.arpa",
+    "lan",
+    "home",
+    "corp",
+    "private",
+    "intranet",
+    "svc",
+    "test",
+    "example",
+    "invalid",
+    "nip.io",
+    "sslip.io",
+    "xip.io",
+    "localtest.me",
+    "lvh.me",
+    "traefik.me",
+    "nip.direct",
+    "vcap.me",
+    "localh.st",
+    "1u.ms",
+)
+# 任何人都能註冊子域名的常見公共後綴，不能用「*.」整個放行（只擋常見的，不是完整的公共後綴清單）
+_PUBLIC_SUFFIXES = frozenset(
+    {
+        "com.cn",
+        "net.cn",
+        "org.cn",
+        "com.hk",
+        "com.tw",
+        "com.sg",
+        "com.au",
+        "co.uk",
+        "co.jp",
+        "amazonaws.com",
+        "s3.amazonaws.com",
+        "cloudfront.net",
+        "aliyuncs.com",
+        "myqcloud.com",
+        "github.io",
+        "githubusercontent.com",
+        "azurewebsites.net",
+        "blob.core.windows.net",
+        "herokuapp.com",
+        "appspot.com",
+        "vercel.app",
+        "netlify.app",
+        "pages.dev",
+        "workers.dev",
+    }
+)
+
+
+def _allowed_host_problem(host: str) -> str | None:
+    if not _ALLOWED_HOST.fullmatch(host):
+        return "格式不對，只接受域名或 *.域名（至少兩段，不能是 IP）"
+    domain = host.lower().removeprefix("*.")
+    if "localhost" in domain.split(".") or any(
+        domain == suffix or domain.endswith("." + suffix) for suffix in _INTERNAL_SUFFIXES
+    ):
+        return "內部域名或通配 DNS，可能解析到內網"
+    if host.startswith("*.") and domain in _PUBLIC_SUFFIXES:
+        return "公共後綴不能用 *. 整個放行"
+    return None
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(extra="ignore")
+    # 空字串視同未設定：compose 以 ${VAR:-} 轉發選填變量，沒填時沿用這裡的預設值
+    model_config = SettingsConfigDict(extra="ignore", env_ignore_empty=True)
 
     # 區域與模型
     ark_region: Literal["volcengine", "byteplus"] = "byteplus"
@@ -49,23 +124,29 @@ class Settings(BaseSettings):
     s3_bucket: str = "video-factory"
     s3_access_key: SecretStr | None = None
     s3_secret_key: SecretStr | None = None
-    presign_expires_s: int = 6 * 3600  # 覆蓋排隊時間
+    presign_expires_s: int = Field(
+        default=6 * 3600, gt=0, le=7 * 24 * 3600
+    )  # 覆蓋排隊時間；S3 預簽名最長 7 天
 
     # 生成任務
     seedance_poll_initial_s: float = 10.0
     seedance_poll_max_s: float = 60.0
-    seedance_total_timeout_s: float = 30 * 60
+    seedance_total_timeout_s: float = Field(default=30 * 60, gt=0)
     provider_max_attempts: int = 4
     provider_retry_base_s: float = 2.0
-    download_allowed_hosts: tuple[str, ...] = (
-        "*.volces.com",
-        "*.bytepluses.com",
-        "*.byteimg.com",
-        "*.bytecdn.cn",
-        "*.volccdn.com",
-        "*.byteplusapi.com",
+    # 可用 DOWNLOAD_ALLOWED_HOSTS（JSON 陣列）整個取代；不能是空清單
+    download_allowed_hosts: tuple[str, ...] = Field(
+        min_length=1,
+        default=(
+            "*.volces.com",
+            "*.bytepluses.com",
+            "*.byteimg.com",
+            "*.bytecdn.cn",
+            "*.volccdn.com",
+            "*.byteplusapi.com",
+        ),
     )
-    download_max_bytes: int = 500 * 1024 * 1024
+    download_max_bytes: int = Field(default=500 * 1024 * 1024, gt=0)
     work_dir: Path = Path("/tmp/video-factory-work")  # noqa: S108 - worker 臨時工作目錄，可用 WORK_DIR 覆蓋
 
     # 上傳
@@ -85,6 +166,15 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_json: bool = True
     readiness_timeout_s: float = 3.0
+
+    @field_validator("download_allowed_hosts")
+    @classmethod
+    def _check_allowed_hosts(cls, hosts: tuple[str, ...]) -> tuple[str, ...]:
+        """防 SSRF：拒絕「*」「*.com」「*.co.uk」、IP、localhost、內部域與通配 DNS 等會讓白名單形同虛設的寫法。"""
+        problems = [f"{h}（{why}）" for h in hosts if (why := _allowed_host_problem(h))]
+        if problems:
+            raise ValueError("DOWNLOAD_ALLOWED_HOSTS 不接受：" + "；".join(problems))
+        return hosts
 
     @property
     def broker_url(self) -> str:
