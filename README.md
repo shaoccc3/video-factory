@@ -8,7 +8,7 @@
 
 ## 快速開始
 
-以下兩種方式預設都用 Mock 模型，不產生費用；填了 `ARK_API_KEY` 也不會調用真實接口。
+以下兩種方式都固定用 Mock 模型，不產生費用；`.env` 裡的 `ARK_API_KEY`、`PROVIDER_MODE` 不會讓它們調用真實接口。
 真實生成（會計費）要用生產疊加 `compose.prod.yaml`，並準備公網可訪問的對象存儲，步驟見 [docs/runbook.md](docs/runbook.md)。
 
 ### A. Docker（和正式環境同一套映像）
@@ -34,7 +34,7 @@ scripts/dev-local.sh start    # 前端 http://localhost:5173，admin@example.com
 scripts/dev-local.sh stop
 ```
 
-`start` 會先檢查 ffmpeg、字體、前端依賴，等 API、worker、前端都就緒才返回；缺東西或啟動失敗時會說明原因、印出日誌並停止。
+`start` 會先檢查端口、ffmpeg、字體、前端依賴，等 API、worker、前端都就緒才返回（預設最多 90 秒，可用 `READY_TIMEOUT_S` 調整）；缺東西或啟動失敗時會說明原因、印出日誌並停止本次啟動的進程。數據庫、存儲與日誌放在 `/tmp/vf-local`（可用 `VF_LOCAL_DIR` 換目錄），重啟後保留；`stop` 只會停本 checkout 啟動的進程。
 
 ## 文件
 

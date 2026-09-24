@@ -10,9 +10,9 @@
 - Playwright 用預裝 Chromium（/opt/pw-browsers/chromium），不要執行 playwright install
 
 ## 運行
-- 全套：docker compose up -d --build --wait（前端 :8080、API :8000；沒有預設帳號，建管理員見 README）；生產疊加 compose.prod.yaml，見 docs/runbook.md
+- 全套：docker compose up -d --build --wait（固定 Mock；前端 :8080、API :8000；沒有預設帳號，建管理員見 README）；生產疊加 compose.prod.yaml，見 docs/runbook.md
 - 無 Docker 的本地全套（SQLite + 本地存儲 + Celery + Mock）：scripts/dev-local.sh start|stop（先檢查 ffmpeg、字體、前端依賴，全部就緒才返回，失敗時非零退出）
-- 字幕字體（首次）：cd backend && uv run --with fonttools python ../scripts/fetch_fonts.py
+- 字幕字體（首次，需系統套件 fonts-noto-cjk）：cd backend && uv run --with fonttools python ../scripts/fetch_fonts.py
 - 後端：cd backend && uv run uvicorn --factory app.main:app_factory --reload
 - 遷移：cd backend && uv run alembic upgrade head
 - Worker：cd backend && uv run celery -A app.workers worker -l info

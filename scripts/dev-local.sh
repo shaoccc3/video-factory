@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # 無 Docker 的本地開發／E2E 環境：SQLite + 本地文件存儲 + Celery（SQLite broker）+ MockProvider。
-# 只用於開發與測試，不產生任何費用。正式部署請用 compose.yaml。
+# 只用於開發與測試，不產生任何費用。正式部署請用 compose.yaml + compose.prod.yaml（見 docs/runbook.md）。
 #
 #   scripts/dev-local.sh start   啟動 API（:8000）、worker、前端（:5173），全部就緒才返回；失敗時印日誌並非零退出
-#   scripts/dev-local.sh stop    停止
+#   scripts/dev-local.sh stop    停止（只停本 checkout 啟動的進程）
 # 前置：系統的 ffmpeg 與 fonts-noto-cjk、cd backend && uv sync、scripts/fetch_fonts.py、cd frontend && pnpm install
 #   E2E：scripts/dev-local.sh start && (cd frontend && E2E_PASSWORD=admin-pass-123 pnpm e2e)
 set -euo pipefail
@@ -33,7 +33,7 @@ preflight() {
     command -v "$cmd" >/dev/null 2>&1 || missing="$missing $cmd"
   done
   if [ -n "$missing" ]; then
-    echo "缺少命令：$missing（ffmpeg／ffprobe 用系統套件安裝，例如 apt-get install ffmpeg）" >&2
+    echo "缺少命令：${missing# }（ffmpeg／ffprobe 用系統套件安裝，例如 apt-get install ffmpeg）" >&2
     exit 1
   fi
   if [ ! -f "$FONT" ]; then
@@ -47,6 +47,14 @@ preflight() {
   fi
 }
 
+# 端口被任何程序佔用都算（curl 退出碼 7 表示連不上）
+port_busy() {
+  local rc=0
+  curl -s -o /dev/null --max-time 2 "http://localhost:$1/" || rc=$?
+  [ "$rc" -ne 7 ]
+}
+
+# 啟動失敗只停本次啟動的進程，不做 stop 的兜底搜尋
 fail() {
   echo "啟動失敗：$1" >&2
   local name
@@ -54,7 +62,7 @@ fail() {
     echo "---- $DATA/$name.log（最後 30 行）" >&2
     tail -n 30 "$DATA/$name.log" >&2 2>/dev/null || true
   done
-  stop
+  stop_own
   exit 1
 }
 
@@ -74,14 +82,17 @@ wait_ready() {
     sleep 1
   done
   echo "/readyz：$(curl -s http://localhost:8000/readyz 2>/dev/null || echo 無回應)" >&2
-  fail "等待 ${READY_TIMEOUT_S} 秒仍未就緒"
+  fail "等待 ${READY_TIMEOUT_S} 秒仍未就緒（機器較慢時可設 READY_TIMEOUT_S 調長）"
 }
 
 start() {
-  if curl -sf http://localhost:8000/healthz >/dev/null 2>&1; then
-    echo "端口 8000 已被佔用，先執行 $0 stop" >&2
-    exit 1
-  fi
+  local port
+  for port in 8000 5173; do
+    if port_busy "$port"; then
+      echo "端口 $port 已被佔用：如果是上次沒停的本地全套，先執行 $0 stop；否則先關掉佔用端口的程序" >&2
+      exit 1
+    fi
+  done
   preflight
   mkdir -p "$DATA" "$PIDS"
   cd "$ROOT/backend"
@@ -101,25 +112,85 @@ start() {
   echo "登入：admin@example.com，密碼見 E2E_PASSWORD（未設定時為 admin-pass-123，只用於本地開發）"
 }
 
-stop() {
-  local pids=""
-  for name in web worker api; do
-    [ -f "$PIDS/$name" ] && pids="$pids $(cat "$PIDS/$name")"
-    rm -f "$PIDS/$name"
+# 進程還在（殭屍視同已退出）
+alive() {
+  local st
+  st="$(ps -o stat= -p "$1" 2>/dev/null)" || return 1
+  st="${st// /}"
+  [ -n "$st" ] && [ "${st#Z}" = "$st" ]
+}
+
+descendants() {
+  local c
+  for c in $(pgrep -P "$1" 2>/dev/null || true); do
+    echo "$c"
+    descendants "$c"
   done
-  # 兜底：pid 文件以外的殘留進程（方括號避免匹配到 pgrep 自己）
-  pids="$pids $(pgrep -f '[u]vicorn --factory app.main:app_factory' || true)"
-  pids="$pids $(pgrep -f '[c]elery -A app.workers worker' || true)"
-  pids="$pids $(pgrep -f '[v]ite.js --port 5173' || true)"
-  [ -n "${pids// }" ] || return 0
-  kill $pids 2>/dev/null || true
-  for _ in $(seq 1 15); do
-    alive=""
-    for p in $pids; do kill -0 "$p" 2>/dev/null && alive="$alive $p"; done
-    [ -z "$alive" ] && return 0
+}
+
+# wait_gone <秒> <pid>...：全部退出回 0
+wait_gone() {
+  local secs="$1" p left
+  shift
+  for _ in $(seq 1 "$secs"); do
+    left=0
+    for p in "$@"; do alive "$p" && left=1; done
+    [ "$left" = 0 ] && return 0
     sleep 1
   done
-  kill -9 $alive 2>/dev/null || true
+  return 1
+}
+
+# 只對頂層進程送 TERM（uv 會轉給子進程，celery 主進程自己收 pool；直接 TERM pool 子進程會讓主進程重建 pool 而卡住），
+# 等 15 秒後剩下的子孫再送 TERM，最後 kill -9
+terminate_tree() {
+  local all="" p
+  for p in "$@"; do all="$all $p $(descendants "$p" | tr '\n' ' ')"; done
+  kill "$@" 2>/dev/null || true
+  wait_gone 15 $all && return 0
+  kill $all 2>/dev/null || true
+  wait_gone 5 $all && return 0
+  kill -9 $all 2>/dev/null || true
+}
+
+# 停 pid 文件記錄的進程
+stop_own() {
+  local name pid tops=""
+  for name in web worker api; do
+    [ -f "$PIDS/$name" ] || continue
+    pid="$(cat "$PIDS/$name")"
+    rm -f "$PIDS/$name"
+    # pid 文件可能過期（重開機後 pid 被重用）：只處理命令列看得出是本腳本啟動的進程
+    case "$(ps -o args= -p "$pid" 2>/dev/null || true)" in
+      *uvicorn* | *celery* | *pnpm* | *vite*) tops="$tops $pid" ;;
+    esac
+  done
+  if [ -n "${tops// }" ]; then terminate_tree $tops; fi
+  return 0
+}
+
+# pid 文件以外的殘留進程：只找本 checkout 的 .venv／node_modules 啟動的，不會碰到 Docker 容器或其他 checkout；
+# 父進程也在名單裡的（celery pool 子進程）跳過，由主進程負責收
+leftovers() {
+  local root_re cands p ppid
+  root_re="$(printf '%s' "$ROOT" | sed 's/[][\.*^$+?(){}|]/\\&/g')"
+  cands="$({
+    pgrep -f "$root_re/backend/\.venv/bin/(uvicorn|celery) " || true
+    pgrep -f "$root_re/frontend/node_modules/.*vite\.js" || true
+  } | tr '\n' ' ')"
+  for p in $cands; do
+    ppid="$(ps -o ppid= -p "$p" 2>/dev/null | tr -d ' ' || true)"
+    case " $cands " in *" $ppid "*) continue ;; esac
+    echo "$p"
+  done
+}
+
+stop() {
+  stop_own
+  local rest
+  rest="$(leftovers | tr '\n' ' ')"
+  if [ -n "${rest// }" ]; then terminate_tree $rest; fi
+  return 0
 }
 
 case "${1:-start}" in

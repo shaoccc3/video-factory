@@ -6,10 +6,12 @@
   - 生產 worker 的 `worker-tmp` 卷擁有者是 root、app 用戶寫不進去，首幀、影片下載與合成全部失敗——
     Dockerfile 先建 `/tmp/video-factory-work` 並交給 app；worker 啟動時自檢臨時目錄，不可寫就直接退出並寫明原因
   - `/readyz` 新增 fonts、ffmpeg 檢查；worker 啟動時缺字體或 ffmpeg 記錯誤日誌
-  - compose 轉發 `DOWNLOAD_ALLOWED_HOSTS`、`DOWNLOAD_MAX_BYTES`、`SEEDANCE_TOTAL_TIMEOUT_S`、`PRESIGN_EXPIRES_S`、`ARK_STRIP_AUTH_HEADER`；
-    設定忽略空字串環境變量（留空時用預設值）
-  - `scripts/dev-local.sh start` 先檢查 ffmpeg、字體、前端依賴，等 API（/readyz）、worker、前端都就緒才返回；
-    進程提前退出或逾時會印日誌、停止並非零退出
+  - compose 轉發 `DOWNLOAD_ALLOWED_HOSTS`、`DOWNLOAD_MAX_BYTES`、`SEEDANCE_TOTAL_TIMEOUT_S`、`PRESIGN_EXPIRES_S`；
+    設定忽略空字串環境變量（留空時用預設值），這幾項加上範圍校驗（不合法時啟動失敗）
+  - 單獨用 compose.yaml 時固定 `PROVIDER_MODE=mock`（.env 的 PROVIDER_MODE 只在疊加 compose.prod.yaml 時生效），避免誤用生產 .env 產生費用
+  - `scripts/dev-local.sh start` 先檢查端口、ffmpeg、字體、前端依賴，等 API（/readyz）、worker、前端都就緒才返回；
+    進程提前退出或逾時會印日誌、只停本次啟動的進程並非零退出。`stop` 只對頂層進程送 TERM（不再直接殺 celery pool 子進程，
+    停止由約 15 秒縮短到約 5 秒），兜底搜尋只找本 checkout 的 .venv／node_modules 進程，不會誤殺 Docker 容器或其他 checkout
   - README 快速開始補齊兩種方式的前置條件、字體與建立管理員；runbook 補區域、選填變量、卷權限與白名單說明
 
 ## 2026-09-23

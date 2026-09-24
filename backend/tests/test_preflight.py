@@ -5,6 +5,8 @@ from pathlib import Path
 
 import httpx
 import pytest
+from celery.signals import worker_init
+from pydantic import ValidationError
 
 from app.core import readiness
 from app.core.readiness import (
@@ -119,23 +121,71 @@ def test_worker_preflight_quiet_when_ready(
     assert logs.events == []
 
 
-def test_empty_env_falls_back_to_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_worker_init_signal_runs_preflight(
+    settings: Settings, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, logs: _Log
+) -> None:
+    # celery 的 Signal.send 會吞掉 Exception；SystemExit 必須穿透才能讓 worker 啟動失敗
+    import app.workers as workers
+
+    blocker = tmp_path / "file"
+    blocker.write_text("")
+    monkeypatch.setattr(workers, "_settings", settings.model_copy(update={"work_dir": blocker / "work"}))
+    with pytest.raises(SystemExit):
+        worker_init.send(sender=None)
+    assert logs.events == [("error", "worker_work_dir_not_writable")]
+
+
+@pytest.fixture
+def clean_env(monkeypatch: pytest.MonkeyPatch) -> pytest.MonkeyPatch:
+    """Settings() 只讀測試設定的變量，不受本機或 CI 環境影響。"""
+    for name in Settings.model_fields:
+        monkeypatch.delenv(name.upper(), raising=False)
+        monkeypatch.delenv(name, raising=False)
+    return monkeypatch
+
+
+def test_empty_env_falls_back_to_defaults(clean_env: pytest.MonkeyPatch) -> None:
     # compose 用 ${VAR:-} 轉發選填變量，沒填時容器裡是空字串
     for name in (
         "DOWNLOAD_ALLOWED_HOSTS",
         "DOWNLOAD_MAX_BYTES",
-        "ARK_STRIP_AUTH_HEADER",
+        "SEEDANCE_TOTAL_TIMEOUT_S",
+        "PRESIGN_EXPIRES_S",
         "S3_PUBLIC_ENDPOINT_URL",
     ):
-        monkeypatch.setenv(name, "")
+        clean_env.setenv(name, "")
     defaults = Settings.model_fields
     s = Settings()
     assert s.download_allowed_hosts == defaults["download_allowed_hosts"].default
     assert s.download_max_bytes == defaults["download_max_bytes"].default
-    assert s.ark_strip_auth_header is False
+    assert s.seedance_total_timeout_s == defaults["seedance_total_timeout_s"].default
+    assert s.presign_expires_s == defaults["presign_expires_s"].default
     assert s.s3_public_endpoint_url is None
 
 
-def test_download_allowed_hosts_from_json_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("DOWNLOAD_ALLOWED_HOSTS", '["*.example-cdn.com", "files.example.com"]')
-    assert Settings().download_allowed_hosts == ("*.example-cdn.com", "files.example.com")
+def test_operational_env_values(clean_env: pytest.MonkeyPatch) -> None:
+    clean_env.setenv("DOWNLOAD_ALLOWED_HOSTS", '["*.example-cdn.com", "files.example.com"]')
+    clean_env.setenv("DOWNLOAD_MAX_BYTES", "1048576")
+    clean_env.setenv("SEEDANCE_TOTAL_TIMEOUT_S", "3600")
+    clean_env.setenv("PRESIGN_EXPIRES_S", "43200")
+    s = Settings()
+    assert s.download_allowed_hosts == ("*.example-cdn.com", "files.example.com")
+    assert (s.download_max_bytes, s.seedance_total_timeout_s, s.presign_expires_s) == (1048576, 3600, 43200)
+
+
+@pytest.mark.parametrize(
+    ("name", "value"),
+    [
+        ("DOWNLOAD_ALLOWED_HOSTS", "[]"),
+        ("DOWNLOAD_MAX_BYTES", "0"),
+        ("SEEDANCE_TOTAL_TIMEOUT_S", "-1"),
+        ("PRESIGN_EXPIRES_S", "0"),
+        ("PRESIGN_EXPIRES_S", str(8 * 24 * 3600)),
+    ],
+)
+def test_invalid_operational_env_fails_at_startup(
+    clean_env: pytest.MonkeyPatch, name: str, value: str
+) -> None:
+    clean_env.setenv(name, value)
+    with pytest.raises(ValidationError):
+        Settings()

@@ -4,7 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import SecretStr
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -50,23 +50,29 @@ class Settings(BaseSettings):
     s3_bucket: str = "video-factory"
     s3_access_key: SecretStr | None = None
     s3_secret_key: SecretStr | None = None
-    presign_expires_s: int = 6 * 3600  # 覆蓋排隊時間
+    presign_expires_s: int = Field(
+        default=6 * 3600, gt=0, le=7 * 24 * 3600
+    )  # 覆蓋排隊時間；S3 預簽名最長 7 天
 
     # 生成任務
     seedance_poll_initial_s: float = 10.0
     seedance_poll_max_s: float = 60.0
-    seedance_total_timeout_s: float = 30 * 60
+    seedance_total_timeout_s: float = Field(default=30 * 60, gt=0)
     provider_max_attempts: int = 4
     provider_retry_base_s: float = 2.0
-    download_allowed_hosts: tuple[str, ...] = (
-        "*.volces.com",
-        "*.bytepluses.com",
-        "*.byteimg.com",
-        "*.bytecdn.cn",
-        "*.volccdn.com",
-        "*.byteplusapi.com",
+    # 可用 DOWNLOAD_ALLOWED_HOSTS（JSON 陣列）整個取代；不能是空清單
+    download_allowed_hosts: tuple[str, ...] = Field(
+        min_length=1,
+        default=(
+            "*.volces.com",
+            "*.bytepluses.com",
+            "*.byteimg.com",
+            "*.bytecdn.cn",
+            "*.volccdn.com",
+            "*.byteplusapi.com",
+        ),
     )
-    download_max_bytes: int = 500 * 1024 * 1024
+    download_max_bytes: int = Field(default=500 * 1024 * 1024, gt=0)
     work_dir: Path = Path("/tmp/video-factory-work")  # noqa: S108 - worker 臨時工作目錄，可用 WORK_DIR 覆蓋
 
     # 上傳
