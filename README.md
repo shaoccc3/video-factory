@@ -34,7 +34,7 @@ scripts/dev-local.sh start    # 前端 http://localhost:5173，admin@example.com
 scripts/dev-local.sh stop
 ```
 
-`start` 會先檢查端口、ffmpeg、字體、前端依賴，等 API、worker、前端都就緒才返回（預設最多 90 秒，可用 `READY_TIMEOUT_S` 調整）；缺東西或啟動失敗時會說明原因、印出日誌並停止本次啟動的進程。數據庫、存儲與日誌放在 `/tmp/vf-local`（可用 `VF_LOCAL_DIR` 換目錄）：數據庫與存儲在 stop／start 之間保留，日誌每次 start 重寫，`/tmp` 可能在開機時被清空。所有 checkout 共用這個目錄，同一時間只能跑一套；`stop` 只會停本 checkout 啟動的進程。
+`start` 會先檢查端口、ffmpeg、字體、前端依賴，等 API、worker、前端都就緒才返回（預設最多 90 秒，可用 `READY_TIMEOUT_S` 調整）；缺東西或啟動失敗時會說明原因、印出日誌並停止本次啟動的進程。數據庫、存儲與日誌放在 `/tmp/vf-local`（可用 `VF_LOCAL_DIR` 換目錄）：數據庫與存儲在 stop／start 之間保留，日誌每次 start 重寫，`/tmp` 可能在開機時被清空。所有 checkout 共用這個目錄，同一時間只能跑一套；不同分支或 worktree 請各設自己的 `VF_LOCAL_DIR`，否則共用的數據庫會帶著別的分支的遷移版本。`stop` 只會停本 checkout 啟動的進程。
 
 ## 文件
 

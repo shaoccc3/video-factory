@@ -164,12 +164,20 @@ def test_empty_env_falls_back_to_defaults(clean_env: pytest.MonkeyPatch) -> None
 
 
 def test_operational_env_values(clean_env: pytest.MonkeyPatch) -> None:
-    clean_env.setenv("DOWNLOAD_ALLOWED_HOSTS", '["*.example-cdn.com", "files.example.com"]')
+    clean_env.setenv(
+        "DOWNLOAD_ALLOWED_HOSTS",
+        '["*.example-cdn.com", "files.example.com", "*.tos-ap-southeast-1.bytepluses.com", "P16-Sign.ByteImg.com"]',
+    )
     clean_env.setenv("DOWNLOAD_MAX_BYTES", "1048576")
     clean_env.setenv("SEEDANCE_TOTAL_TIMEOUT_S", "3600")
     clean_env.setenv("PRESIGN_EXPIRES_S", "43200")
     s = Settings()
-    assert s.download_allowed_hosts == ("*.example-cdn.com", "files.example.com")
+    assert s.download_allowed_hosts == (
+        "*.example-cdn.com",
+        "files.example.com",
+        "*.tos-ap-southeast-1.bytepluses.com",
+        "P16-Sign.ByteImg.com",
+    )
     assert (s.download_max_bytes, s.seedance_total_timeout_s, s.presign_expires_s) == (1048576, 3600, 43200)
 
 
@@ -182,6 +190,11 @@ def test_operational_env_values(clean_env: pytest.MonkeyPatch) -> None:
         ("DOWNLOAD_ALLOWED_HOSTS", '["*.volces.com", "169.254.169.254"]'),
         ("DOWNLOAD_ALLOWED_HOSTS", '["localhost"]'),
         ("DOWNLOAD_ALLOWED_HOSTS", '["*bytepluses.com"]'),
+        ("DOWNLOAD_ALLOWED_HOSTS", '["foo.localhost"]'),
+        ("DOWNLOAD_ALLOWED_HOSTS", '["metadata.google.internal"]'),
+        ("DOWNLOAD_ALLOWED_HOSTS", '["169.254.169.254.nip.io"]'),
+        ("DOWNLOAD_ALLOWED_HOSTS", '["*.co.uk"]'),
+        ("DOWNLOAD_ALLOWED_HOSTS", '["*.s3.amazonaws.com"]'),
         ("DOWNLOAD_MAX_BYTES", "0"),
         ("SEEDANCE_TOTAL_TIMEOUT_S", "-1"),
         ("PRESIGN_EXPIRES_S", "0"),

@@ -8,14 +8,15 @@
   - `/readyz` 新增 fonts、ffmpeg 檢查；worker 啟動時缺字體或 ffmpeg 記錯誤日誌
   - compose 轉發 `DOWNLOAD_ALLOWED_HOSTS`、`DOWNLOAD_MAX_BYTES`、`SEEDANCE_TOTAL_TIMEOUT_S`、`PRESIGN_EXPIRES_S`；
     設定忽略空字串環境變量（留空時用預設值），這幾項加上範圍校驗（不合法時啟動失敗）；
-    下載白名單只接受域名或 *.域名（至少兩段），拒絕 `*`、`*.com`、IP、localhost，防止白名單被設成形同虛設
+    下載白名單只接受域名或 *.域名（至少兩段），拒絕 `*`、`*.com`、常見公共後綴、IP、localhost、內部域與通配 DNS，防止白名單被設成形同虛設
   - 單獨用 compose.yaml 時固定 `PROVIDER_MODE=mock`（.env 的 PROVIDER_MODE 只在疊加 compose.prod.yaml 時生效），避免誤用生產 .env 產生費用；
     開發容器不再轉發 ARK_API_KEY、TTS_*（Mock 用不到）
   - `scripts/dev-local.sh start` 先檢查端口、ffmpeg、字體、前端依賴，等 API（/readyz）、worker、前端都就緒才返回；
     進程提前退出或逾時會印日誌、只停本次啟動的進程並非零退出。`stop` 只對頂層進程送 TERM（不再直接殺 celery pool 子進程，
-    停止由約 15 秒縮短到約 5 秒）；pid 目錄記錄啟動它的 checkout，別的 checkout 執行 stop 不會動到；兜底搜尋只認命令列開頭就是
-    本 checkout 的 .venv python／node_modules vite、參數與 start 一致的進程，不會誤殺 Docker 容器、其他 checkout 或提到這些路徑的 shell；
-    本機請求不走 http 代理
+    停止由約 15 秒縮短到約 5 秒）；pid 目錄記錄啟動它的 checkout，別的仍存在的 checkout 執行 stop 不會動到（回非零並指向正確的 stop），
+    記錄的 checkout 已被刪除時照 pid 文件清理；過期 pid 要命令列與啟動參數完全一致；上一套還有記錄的進程在跑時 start 拒絕；
+    兜底搜尋只認命令列開頭就是本 checkout 的 .venv python（含 macOS framework Python）／node_modules vite、參數與 start 一致的進程，
+    不會誤殺 Docker 容器、其他 checkout 或提到這些路徑的 shell；本機請求不走 http 代理；遷移失敗時提示改用獨立的 VF_LOCAL_DIR
   - README 快速開始補齊兩種方式的前置條件、字體與建立管理員；runbook 補區域、選填變量、卷權限與白名單說明
 
 ## 2026-09-23

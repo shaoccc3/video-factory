@@ -14,6 +14,59 @@ DEV_SECRET_KEY = "dev-only-change-me"  # noqa: S105 - 僅開發預設值，正�
 _ALLOWED_HOST = re.compile(
     r"(\*\.)?(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z](?:[a-z0-9-]*[a-z0-9])?", re.IGNORECASE
 )
+# 會解析到內網、本機或任意 IP 的名稱（內部域、通配 DNS 服務），不能出現在白名單
+_INTERNAL_SUFFIXES = (
+    "localhost",
+    "local",
+    "internal",
+    "localdomain",
+    "home.arpa",
+    "nip.io",
+    "sslip.io",
+    "xip.io",
+    "localtest.me",
+    "lvh.me",
+)
+# 任何人都能註冊子域名的常見公共後綴，不能用「*.」整個放行（只擋常見的，不是完整的公共後綴清單）
+_PUBLIC_SUFFIXES = frozenset(
+    {
+        "com.cn",
+        "net.cn",
+        "org.cn",
+        "com.hk",
+        "com.tw",
+        "com.sg",
+        "com.au",
+        "co.uk",
+        "co.jp",
+        "amazonaws.com",
+        "s3.amazonaws.com",
+        "cloudfront.net",
+        "aliyuncs.com",
+        "myqcloud.com",
+        "github.io",
+        "githubusercontent.com",
+        "azurewebsites.net",
+        "blob.core.windows.net",
+        "herokuapp.com",
+        "appspot.com",
+        "vercel.app",
+        "netlify.app",
+        "pages.dev",
+        "workers.dev",
+    }
+)
+
+
+def _bad_allowed_host(host: str) -> bool:
+    if not _ALLOWED_HOST.fullmatch(host):
+        return True
+    domain = host.lower().removeprefix("*.")
+    if "localhost" in domain.split(".") or any(
+        domain == suffix or domain.endswith("." + suffix) for suffix in _INTERNAL_SUFFIXES
+    ):
+        return True
+    return host.startswith("*.") and domain in _PUBLIC_SUFFIXES
 
 
 class Settings(BaseSettings):
@@ -101,8 +154,8 @@ class Settings(BaseSettings):
     @field_validator("download_allowed_hosts")
     @classmethod
     def _check_allowed_hosts(cls, hosts: tuple[str, ...]) -> tuple[str, ...]:
-        """防 SSRF：拒絕「*」「*.com」、IP、localhost 等會讓白名單形同虛設的寫法。"""
-        bad = [h for h in hosts if not _ALLOWED_HOST.fullmatch(h)]
+        """防 SSRF：拒絕「*」「*.com」「*.co.uk」、IP、localhost、內部域與通配 DNS 等會讓白名單形同虛設的寫法。"""
+        bad = [h for h in hosts if _bad_allowed_host(h)]
         if bad:
             raise ValueError(f"只接受域名或 *.域名（至少兩段）：{', '.join(bad)}")
         return hosts
