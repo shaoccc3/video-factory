@@ -10,10 +10,8 @@ x-backend: &backend
   image: video-factory-backend:dev
   environment:
     ARK_REGION: ${ARK_REGION:-byteplus}
-    ARK_API_KEY: ${ARK_API_KEY:-}
+    # Mock 用不到模型與語音的密鑰，不轉發進開發容器；疊加 compose.prod.yaml 時由其 prod-env 帶上
     PROVIDER_MODE: mock  # compose.prod.yaml 的 prod-env 覆蓋為 ${PROVIDER_MODE:-live}
-    TTS_APP_ID: ${TTS_APP_ID:-}
-    TTS_TOKEN: ${TTS_TOKEN:-}
     DATABASE_URL: postgresql+psycopg://video_factory:${POSTGRES_PASSWORD:-video_factory}@postgres:5432/video_factory
     VALKEY_URL: redis://valkey:6379/0
     S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-http://seaweedfs:8333}

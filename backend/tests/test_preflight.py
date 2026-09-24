@@ -177,6 +177,11 @@ def test_operational_env_values(clean_env: pytest.MonkeyPatch) -> None:
     ("name", "value"),
     [
         ("DOWNLOAD_ALLOWED_HOSTS", "[]"),
+        ("DOWNLOAD_ALLOWED_HOSTS", '["*"]'),
+        ("DOWNLOAD_ALLOWED_HOSTS", '["*.com"]'),
+        ("DOWNLOAD_ALLOWED_HOSTS", '["*.volces.com", "169.254.169.254"]'),
+        ("DOWNLOAD_ALLOWED_HOSTS", '["localhost"]'),
+        ("DOWNLOAD_ALLOWED_HOSTS", '["*bytepluses.com"]'),
         ("DOWNLOAD_MAX_BYTES", "0"),
         ("SEEDANCE_TOTAL_TIMEOUT_S", "-1"),
         ("PRESIGN_EXPIRES_S", "0"),

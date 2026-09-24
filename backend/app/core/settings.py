@@ -1,14 +1,19 @@
 """環境變量設定。密鑰只從環境讀取，不寫進代碼或日誌。"""
 
+import re
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEV_SECRET_KEY = "dev-only-change-me"  # noqa: S105 - 僅開發預設值，正式環境啟動時會拒絕
+# 下載白名單的一項：完整域名（至少兩段、頂級域以字母開頭，排除 IP 與 localhost），可帶開頭的「*.」
+_ALLOWED_HOST = re.compile(
+    r"(\*\.)?(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z](?:[a-z0-9-]*[a-z0-9])?", re.IGNORECASE
+)
 
 
 class Settings(BaseSettings):
@@ -92,6 +97,15 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_json: bool = True
     readiness_timeout_s: float = 3.0
+
+    @field_validator("download_allowed_hosts")
+    @classmethod
+    def _check_allowed_hosts(cls, hosts: tuple[str, ...]) -> tuple[str, ...]:
+        """防 SSRF：拒絕「*」「*.com」、IP、localhost 等會讓白名單形同虛設的寫法。"""
+        bad = [h for h in hosts if not _ALLOWED_HOST.fullmatch(h)]
+        if bad:
+            raise ValueError(f"只接受域名或 *.域名（至少兩段）：{', '.join(bad)}")
+        return hosts
 
     @property
     def broker_url(self) -> str:

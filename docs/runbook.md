@@ -15,7 +15,7 @@
    - `S3_ENDPOINT_URL`、`S3_PUBLIC_ENDPOINT_URL`、`S3_BUCKET`、`S3_ACCESS_KEY`、`S3_SECRET_KEY`：公網可訪問的 S3 相容存儲（Seedance 要能拉素材）
    - `TTS_APP_ID`、`TTS_TOKEN`：豆包語音（未配置時旁白為提示音，只適合測試）
    - HTTPS 部署時 `COOKIE_SECURE=true`（預設）；純內網 HTTP 測試時設 `false`，否則瀏覽器不會帶登入 Cookie
-   - 選填（留空用預設值；不合法的值會讓 api、worker 啟動失敗）：`DOWNLOAD_ALLOWED_HOSTS`（見第 5 節）、`DOWNLOAD_MAX_BYTES`（位元組）、
+   - 選填（留空用預設值；不合法的值會讓 migrate、storage-init 先失敗，api、worker 因此不會啟動，錯誤看 `docker compose ... logs migrate storage-init`）：`DOWNLOAD_ALLOWED_HOSTS`（見第 5 節）、`DOWNLOAD_MAX_BYTES`（位元組）、
      `SEEDANCE_TOTAL_TIMEOUT_S`（秒）、`PRESIGN_EXPIRES_S`（秒，最長 604800）。容器只收到 `compose.yaml`／`compose.prod.yaml` 列出的變量，其他寫在 `.env` 的變量不會生效
 4. 填 `config/models.yaml`：各模型的 Model ID、單價、`rpm`、`concurrency`，以控制台為準。
 5. 啟動：`docker compose -f compose.yaml -f compose.prod.yaml up -d --build --wait`
@@ -73,7 +73,7 @@
 | `budget_exceeded` | 超出單任務或每日預算。管理員確認後在「預算與模型」調高，或為該用戶設 `daily_budget_cny`，再「續跑」。預設單任務 150 CNY 約可做 140 秒 720p 的 Seedance 2.0 正片；最長 180 秒的培訓片要先調高。 |
 | error_code = TaskExpired | Seedance 任務超過平台時限（預設 48 小時）被終止，按超時處理；「續跑」即可。 |
 | error_code = asset_url | 存儲無法生成公網地址。設定 `S3_PUBLIC_ENDPOINT_URL`，確認 Seedance 能訪問。 |
-| error_code = download_host_denied | 模型返回的結果地址不在白名單。確認域名後在 `.env` 設 `DOWNLOAD_ALLOWED_HOSTS`（JSON 陣列）。它會整個取代預設清單，所以要連同預設域名一起寫：`["*.volces.com","*.bytepluses.com","*.byteimg.com","*.bytecdn.cn","*.volccdn.com","*.byteplusapi.com","*.新域名"]`（預設見 `backend/app/core/settings.py`），只加確認過的域名，不要用 `*`；再 `up -d` 重建 api、worker。 |
+| error_code = download_host_denied | 模型返回的結果地址不在白名單。確認域名後在 `.env` 設 `DOWNLOAD_ALLOWED_HOSTS`（JSON 陣列）。它會整個取代預設清單，所以要連同預設域名一起寫：`["*.volces.com","*.bytepluses.com","*.byteimg.com","*.bytecdn.cn","*.volccdn.com","*.byteplusapi.com","*.新域名"]`（預設見 `backend/app/core/settings.py`），只加確認過的域名；`*`、`*.com`、IP、localhost 這類寫法會在啟動時被拒絕。再 `up -d` 重建 api、worker。 |
 | 合成失敗「找不到字體」，或 `/readyz` 的 fonts 不是 ok | 映像構建時抽取字體失敗。重建 backend 映像，看構建日誌裡的 fetch_fonts 步驟。無 Docker 的本地環境執行 `scripts/fetch_fonts.py`（需系統套件 fonts-noto-cjk）。 |
 | worker 反覆重啟，日誌「worker 臨時目錄不可寫」 | `worker-tmp` 卷的擁有者不是 app（舊版映像建立的卷、或手動改過）。先 `up -d --build` 用新映像；仍失敗時執行一次 `docker compose -f compose.yaml -f compose.prod.yaml run --rm --no-deps --user root worker chown -R app:app /tmp/video-factory-work`，再 `up -d --wait`。無 Docker 的本地環境（`scripts/dev-local.sh`）：刪掉或修正提示的路徑（預設 `/tmp/vf-local/work`），或設 `VF_LOCAL_DIR` 換目錄。 |
 | 合成失敗「成片校驗失敗」 | 成片缺少 AI 標識元數據或編碼不符，屬於系統問題，查看 worker 日誌中的 ffmpeg 錯誤。 |

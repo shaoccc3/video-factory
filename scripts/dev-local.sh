@@ -4,10 +4,12 @@
 #
 #   scripts/dev-local.sh start   啟動 API（:8000）、worker、前端（:5173），全部就緒才返回；失敗時印日誌並非零退出
 #   scripts/dev-local.sh stop    停止（只停本 checkout 啟動的進程）
+# 數據放在 VF_LOCAL_DIR（預設 /tmp/vf-local，所有 checkout 共用；同一時間只能跑一套）
 # 前置：系統的 ffmpeg 與 fonts-noto-cjk、cd backend && uv sync、scripts/fetch_fonts.py、cd frontend && pnpm install
 #   E2E：scripts/dev-local.sh start && (cd frontend && E2E_PASSWORD=admin-pass-123 pnpm e2e)
 set -euo pipefail
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# 用實際路徑（pwd -P）：uv、pnpm 啟動的進程命令列裡是解析過符號連結的路徑，stop 靠它辨認本 checkout
+ROOT="$(cd "$(dirname "$0")/.." && pwd -P)"
 DATA="${VF_LOCAL_DIR:-/tmp/vf-local}"
 PIDS="$DATA/pids"
 
@@ -25,6 +27,14 @@ export SECRET_KEY="${SECRET_KEY:-local-dev-only}"
 
 FONT="${FONTS_DIR:-$ROOT/assets/fonts}/${FONT_FILE:-NotoSansCJKtc-Regular.otf}"
 READY_TIMEOUT_S="${READY_TIMEOUT_S:-90}"
+
+# 三個服務的啟動參數；stop 用同一組字串辨認本腳本啟動的進程
+API_ARGS="uvicorn --factory app.main:app_factory --port 8000"
+WORKER_ARGS="celery -A app.workers worker -l info --concurrency 2"
+WEB_ARGS="dev --port 5173 --strictPort"
+
+# 本機請求一律不走代理（http_proxy 沒排除 localhost 時，代理的回應會被當成端口被佔用或服務就緒）
+lcurl() { curl --noproxy '*' "$@"; }
 
 # 缺前置條件時直接說明怎麼補，不要等到合成那一步才在 worker.log 裡報錯
 preflight() {
@@ -50,7 +60,7 @@ preflight() {
 # 端口被任何程序佔用都算（curl 退出碼 7 表示連不上）
 port_busy() {
   local rc=0
-  curl -s -o /dev/null --max-time 2 "http://localhost:$1/" || rc=$?
+  lcurl -s -o /dev/null --max-time 2 "http://localhost:$1/" || rc=$?
   [ "$rc" -ne 7 ]
 }
 
@@ -72,40 +82,45 @@ wait_ready() {
   for _ in $(seq 1 "$READY_TIMEOUT_S"); do
     for name in api worker web; do
       pid="$(cat "$PIDS/$name")"
-      kill -0 "$pid" 2>/dev/null || fail "$name 進程已退出" "$name"
+      alive "$pid" || fail "$name 進程已退出" "$name"
     done
-    if curl -sf http://localhost:8000/readyz >/dev/null 2>&1 &&
+    if lcurl -sf http://localhost:8000/readyz >/dev/null 2>&1 &&
       grep -q " ready\." "$DATA/worker.log" 2>/dev/null &&
-      curl -sf http://localhost:5173 >/dev/null 2>&1; then
+      lcurl -sf http://localhost:5173 >/dev/null 2>&1; then
       return 0
     fi
     sleep 1
   done
-  echo "/readyz：$(curl -s http://localhost:8000/readyz 2>/dev/null || echo 無回應)" >&2
+  echo "/readyz：$(lcurl -s http://localhost:8000/readyz 2>/dev/null || echo 無回應)" >&2
   fail "等待 ${READY_TIMEOUT_S} 秒仍未就緒（機器較慢時可設 READY_TIMEOUT_S 調長）"
 }
 
 start() {
   local port
+  preflight
   for port in 8000 5173; do
     if port_busy "$port"; then
       echo "端口 $port 已被佔用：如果是上次沒停的本地全套，先執行 $0 stop；否則先關掉佔用端口的程序" >&2
       exit 1
     fi
   done
-  preflight
   mkdir -p "$DATA" "$PIDS"
+  # pid 目錄是共用的：記下是哪個 checkout 啟動的，別的 checkout 執行 stop 時不會動到
+  printf '%s\n' "$ROOT" >"$PIDS/root"
   cd "$ROOT/backend"
   uv run alembic upgrade head
   uv run python -m app.cli sync-templates
   E2E_PASSWORD="${E2E_PASSWORD:-admin-pass-123}" uv run python -m app.cli create-user admin@example.com 管理員 \
     --roles admin,reviewer,creator --password-env E2E_PASSWORD
-  nohup uv run uvicorn --factory app.main:app_factory --port 8000 >"$DATA/api.log" 2>&1 &
+  # shellcheck disable=SC2086 # 參數字串刻意按空白拆開
+  nohup uv run $API_ARGS >"$DATA/api.log" 2>&1 &
   echo $! >"$PIDS/api"
-  nohup uv run celery -A app.workers worker -l info --concurrency 2 >"$DATA/worker.log" 2>&1 &
+  # shellcheck disable=SC2086
+  nohup uv run $WORKER_ARGS >"$DATA/worker.log" 2>&1 &
   echo $! >"$PIDS/worker"
   cd "$ROOT/frontend"
-  nohup pnpm dev --port 5173 --strictPort >"$DATA/web.log" 2>&1 &
+  # shellcheck disable=SC2086
+  nohup pnpm $WEB_ARGS >"$DATA/web.log" 2>&1 &
   echo $! >"$PIDS/web"
   wait_ready
   echo "API http://localhost:8000  前端 http://localhost:5173  日誌 $DATA/*.log"
@@ -153,30 +168,39 @@ terminate_tree() {
   kill -9 $all 2>/dev/null || true
 }
 
-# 停 pid 文件記錄的進程
+# 停 pid 文件記錄的進程（只限本 checkout 啟動的）
 stop_own() {
-  local name pid tops=""
+  local name pid owner="" tops=""
+  [ -f "$PIDS/root" ] && owner="$(cat "$PIDS/root")"
+  if [ -n "$owner" ] && [ "$owner" != "$ROOT" ]; then
+    echo "$PIDS 記錄的是另一個 checkout（$owner）啟動的進程，不處理；請在那個 checkout 執行 stop" >&2
+    return 0
+  fi
   for name in web worker api; do
     [ -f "$PIDS/$name" ] || continue
     pid="$(cat "$PIDS/$name")"
     rm -f "$PIDS/$name"
-    # pid 文件可能過期（重開機後 pid 被重用）：只處理命令列看得出是本腳本啟動的進程
+    # pid 文件可能過期（pid 被重用）：命令列要和本腳本啟動的一致
     case "$(ps -o args= -p "$pid" 2>/dev/null || true)" in
-      *uvicorn* | *celery* | *pnpm* | *vite*) tops="$tops $pid" ;;
+      "uv run $API_ARGS"* | "uv run $WORKER_ARGS"* | *pnpm*" $WEB_ARGS"*) tops="$tops $pid" ;;
     esac
   done
+  rm -f "$PIDS/root"
   if [ -n "${tops// }" ]; then terminate_tree $tops; fi
   return 0
 }
 
-# pid 文件以外的殘留進程：只找本 checkout 的 .venv／node_modules 啟動的，不會碰到 Docker 容器或其他 checkout；
+re_escape() { printf '%s' "$1" | sed 's/[][\.*^$+?(){}|]/\\&/g'; }
+
+# pid 文件以外的殘留進程：命令列從開頭就要是本 checkout 的 .venv python／node_modules 的 vite，
+# 參數也要和 start 的一致——不會碰到 Docker 容器、其他 checkout、手動啟動的服務或命令列提到這些路徑的 shell。
 # 父進程也在名單裡的（celery pool 子進程）跳過，由主進程負責收
 leftovers() {
   local root_re cands p ppid
-  root_re="$(printf '%s' "$ROOT" | sed 's/[][\.*^$+?(){}|]/\\&/g')"
+  root_re="$(re_escape "$ROOT")"
   cands="$({
-    pgrep -f "$root_re/backend/\.venv/bin/(uvicorn|celery) " || true
-    pgrep -f "$root_re/frontend/node_modules/.*vite\.js" || true
+    pgrep -f "^$root_re/backend/\.venv/bin/python[0-9.]* $root_re/backend/\.venv/bin/($(re_escape "$API_ARGS")|$(re_escape "$WORKER_ARGS"))( |\$)" || true
+    pgrep -f "^([^ ]*/)?node $root_re/frontend/node_modules/[^ ]*/vite\.js $(re_escape "${WEB_ARGS#dev }")( |\$)" || true
   } | tr '\n' ' ')"
   for p in $cands; do
     ppid="$(ps -o ppid= -p "$p" 2>/dev/null | tr -d ' ' || true)"
